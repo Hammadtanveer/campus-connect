@@ -1,64 +1,90 @@
-# IntelliJ/Android Studio
-.idea/
-*.iml
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
 
-# Gradle
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+app/release/
+app/debug/
+
+# Gradle files
 .gradle/
+build/
+app/build/
 
-# Local properties (machine-specific)
-/local.properties
+# Local configuration file (sdk path, etc)
 local.properties
 
-# Build outputs (all modules)
-**/build/
+# Log Files
+*.log
 
-# Android NDK/External builds
+# Android Studio files
+*.iml
+.idea/
+.navigation/
+captures/
+*.keystore
+
+# Firebase & Google Services
+google-services.json
+google-services.json.license
+google-services.xml
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/readme.md
+
+# Keystore files (if you use them)
+*.jks
+*.keystore
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+
+# IntelliJ project files
+*.ipr
+*.iws
+*.ids
+*.orig
+
+# External native build folder
 .externalNativeBuild/
 .cxx/
 
-# Android package outputs
-*.apk
-*.ap_
-*.aab
-*.aar
+# Proguard
+proguard/
+proguard-project.txt
 
-# Signing keys and configs (keep out of VCS)
-*.jks
-*.keystore
-keystore.properties
-signing.properties
-
-# Firebase/Google config (ignore if you don’t want secrets in VCS)
-/google-services.json
-app/google-services.json
-**/google-services.json
-fabric.properties
+# Crashlytics
+com_crashlytics_export_strings.xml
+crashlytics.properties
 crashlytics-build.properties
+fabric.properties
 
-# Editor settings
-.vscode/
-.fleet/
-.history/
-*.swp
-*.swo
-
-# OS junk
-.DS_Store
-._*
-Thumbs.db
-desktop.ini
-.Spotlight-V100
-.Trashes
-
-# Captures
-/captures
-
-# Kotlin compiler caches
-.kotlin/
-
-# Logs and dumps
-*.log
-*.hprof
+# App-specific (adjust if needed)
+app/release/
+app/debug/
 
 # Local-only artifacts (keep private on this machine)
 /local_only/
