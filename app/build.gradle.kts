@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.gms.google.services)
 }
 
 android {
@@ -41,6 +42,13 @@ android {
 }
 
 dependencies {
+    // Firebase - make sure these are included
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
+    // Your existing dependencies
     implementation(libs.androidx.compose.material3)
     implementation(libs.ads.mobile.sdk)
     val nav_version = "2.7.5"
@@ -70,24 +78,4 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-}
-
-// Maintenance task: delete known-unreferenced drawables
-tasks.register("pruneUnusedDrawables") {
-    group = "maintenance"
-    description = "Delete unreferenced drawable resources."
-    doLast {
-        delete(
-            "src/main/res/drawable/notes.png",
-            "src/main/res/drawable/ic_subscribe.xml",
-            "src/main/res/drawable/outline_album_24.xml",
-            "src/main/res/drawable/outline_genres_24.xml",
-            "src/main/res/drawable/outline_library_music_24.xml",
-            "src/main/res/drawable/outline_mic_24.xml",
-            "src/main/res/drawable/outline_music_note_24.xml",
-            "src/main/res/drawable/outline_play_circle_24.xml",
-            "src/main/res/drawable/sharp_playlist_play_24.xml",
-            "src/main/res/drawable/ic_account.xml"
-        )
-    }
 }

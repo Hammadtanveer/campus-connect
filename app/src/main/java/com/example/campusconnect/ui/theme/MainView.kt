@@ -1,6 +1,5 @@
 package com.example.campusconnect.ui
 
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +19,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +42,7 @@ import com.example.campusconnect.ui.theme.AccountDialog
 import com.example.campusconnect.DrawerItem
 import com.example.campusconnect.MoreBottomSheet
 import com.example.campusconnect.Navigation
+import com.example.campusconnect.ui.theme.RegisterDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -51,12 +53,22 @@ fun MainView() {
     val scope: CoroutineScope = rememberCoroutineScope()
     val viewModel: MainViewModel = viewModel()
     val isSheetFullScreen by remember { mutableStateOf(false) }
-
     val modifier = if (isSheetFullScreen) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
     val controller: NavController = rememberNavController()
     val navBackStackEntry by controller.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val dialogOpen = remember { mutableStateOf(false) }
+
+    // Authentication state
+    val loginDialogOpen = viewModel.loginDialogOpen
+    val registerDialogOpen = viewModel.registerDialogOpen
+    val userProfile = viewModel.userProfile.value
+
+    // Check if user is logged in and show login dialog if not
+    LaunchedEffect(userProfile) {
+        if (userProfile == null && !loginDialogOpen.value && !registerDialogOpen.value) {
+            viewModel.showAuthDialog()
+        }
+    }
 
     val currentScreen = remember { viewModel.currentScreen.value }
     val title = remember { mutableStateOf(currentScreen.title) }
@@ -154,7 +166,7 @@ fun MainView() {
                         DrawerItem(selected = currentRoute == item.dRoute, item = item) {
                             scope.launch { scaffoldState.drawerState.close() }
                             if (item == Screen.DrawerScreen.AddAccount) {
-                                dialogOpen.value = true
+                                viewModel.showAuthDialog()
                             } else {
                                 controller.navigate(item.dRoute)
                                 title.value = item.dtitle
@@ -163,9 +175,12 @@ fun MainView() {
                     }
                 }
             }
-        ) {
-            Navigation(navController = controller, viewModel = viewModel, pd = it)
-            AccountDialog(dialogOpen = dialogOpen)
+        ) { paddingValues ->
+            Navigation(navController = controller, viewModel = viewModel, pd = paddingValues)
+
+            // Show authentication dialogs
+            AccountDialog(dialogOpen = viewModel.loginDialogOpen as MutableState<Boolean>, viewModel = viewModel)
+            RegisterDialog(dialogOpen = viewModel.registerDialogOpen as MutableState<Boolean>, viewModel = viewModel)
         }
     }
 }

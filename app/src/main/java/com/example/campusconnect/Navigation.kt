@@ -22,7 +22,7 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         composable(Screen.BottomScreen.Notes.bRoute) { Notes() }
         composable(Screen.BottomScreen.Seniors.bRoute) { Seniors() }
         composable(Screen.BottomScreen.Societies.bRoute) { Societies() }
-        composable(Screen.DrawerScreen.Profile.route) { AccountView() }
+        composable(Screen.DrawerScreen.Profile.route) { AccountView(viewModel) }
         composable(Screen.DrawerScreen.Downlode.route) { DownlodeView(viewModel) }
     }
 }

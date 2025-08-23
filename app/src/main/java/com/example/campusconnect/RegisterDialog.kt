@@ -26,11 +26,12 @@ import com.example.campusconnect.AuthMode
 import com.example.campusconnect.MainViewModel
 
 @Composable
-fun AccountDialog(dialogOpen: MutableState<Boolean>, viewModel: MainViewModel) {
+fun RegisterDialog(dialogOpen: MutableState<Boolean>, viewModel: MainViewModel) {
     if(dialogOpen.value){
-        // Local state for form fields
         var email by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
+        var confirmPassword by remember { mutableStateOf("") }
+        var displayName by remember { mutableStateOf("") }
         var isLoading by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -41,20 +42,26 @@ fun AccountDialog(dialogOpen: MutableState<Boolean>, viewModel: MainViewModel) {
             confirmButton = {
                 TextButton(
                     onClick={
+                        if (password != confirmPassword) {
+                            errorMessage = "Passwords don't match"
+                            return@TextButton
+                        }
+
                         isLoading = true
                         errorMessage = null
-                        viewModel.signInWithEmailPassword(email, password) { success, error ->
+                        viewModel.registerWithEmailPassword(email, password, displayName) { success, error ->
                             isLoading = false
                             if (success) {
                                 dialogOpen.value = false
                             } else {
-                                errorMessage = error ?: "Authentication failed"
+                                errorMessage = error ?: "Registration failed"
                             }
                         }
                     },
                     enabled = !isLoading && email.isNotBlank() && password.isNotBlank()
+                            && confirmPassword.isNotBlank() && displayName.isNotBlank()
                 ){
-                    Text(if (isLoading) "Signing in..." else "Sign In")
+                    Text(if (isLoading) "Registering..." else "Register")
                 }
             },
             dismissButton = {
@@ -65,7 +72,7 @@ fun AccountDialog(dialogOpen: MutableState<Boolean>, viewModel: MainViewModel) {
                 }
             },
             title = {
-                Text(text = "Sign In")
+                Text(text = "Create Account")
             },
             text = {
                 Column(
@@ -75,11 +82,19 @@ fun AccountDialog(dialogOpen: MutableState<Boolean>, viewModel: MainViewModel) {
                     verticalArrangement = Arrangement.Center
                 ){
                     TextField(
+                        value = displayName,
+                        onValueChange = { displayName = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp),
+                        label = { Text(text = "Display Name") }
+                    )
+                    TextField(
                         value = email,
                         onValueChange = { email = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 16.dp),
+                            .padding(top = 8.dp),
                         label = { Text(text = "Email") }
                     )
                     TextField(
@@ -89,6 +104,15 @@ fun AccountDialog(dialogOpen: MutableState<Boolean>, viewModel: MainViewModel) {
                             .fillMaxWidth()
                             .padding(top = 8.dp),
                         label = { Text(text = "Password") },
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+                    TextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        label = { Text(text = "Confirm Password") },
                         visualTransformation = PasswordVisualTransformation()
                     )
 
@@ -101,14 +125,14 @@ fun AccountDialog(dialogOpen: MutableState<Boolean>, viewModel: MainViewModel) {
                         )
                     }
 
-                    // Add register option
+                    // Add login option
                     TextButton(
                         onClick = {
-                            viewModel.setAuthMode(AuthMode.REGISTER)
+                            viewModel.setAuthMode(AuthMode.LOGIN)
                         },
                         modifier = Modifier.align(Alignment.End)
                     ) {
-                        Text("Need an account? Register")
+                        Text("Already have an account? Sign in")
                     }
                 }
             },
