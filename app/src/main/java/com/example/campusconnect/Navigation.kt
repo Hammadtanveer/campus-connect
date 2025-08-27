@@ -9,7 +9,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.campusconnect.ui.theme.AccountView
-import com.example.campusconnect.ui.theme.DownlodeView
+import com.example.campusconnect.ui.theme.DownloadView
 import com.example.campusconnect.ui.theme.Seniors
 
 @Composable
@@ -23,6 +23,6 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         composable(Screen.BottomScreen.Seniors.bRoute) { Seniors() }
         composable(Screen.BottomScreen.Societies.bRoute) { Societies() }
         composable(Screen.DrawerScreen.Profile.route) { AccountView(viewModel) }
-        composable(Screen.DrawerScreen.Downlode.route) { DownlodeView(viewModel) }
+        composable(Screen.DrawerScreen.Download.route) { DownloadView(viewModel) }
     }
 }

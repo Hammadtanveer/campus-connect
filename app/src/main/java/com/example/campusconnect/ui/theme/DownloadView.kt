@@ -28,7 +28,7 @@ import com.example.campusconnect.R
 import com.example.campusconnect.MainViewModel
 
 @Composable
-fun DownlodeView(viewModel: MainViewModel){
+fun DownloadView(viewModel: MainViewModel){
 
     val downloads = viewModel.downloads.value
 
@@ -36,7 +36,7 @@ fun DownlodeView(viewModel: MainViewModel){
         modifier = Modifier.height(320.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ){
-        Text(text = "Downlode", style = MaterialTheme.typography.titleMedium)
+        Text(text = "Download", style = MaterialTheme.typography.titleMedium)
         Card(
             modifier = Modifier.padding(8.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)

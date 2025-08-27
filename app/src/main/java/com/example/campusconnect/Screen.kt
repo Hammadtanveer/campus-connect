@@ -36,9 +36,9 @@ sealed class Screen(val title: String, val route: String) {
             "profile",
             R.drawable.outline_account_circle_24 // <- use account circle
         )
-        object Downlode : DrawerScreen(
-            "Downlode",
-            "downlode",
+        object Download : DrawerScreen(
+            "Download",
+            "download",
             R.drawable.outline_book_2_24
         )
         object AddAccount : DrawerScreen(
@@ -57,7 +57,7 @@ val screenInBottom = listOf(
 
 val screenInDrawer = listOf(
     Screen.DrawerScreen.Profile,
-    Screen.DrawerScreen.Downlode,
+    Screen.DrawerScreen.Download,
     Screen.DrawerScreen.AddAccount
 )
 
