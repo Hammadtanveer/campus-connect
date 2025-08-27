@@ -51,6 +51,7 @@ dependencies {
     // Your existing dependencies
     implementation(libs.androidx.compose.material3)
     implementation(libs.ads.mobile.sdk)
+    implementation(libs.material3)
     val nav_version = "2.7.5"
 
     implementation("androidx.navigation:navigation-compose:$nav_version")

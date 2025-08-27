@@ -1,105 +1,97 @@
 package com.example.campusconnect
 
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.UUID
 
 class MainViewModel : ViewModel() {
+
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
-    // Auth mode state to toggle between login and register
-    private val _authMode = mutableStateOf(AuthMode.LOGIN)
-    val authMode: State<AuthMode> = _authMode
-
-    // User profile state
+    // User profile
     private val _userProfile = mutableStateOf<UserProfile?>(null)
     val userProfile: State<UserProfile?> = _userProfile
 
-    // Authentication dialogs
-    private val _loginDialogOpen = mutableStateOf(false)
-    val loginDialogOpen: State<Boolean> = _loginDialogOpen
+    // Initialization flag
+    private val _initializing = mutableStateOf(true)
+    val initializing: State<Boolean> = _initializing
 
-    private val _registerDialogOpen = mutableStateOf(false)
-    val registerDialogOpen: State<Boolean> = _registerDialogOpen
+    // Derived auth state
+    val isAuthenticated: State<Boolean> = derivedStateOf { _userProfile.value != null }
 
-    private val _currentScreen: MutableState<Screen> = mutableStateOf(Screen.DrawerScreen.AddAccount)
-    val currentScreen: MutableState<Screen>
-        get() = _currentScreen
+    // Navigation (placeholder)
+    private val _currentScreen = mutableStateOf<Screen>(Screen.DrawerScreen.Profile)
+    val currentScreen: State<Screen> = _currentScreen
+
+    // Simple downloads feature
+    data class DownloadItem(
+        val id: String = UUID.randomUUID().toString(),
+        val title: String,
+        val sizeLabel: String
+    )
+    private val _downloads = mutableStateOf<List<DownloadItem>>(emptyList())
+    val downloads: State<List<DownloadItem>> = _downloads
 
     init {
-        // Check if user is already logged in
-        auth.currentUser?.let { user ->
-            loadUserProfile(user.uid)
-        }
+        auth.currentUser?.uid?.let { loadUserProfile(it) } ?: run { _initializing.value = false }
     }
 
-    fun setAuthMode(mode: AuthMode) {
-        _authMode.value = mode
-        when (mode) {
-            AuthMode.LOGIN -> {
-                _loginDialogOpen.value = true
-                _registerDialogOpen.value = false
-            }
-            AuthMode.REGISTER -> {
-                _loginDialogOpen.value = false
-                _registerDialogOpen.value = true
-            }
-        }
-    }
-
-    fun showAuthDialog() {
-        when (_authMode.value) {
-            AuthMode.LOGIN -> _loginDialogOpen.value = true
-            AuthMode.REGISTER -> _registerDialogOpen.value = true
-        }
-    }
-
-    fun signInWithEmailPassword(email: String, password: String, callback: (Boolean, String?) -> Unit) {
+    fun signInWithEmailPassword(
+        email: String,
+        password: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    auth.currentUser?.let { user ->
-                        loadUserProfile(user.uid)
-                        callback(true, null)
-                    }
+                    auth.currentUser?.uid?.let {
+                        loadUserProfile(it)
+                        onResult(true, null)
+                    } ?: onResult(false, "No user id")
                 } else {
-                    callback(false, task.exception?.message ?: "Authentication failed")
+                    onResult(false, task.exception?.message ?: "Authentication failed")
                 }
             }
     }
 
-    fun registerWithEmailPassword(email: String, password: String, displayName: String, callback: (Boolean, String?) -> Unit) {
+    fun registerWithEmailPassword(
+        email: String,
+        password: String,
+        displayName: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    auth.currentUser?.let { user ->
-                        createUserProfile(user.uid, displayName, email)
-                        callback(true, null)
-                    }
+                    auth.currentUser?.uid?.let { uid ->
+                        createUserProfile(uid, displayName, email)
+                        onResult(true, null)
+                    } ?: onResult(false, "No user id")
                 } else {
-                    callback(false, task.exception?.message ?: "Registration failed")
+                    onResult(false, task.exception?.message ?: "Registration failed")
                 }
             }
     }
 
     private fun createUserProfile(userId: String, displayName: String, email: String) {
         val db = FirebaseFirestore.getInstance()
-        val userProfile = UserProfile(
+        val profile = UserProfile(
             id = userId,
             displayName = displayName,
             email = email,
-            role = "student" // Default role
+            role = "student"
         )
-
         db.collection("users").document(userId)
-            .set(userProfile)
+            .set(profile)
             .addOnSuccessListener {
-                _userProfile.value = userProfile
-                setCurrentScreen(Screen.DrawerScreen.Profile)
+                _userProfile.value = profile
+                _initializing.value = false
+                _currentScreen.value = Screen.DrawerScreen.Profile
+            }
+            .addOnFailureListener {
+                _initializing.value = false
             }
     }
 
@@ -107,29 +99,38 @@ class MainViewModel : ViewModel() {
         val db = FirebaseFirestore.getInstance()
         db.collection("users").document(userId)
             .get()
-            .addOnSuccessListener { document ->
-                if (document != null && document.exists()) {
-                    _userProfile.value = document.toObject(UserProfile::class.java)
+            .addOnSuccessListener { doc ->
+                if (doc.exists()) {
+                    _userProfile.value = doc.toObject(UserProfile::class.java)
                 }
+                _initializing.value = false
+            }
+            .addOnFailureListener {
+                _initializing.value = false
             }
     }
 
     fun signOut() {
         auth.signOut()
         _userProfile.value = null
-        setCurrentScreen(Screen.DrawerScreen.AddAccount)
+        _currentScreen.value = Screen.DrawerScreen.Profile
+        // AuthGate will now show AuthScreen
     }
 
-    fun setCurrentScreen(screen: Screen) {
-        _currentScreen.value = screen
+    // Navigation helpers
+    fun setCurrentScreenByRoute(route: String) {
+        val newScreen: Screen = when (route) {
+            Screen.DrawerScreen.Profile.route -> Screen.DrawerScreen.Profile
+            Screen.DrawerScreen.Download.route -> Screen.DrawerScreen.Download
+            Screen.BottomScreen.Notes.bRoute -> Screen.BottomScreen.Notes
+            Screen.BottomScreen.Seniors.bRoute -> Screen.BottomScreen.Seniors
+            Screen.BottomScreen.Societies.bRoute -> Screen.BottomScreen.Societies
+            else -> return
+        }
+        if (_currentScreen.value.route != newScreen.route) {
+            _currentScreen.value = newScreen
+        }
     }
-
-    // Your existing download functionality
-    data class DownloadItem(val id: String = UUID.randomUUID().toString(), val title: String, val sizeLabel: String)
-
-    private val _downloads: MutableState<List<DownloadItem>> = mutableStateOf(emptyList())
-    val downloads: MutableState<List<DownloadItem>>
-        get() = _downloads
 
     fun addDownload(title: String, sizeLabel: String) {
         _downloads.value = _downloads.value + DownloadItem(title = title, sizeLabel = sizeLabel)

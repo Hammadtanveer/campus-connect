@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.example.campusconnect.ui.MainView
+import com.example.campusconnect.ui.AuthGate
 import com.example.campusconnect.ui.theme.CampusConnectTheme
 
 class MainActivity : ComponentActivity() {
@@ -13,10 +13,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CampusConnectTheme {
-                // Shows the auth navigation (Login / Signup / Home)
-                MainView()
+                AuthGate()
             }
         }
-
     }
 }

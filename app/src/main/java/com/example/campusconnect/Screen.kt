@@ -9,21 +9,9 @@ sealed class Screen(val title: String, val route: String) {
         val bRoute: String,
         @DrawableRes val icon: Int
     ) : Screen(bTitle, bRoute) {
-        object Notes : BottomScreen(
-            "Notes",
-            "notes",
-            R.drawable.outline_book_2_24
-        )
-        object Seniors : BottomScreen(
-            "Seniors ",
-            "seniors",
-            R.drawable.outline_person_raised_hand_24
-        )
-        object Societies : BottomScreen(
-            "Societies",
-            "societies",
-            R.drawable.outline_person_play_24
-        )
+        object Notes : BottomScreen("Notes","notes", R.drawable.outline_book_2_24)
+        object Seniors : BottomScreen("Seniors ","seniors", R.drawable.outline_person_raised_hand_24)
+        object Societies : BottomScreen("Societies","societies", R.drawable.outline_person_play_24)
     }
 
     sealed class DrawerScreen(
@@ -31,21 +19,8 @@ sealed class Screen(val title: String, val route: String) {
         val dRoute: String,
         @DrawableRes val icon: Int
     ) : Screen(dtitle, dRoute) {
-        object Profile : DrawerScreen(
-            "Profile",
-            "profile",
-            R.drawable.outline_account_circle_24 // <- use account circle
-        )
-        object Download : DrawerScreen(
-            "Download",
-            "download",
-            R.drawable.outline_book_2_24
-        )
-        object AddAccount : DrawerScreen(
-            "Add Account",
-            "add account",
-            R.drawable.baseline_person_add_alt_1_24
-        )
+        object Profile : DrawerScreen("Profile","profile", R.drawable.outline_account_circle_24)
+        object Download : DrawerScreen("Download","download", R.drawable.outline_book_2_24)
     }
 }
 
@@ -57,8 +32,5 @@ val screenInBottom = listOf(
 
 val screenInDrawer = listOf(
     Screen.DrawerScreen.Profile,
-    Screen.DrawerScreen.Download,
-    Screen.DrawerScreen.AddAccount
+    Screen.DrawerScreen.Download
 )
-
-
