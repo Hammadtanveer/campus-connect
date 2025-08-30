@@ -7,12 +7,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState // Import for scrollability
+import androidx.compose.foundation.verticalScroll     // Import for scrollability
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -27,13 +31,18 @@ fun AuthScreen(viewModel: MainViewModel) {
     var email by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
+    var course by remember { mutableStateOf("") }
+    var branch by remember { mutableStateOf("") }
+    var year by remember { mutableStateOf("") }
+
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(28.dp),
+            .padding(28.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -52,6 +61,33 @@ fun AuthScreen(viewModel: MainViewModel) {
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = course,
+                onValueChange = { course = it },
+                label = { Text("Course (e.g., B.Tech)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = branch,
+                onValueChange = { branch = it },
+                label = { Text("Branch (e.g., CSE)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = year,
+                onValueChange = { year = it },
+                label = { Text("Year (e.g., 1st Year)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
         }
 
         OutlinedTextField(
@@ -65,7 +101,7 @@ fun AuthScreen(viewModel: MainViewModel) {
         OutlinedTextField(
             value = pass,
             onValueChange = { pass = it },
-            label = { Text("Password") },
+            label = { Text("Password (min. 6 characters)") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth()
@@ -76,9 +112,12 @@ fun AuthScreen(viewModel: MainViewModel) {
             Text(text = it, color = MaterialTheme.colorScheme.error)
             Spacer(Modifier.height(8.dp))
         }
-
-        val enabled = !loading && email.isNotBlank() && pass.length >= 6 &&
-                (mode == LocalAuthMode.LOGIN || name.isNotBlank())
+        val registerFieldsNotEmpty = if (mode == LocalAuthMode.REGISTER) {
+            name.isNotBlank() && course.isNotBlank() && branch.isNotBlank() && year.isNotBlank()
+        } else {
+            true
+        }
+        val enabled = !loading && email.isNotBlank() && pass.length >= 6 && registerFieldsNotEmpty
 
         Button(
             onClick = {
@@ -90,7 +129,14 @@ fun AuthScreen(viewModel: MainViewModel) {
                         if (!ok) error = err
                     }
                 } else {
-                    viewModel.registerWithEmailPassword(email, pass, name) { ok, err ->
+                    viewModel.registerWithEmailPassword(
+                        email = email,
+                        password = pass,
+                        displayName = name,
+                        course = course,
+                        branch = branch,
+                        year = year
+                    ) { ok, err ->
                         loading = false
                         if (!ok) error = err
                     }
@@ -106,6 +152,11 @@ fun AuthScreen(viewModel: MainViewModel) {
             onClick = {
                 mode = if (mode == LocalAuthMode.LOGIN) LocalAuthMode.REGISTER else LocalAuthMode.LOGIN
                 error = null
+                if (mode == LocalAuthMode.LOGIN) {
+                    course = ""
+                    branch = ""
+                    year = ""
+                }
             }
         ) {
             Text(

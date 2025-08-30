@@ -67,6 +67,8 @@ dependencies {
     // Material 2 (for BottomNavigation, etc.) and Material 3
     implementation("androidx.compose.material:material")
     implementation(libs.androidx.material3)
+    // Check for your Material 3 dependency
+    implementation("androidx.compose.material3:material3:1.2.1")
 
     // AndroidX + tests
     implementation(libs.androidx.core.ktx)

@@ -9,23 +9,14 @@ import java.util.UUID
 class MainViewModel : ViewModel() {
 
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-
-    // User profile
     private val _userProfile = mutableStateOf<UserProfile?>(null)
     val userProfile: State<UserProfile?> = _userProfile
-
-    // Initialization flag
     private val _initializing = mutableStateOf(true)
     val initializing: State<Boolean> = _initializing
-
-    // Derived auth state
     val isAuthenticated: State<Boolean> = derivedStateOf { _userProfile.value != null }
-
-    // Navigation (placeholder)
-    private val _currentScreen = mutableStateOf<Screen>(Screen.DrawerScreen.Profile) // Default to profile
+    private val _currentScreen = mutableStateOf<Screen>(Screen.DrawerScreen.Profile)
     val currentScreen: State<Screen> = _currentScreen
 
-    // Simple downloads feature
     data class DownloadItem(
         val id: String = UUID.randomUUID().toString(),
         val title: String,
@@ -60,13 +51,23 @@ class MainViewModel : ViewModel() {
         email: String,
         password: String,
         displayName: String,
+        course: String,
+        branch: String,
+        year: String,
         onResult: (Boolean, String?) -> Unit
     ) {
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     auth.currentUser?.uid?.let { uid ->
-                        createUserProfile(uid, displayName, email)
+                        createUserProfile(
+                            userId = uid,
+                            displayName = displayName,
+                            email = email,
+                            course = course,
+                            branch = branch,
+                            year = year
+                        )
                         onResult(true, null)
                     } ?: onResult(false, "No user id")
                 } else {
@@ -75,13 +76,22 @@ class MainViewModel : ViewModel() {
             }
     }
 
-    private fun createUserProfile(userId: String, displayName: String, email: String) {
+    private fun createUserProfile(
+        userId: String,
+        displayName: String,
+        email: String,
+        course: String,
+        branch: String,
+        year: String
+    ) {
         val db = FirebaseFirestore.getInstance()
         val profile = UserProfile(
             id = userId,
             displayName = displayName,
             email = email,
-            role = "student"
+            course = course,
+            branch = branch,
+            year = year
         )
         db.collection("users").document(userId)
             .set(profile)
@@ -114,10 +124,8 @@ class MainViewModel : ViewModel() {
         auth.signOut()
         _userProfile.value = null
         _currentScreen.value = Screen.DrawerScreen.Profile
-        // AuthGate will now show AuthScreen
     }
 
-    // Navigation helpers
     fun setCurrentScreenByRoute(route: String) {
         val newScreen: Screen.DrawerScreen = when (route) {
             Screen.DrawerScreen.Profile.dRoute -> Screen.DrawerScreen.Profile
@@ -127,13 +135,8 @@ class MainViewModel : ViewModel() {
             Screen.DrawerScreen.Societies.dRoute -> Screen.DrawerScreen.Societies
             Screen.DrawerScreen.PlacementCareer.dRoute -> Screen.DrawerScreen.PlacementCareer
             Screen.DrawerScreen.OnlineMeetingsEvents.dRoute -> Screen.DrawerScreen.OnlineMeetingsEvents
-            else -> {
-                // If the route is unknown, do not change the current screen.
-                // Consider logging this or navigating to a default error/home screen.
-                return
-            }
+            else -> return
         }
-        // Update only if the screen has actually changed to avoid unnecessary recompositions.
         if (_currentScreen.value.route != newScreen.dRoute) {
             _currentScreen.value = newScreen
         }
@@ -151,3 +154,4 @@ class MainViewModel : ViewModel() {
         _downloads.value = emptyList()
     }
 }
+
