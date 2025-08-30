@@ -20,22 +20,26 @@ fun DrawerItem(
     item: Screen.DrawerScreen,
     onDrawerItemClicked: () -> Unit
 ) {
-    val background = if (selected) Color.DarkGray else Color.White
+
+    val background = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 16.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
             .background(background)
             .clickable { onDrawerItemClicked() }
+            .padding(8.dp)
     ) {
         Icon(
             painter = painterResource(id = item.icon),
-            contentDescription = item.dtitle,
-            Modifier.padding(end = 8.dp, top = 4.dp)
+            contentDescription = item.dTitle,
+            Modifier.padding(end = 16.dp) ,
+            tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = item.dtitle,
-            style = MaterialTheme.typography.titleMedium
+            text = item.dTitle,
+            style = MaterialTheme.typography.titleMedium,
+             color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface // Example text color
         )
     }
 }

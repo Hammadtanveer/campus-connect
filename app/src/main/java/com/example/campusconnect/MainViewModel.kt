@@ -22,7 +22,7 @@ class MainViewModel : ViewModel() {
     val isAuthenticated: State<Boolean> = derivedStateOf { _userProfile.value != null }
 
     // Navigation (placeholder)
-    private val _currentScreen = mutableStateOf<Screen>(Screen.DrawerScreen.Profile)
+    private val _currentScreen = mutableStateOf<Screen>(Screen.DrawerScreen.Profile) // Default to profile
     val currentScreen: State<Screen> = _currentScreen
 
     // Simple downloads feature
@@ -119,15 +119,22 @@ class MainViewModel : ViewModel() {
 
     // Navigation helpers
     fun setCurrentScreenByRoute(route: String) {
-        val newScreen: Screen = when (route) {
-            Screen.DrawerScreen.Profile.route -> Screen.DrawerScreen.Profile
-            Screen.DrawerScreen.Download.route -> Screen.DrawerScreen.Download
-            Screen.BottomScreen.Notes.bRoute -> Screen.BottomScreen.Notes
-            Screen.BottomScreen.Seniors.bRoute -> Screen.BottomScreen.Seniors
-            Screen.BottomScreen.Societies.bRoute -> Screen.BottomScreen.Societies
-            else -> return
+        val newScreen: Screen.DrawerScreen = when (route) {
+            Screen.DrawerScreen.Profile.dRoute -> Screen.DrawerScreen.Profile
+            Screen.DrawerScreen.Download.dRoute -> Screen.DrawerScreen.Download
+            Screen.DrawerScreen.Notes.dRoute -> Screen.DrawerScreen.Notes
+            Screen.DrawerScreen.Seniors.dRoute -> Screen.DrawerScreen.Seniors
+            Screen.DrawerScreen.Societies.dRoute -> Screen.DrawerScreen.Societies
+            Screen.DrawerScreen.PlacementCareer.dRoute -> Screen.DrawerScreen.PlacementCareer
+            Screen.DrawerScreen.OnlineMeetingsEvents.dRoute -> Screen.DrawerScreen.OnlineMeetingsEvents
+            else -> {
+                // If the route is unknown, do not change the current screen.
+                // Consider logging this or navigating to a default error/home screen.
+                return
+            }
         }
-        if (_currentScreen.value.route != newScreen.route) {
+        // Update only if the screen has actually changed to avoid unnecessary recompositions.
+        if (_currentScreen.value.route != newScreen.dRoute) {
             _currentScreen.value = newScreen
         }
     }

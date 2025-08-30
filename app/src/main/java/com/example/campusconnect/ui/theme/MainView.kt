@@ -1,40 +1,36 @@
 package com.example.campusconnect.ui
 
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Icon
 import androidx.compose.material.ModalBottomSheetLayout
 import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.Scaffold
 import androidx.compose.material.ScaffoldState
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.campusconnect.DrawerItem
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.MoreBottomSheet
 import com.example.campusconnect.Navigation
-import com.example.campusconnect.R
 import com.example.campusconnect.Screen
-import com.example.campusconnect.screenInBottom
 import com.example.campusconnect.screenInDrawer
-import com.example.campusconnect.DrawerItem
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,58 +41,24 @@ fun MainView(viewModel: MainViewModel) {
     val controller: NavController = rememberNavController()
     val navBackStackEntry by controller.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    // Keep currentScreen in sync with navigation route
+
+    // Update ViewModel's current screen based on navigation route changes
     LaunchedEffect(currentRoute) {
         currentRoute?.let { viewModel.setCurrentScreenByRoute(it) }
     }
-    val isSheetFullScreen by remember { mutableStateOf(false) }
-    val modifier = if (isSheetFullScreen) Modifier else Modifier
-    val currentScreen = viewModel.currentScreen.value
-    val titleState = remember { mutableStateOf(currentScreen.title) }
 
-    val currentIconRes = remember(currentRoute) {
-        screenInBottom.find { it.bRoute == currentRoute }?.icon
-            ?: screenInDrawer.find { it.dRoute == currentRoute }?.icon
-            ?: R.drawable.outline_account_circle_24
-    }
-    val currentTitleForA11y = remember(currentRoute) {
-        screenInBottom.find { it.bRoute == currentRoute }?.bTitle
-            ?: screenInDrawer.find { it.dRoute == currentRoute }?.dtitle
-            ?: titleState.value
-    }
+    val currentScreenFromViewModel = viewModel.currentScreen.value
+    // Determine title from ViewModel, default if not a DrawerScreen or title is null
+    val title = (currentScreenFromViewModel as? Screen.DrawerScreen)?.dTitle ?: "CampusConnect"
+
+    val isSheetFullScreen by remember { mutableStateOf(false) }
+    val modifier = if (isSheetFullScreen) Modifier.fillMaxWidth() else Modifier
 
     val modalSheetState = androidx.compose.material.rememberModalBottomSheetState(
         initialValue = ModalBottomSheetValue.Hidden,
-        confirmValueChange = { it != ModalBottomSheetValue.HalfExpanded }
+        confirmValueChange = { it != ModalBottomSheetValue.HalfExpanded } // Prevent half-expanded state
     )
     val roundedCornerRadius = if (isSheetFullScreen) 0.dp else 12.dp
-
-    val bottomBar: @Composable () -> Unit = {
-        NavigationBar(Modifier.wrapContentSize()) {
-            screenInBottom.forEach { item ->
-                val isSelected = currentRoute == item.bRoute
-                val tint = if (isSelected) Color.Black else Color.Black
-                NavigationBarItem(
-                    selected = isSelected,
-                    onClick = {
-                        if (!isSelected) {
-                            controller.navigate(item.bRoute)
-                            titleState.value = item.bTitle
-                            viewModel.setCurrentScreenByRoute(item.bRoute)
-                        }
-                    },
-                    icon = {
-                        Icon(
-                            painter = painterResource(id = item.icon),
-                            contentDescription = item.bTitle,
-                            tint = tint
-                        )
-                    },
-                    label = { Text(item.bTitle, color = tint) }
-                )
-            }
-        }
-    }
 
     ModalBottomSheetLayout(
         sheetState = modalSheetState,
@@ -105,52 +67,56 @@ fun MainView(viewModel: MainViewModel) {
     ) {
         Scaffold(
             scaffoldState = scaffoldState,
-            bottomBar = bottomBar,
             topBar = {
                 TopAppBar(
-                    title = { Text(titleState.value) },
+                    title = { Text(title) },
                     actions = {
                         IconButton(onClick = {
-                            scope.launch {
+                            scope.launch { // Toggle bottom sheet visibility
                                 if (modalSheetState.isVisible) modalSheetState.hide()
                                 else modalSheetState.show()
                             }
                         }) {
-                            Icon(imageVector = Icons.Default.MoreVert, contentDescription = null)
+                            Icon(imageVector = Icons.Default.MoreVert, contentDescription = "More options")
                         }
                     },
                     navigationIcon = {
                         IconButton(onClick = {
-                            scope.launch { scaffoldState.drawerState.open() }
+                            scope.launch { scaffoldState.drawerState.open() } // Open drawer
                         }) {
                             Icon(
-                                painter = painterResource(id = currentIconRes),
-                                contentDescription = currentTitleForA11y
+                                imageVector = Icons.Filled.Menu,
+                                contentDescription = "Open navigation drawer"
                             )
                         }
                     }
                 )
             },
             drawerContent = {
+
                 LazyColumn(
-                    contentPadding = PaddingValues(
-                        top = 56.dp,
-                        start = 16.dp,
-                        end = 16.dp,
-                        bottom = 16.dp
-                    )
+                    modifier = Modifier.padding(top = 24.dp) // Top padding for drawer items
                 ) {
                     items(screenInDrawer) { item ->
-                        DrawerItem(selected = currentRoute == item.dRoute, item = item) {
-                            scope.launch { scaffoldState.drawerState.close() }
-                            controller.navigate(item.dRoute)
-                            titleState.value = item.dtitle
-                            viewModel.setCurrentScreenByRoute(item.dRoute)
-                        }
+                        DrawerItem(
+                            selected = currentRoute == item.dRoute,
+                            item = item,
+                            onDrawerItemClicked = {
+                                scope.launch { scaffoldState.drawerState.close() }
+                                if (currentRoute != item.dRoute) { // Avoid re-navigating to the same screen
+                                    controller.navigate(item.dRoute) {
+                                        // Standard navigation pattern for drawer items
+                                        popUpTo(controller.graph.startDestinationId)
+                                        launchSingleTop = true
+                                    }
+                                }
+                            }
+                        )
                     }
                 }
             }
         ) { paddingValues ->
+            // Main navigation host for app screens
             Navigation(navController = controller, viewModel = viewModel, pd = paddingValues)
         }
     }
