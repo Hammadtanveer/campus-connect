@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.campusconnect"
-        minSdk = 34
+        minSdk = 29 // Changed from 34 to 29
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -52,6 +52,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.ads.mobile.sdk)
     implementation(libs.material3)
+    implementation(libs.androidx.camera.core)
     val nav_version = "2.7.5"
 
     implementation("androidx.navigation:navigation-compose:$nav_version")

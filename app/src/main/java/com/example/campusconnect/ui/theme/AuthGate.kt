@@ -15,14 +15,16 @@ import com.example.campusconnect.MainViewModel
 fun AuthGate(
     viewModel: MainViewModel = viewModel()
 ) {
-    val initializing by viewModel.initializing
-    val authed by viewModel.isAuthenticated
+    // Direct access to state values (recommended for Compose)
+    val initializing = viewModel.initializing
+    val userProfile = viewModel.userProfile
+    val isAuthenticated = userProfile != null
 
     Surface(color = MaterialTheme.colorScheme.background) {
         when {
             initializing -> SplashPlaceholder()
-            !authed -> AuthScreen(viewModel)
-            else -> MainView(viewModel) // Authenticated scaffold
+            !isAuthenticated -> AuthScreen(viewModel)
+            else -> MainView(viewModel)
         }
     }
 }

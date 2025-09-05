@@ -47,7 +47,9 @@ fun MainView(viewModel: MainViewModel) {
         currentRoute?.let { viewModel.setCurrentScreenByRoute(it) }
     }
 
-    val currentScreenFromViewModel = viewModel.currentScreen.value
+    // Remove .value since currentScreen is already the value, not a State object
+    val currentScreenFromViewModel = viewModel.currentScreen
+
     // Determine title from ViewModel, default if not a DrawerScreen or title is null
     val title = (currentScreenFromViewModel as? Screen.DrawerScreen)?.dTitle ?: "CampusConnect"
 
@@ -56,7 +58,7 @@ fun MainView(viewModel: MainViewModel) {
 
     val modalSheetState = androidx.compose.material.rememberModalBottomSheetState(
         initialValue = ModalBottomSheetValue.Hidden,
-        confirmValueChange = { it != ModalBottomSheetValue.HalfExpanded } // Prevent half-expanded state
+        confirmValueChange = { it != ModalBottomSheetValue.HalfExpanded }
     )
     val roundedCornerRadius = if (isSheetFullScreen) 0.dp else 12.dp
 
@@ -72,7 +74,7 @@ fun MainView(viewModel: MainViewModel) {
                     title = { Text(title) },
                     actions = {
                         IconButton(onClick = {
-                            scope.launch { // Toggle bottom sheet visibility
+                            scope.launch {
                                 if (modalSheetState.isVisible) modalSheetState.hide()
                                 else modalSheetState.show()
                             }
@@ -82,7 +84,7 @@ fun MainView(viewModel: MainViewModel) {
                     },
                     navigationIcon = {
                         IconButton(onClick = {
-                            scope.launch { scaffoldState.drawerState.open() } // Open drawer
+                            scope.launch { scaffoldState.drawerState.open() }
                         }) {
                             Icon(
                                 imageVector = Icons.Filled.Menu,
@@ -93,9 +95,8 @@ fun MainView(viewModel: MainViewModel) {
                 )
             },
             drawerContent = {
-
                 LazyColumn(
-                    modifier = Modifier.padding(top = 24.dp) // Top padding for drawer items
+                    modifier = Modifier.padding(top = 24.dp)
                 ) {
                     items(screenInDrawer) { item ->
                         DrawerItem(
@@ -103,9 +104,8 @@ fun MainView(viewModel: MainViewModel) {
                             item = item,
                             onDrawerItemClicked = {
                                 scope.launch { scaffoldState.drawerState.close() }
-                                if (currentRoute != item.dRoute) { // Avoid re-navigating to the same screen
+                                if (currentRoute != item.dRoute) {
                                     controller.navigate(item.dRoute) {
-                                        // Standard navigation pattern for drawer items
                                         popUpTo(controller.graph.startDestinationId)
                                         launchSingleTop = true
                                     }
@@ -116,7 +116,6 @@ fun MainView(viewModel: MainViewModel) {
                 }
             }
         ) { paddingValues ->
-            // Main navigation host for app screens
             Navigation(navController = controller, viewModel = viewModel, pd = paddingValues)
         }
     }

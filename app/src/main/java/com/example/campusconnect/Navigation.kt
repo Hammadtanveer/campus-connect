@@ -18,16 +18,14 @@ import com.example.campusconnect.ui.theme.Seniors
 fun Navigation(navController: NavController, viewModel: MainViewModel, pd: PaddingValues) {
     NavHost(
         navController = navController as NavHostController,
-        startDestination = Screen.DrawerScreen.Profile.route, // Default starting screen
-        modifier = Modifier.padding(pd) // Apply padding from Scaffold
+        startDestination = Screen.DrawerScreen.Profile.route,
+        modifier = Modifier.padding(pd)
     ) {
         composable(Screen.DrawerScreen.Notes.route) { Notes() }
         composable(Screen.DrawerScreen.Seniors.route) { Seniors() }
         composable(Screen.DrawerScreen.Societies.route) { Societies() }
         composable(Screen.DrawerScreen.Profile.route) { AccountView(viewModel) }
         composable(Screen.DrawerScreen.Download.route) { DownloadView(viewModel) }
-
-        // Routes for the new modules
         composable(Screen.DrawerScreen.PlacementCareer.dRoute) {
             PlacementCareerScreen(viewModel = viewModel)
         }

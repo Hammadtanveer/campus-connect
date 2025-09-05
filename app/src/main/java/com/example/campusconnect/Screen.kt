@@ -47,7 +47,6 @@ sealed class Screen(val title: String, val route: String) {
     }
 }
 
-// Defines the items and their order in the navigation drawer
 val screenInDrawer = listOf(
     Screen.DrawerScreen.Profile,
     Screen.DrawerScreen.Notes,

@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState // Import for scrollability
-import androidx.compose.foundation.verticalScroll     // Import for scrollability
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -34,6 +34,7 @@ fun AuthScreen(viewModel: MainViewModel) {
     var course by remember { mutableStateOf("") }
     var branch by remember { mutableStateOf("") }
     var year by remember { mutableStateOf("") }
+    var bio by remember { mutableStateOf("") } // Added bio field
 
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -88,6 +89,18 @@ fun AuthScreen(viewModel: MainViewModel) {
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(12.dp))
+
+            // Added bio field
+            OutlinedTextField(
+                value = bio,
+                onValueChange = { bio = it },
+                label = { Text("Bio") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp),
+                maxLines = 3
+            )
+            Spacer(Modifier.height(12.dp))
         }
 
         OutlinedTextField(
@@ -112,6 +125,7 @@ fun AuthScreen(viewModel: MainViewModel) {
             Text(text = it, color = MaterialTheme.colorScheme.error)
             Spacer(Modifier.height(8.dp))
         }
+
         val registerFieldsNotEmpty = if (mode == LocalAuthMode.REGISTER) {
             name.isNotBlank() && course.isNotBlank() && branch.isNotBlank() && year.isNotBlank()
         } else {
@@ -135,11 +149,13 @@ fun AuthScreen(viewModel: MainViewModel) {
                         displayName = name,
                         course = course,
                         branch = branch,
-                        year = year
-                    ) { ok, err ->
-                        loading = false
-                        if (!ok) error = err
-                    }
+                        year = year,
+                        bio = bio,  // Added bio parameter
+                        onResult = { ok, err ->
+                            loading = false
+                            if (!ok) error = err
+                        }
+                    )
                 }
             },
             enabled = enabled,
@@ -156,6 +172,7 @@ fun AuthScreen(viewModel: MainViewModel) {
                     course = ""
                     branch = ""
                     year = ""
+                    bio = "" // Reset bio field
                 }
             }
         ) {
