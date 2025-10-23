@@ -65,7 +65,7 @@ fun MainView(viewModel: MainViewModel) {
     ModalBottomSheetLayout(
         sheetState = modalSheetState,
         sheetShape = RoundedCornerShape(topStart = roundedCornerRadius, topEnd = roundedCornerRadius),
-        sheetContent = { MoreBottomSheet(modifier = modifier) }
+        sheetContent = { MoreBottomSheet(modifier = modifier, viewModel = viewModel) }
     ) {
         Scaffold(
             scaffoldState = scaffoldState,

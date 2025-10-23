@@ -1,6 +1,7 @@
 package com.example.campusconnect
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun MoreBottomSheet(modifier: Modifier) {
+fun MoreBottomSheet(modifier: Modifier, viewModel: MainViewModel) {
     Box(
         Modifier
             .fillMaxWidth()
@@ -54,6 +55,23 @@ fun MoreBottomSheet(modifier: Modifier) {
                 )
                 androidx.compose.material.Text(
                     text = "Help",
+                    fontSize = 20.sp,
+                    color = Color.White
+                )
+            }
+            // Sign out option to return to Welcome screen
+            Row(
+                modifier = modifier
+                    .padding(16.dp)
+                    .clickable { viewModel.signOut() }
+            ) {
+                androidx.compose.material.Icon(
+                    modifier = Modifier.padding(end = 8.dp),
+                    painter = painterResource(id = R.drawable.outline_account_circle_24),
+                    contentDescription = "Sign Out"
+                )
+                androidx.compose.material.Text(
+                    text = "Sign Out",
                     fontSize = 20.sp,
                     color = Color.White
                 )

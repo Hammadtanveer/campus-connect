@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="120dp"
+    android:viewportWidth="200"
+    android:viewportHeight="120">
+
+    <!-- sky -->
+    <path
+        android:fillColor="#BFEAF6"
+        android:pathData="M0,0h200v40h-200z" />
+
+    <!-- distant buildings (simple rectangles) -->
+    <path
+        android:fillColor="#FFCFAE"
+        android:pathData="M10,40h60v28h-60z" />
+    <path
+        android:fillColor="#E6A77A"
+        android:pathData="M80,40h90v28h-90z" />
+
+    <!-- walkway -->
+    <path
+        android:fillColor="#F6F6F6"
+        android:pathData="M0,68h200v52h-200z" />
+
+    <!-- trees (simple circles) -->
+    <path
+        android:fillColor="#9ED29C"
+        android:pathData="M160,20a8,8 0 1,1 0.1,0" />
+    <path
+        android:fillColor="#8CC888"
+        android:pathData="M185,24a6,6 0 1,1 0.1,0" />
+
+    <!-- subtle overlay -->
+    <path
+        android:fillColor="#80FFFFFF"
+        android:pathData="M0,0h200v120h-200z" />
+</vector>

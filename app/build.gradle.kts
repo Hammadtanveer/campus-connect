@@ -27,6 +27,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("boolean", "FORCE_WELCOME", "false")
+        }
+        debug {
+            // Force showing the Welcome screens in debug builds for quick verification
+            buildConfigField("boolean", "FORCE_WELCOME", "true")
         }
     }
     compileOptions {
@@ -38,6 +43,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -64,6 +70,9 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
+
+    // Coil for image loading in Compose
+    implementation("io.coil-kt:coil-compose:2.4.0")
 
     // Material 2 (for BottomNavigation, etc.) and Material 3
     implementation("androidx.compose.material:material")

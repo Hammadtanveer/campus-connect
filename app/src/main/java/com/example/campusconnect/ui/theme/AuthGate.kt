@@ -10,12 +10,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.campusconnect.MainViewModel
+import com.example.campusconnect.BuildConfig
 
 @Composable
 fun AuthGate(
     viewModel: MainViewModel = viewModel()
 ) {
-    // Direct access to state values (recommended for Compose)
     val initializing = viewModel.initializing
     val userProfile = viewModel.userProfile
     val isAuthenticated = userProfile != null
@@ -23,7 +23,8 @@ fun AuthGate(
     Surface(color = MaterialTheme.colorScheme.background) {
         when {
             initializing -> SplashPlaceholder()
-            !isAuthenticated -> AuthScreen(viewModel)
+            BuildConfig.FORCE_WELCOME -> WelcomeHost(viewModel)
+            !isAuthenticated -> WelcomeHost(viewModel)
             else -> MainView(viewModel)
         }
     }
