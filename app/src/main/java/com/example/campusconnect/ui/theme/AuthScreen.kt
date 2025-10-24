@@ -20,8 +20,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.campusconnect.MainViewModel
@@ -37,19 +35,18 @@ fun AuthScreen(viewModel: MainViewModel, startInRegister: Boolean = false) {
     var course by remember { mutableStateOf("") }
     var branch by remember { mutableStateOf("") }
     var year by remember { mutableStateOf("") }
-    var bio by remember { mutableStateOf("") } // Added bio field
+    var bio by remember { mutableStateOf("") }
 
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Coil-backed themed background image with a soft blur
+        // reduced blur to 2.dp for background image
         ThemedBackgroundImage(
             modifier = Modifier.fillMaxSize(),
-            blur = 10.dp
+            blur = 2.dp
         )
 
-        // Foreground auth content
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -58,7 +55,6 @@ fun AuthScreen(viewModel: MainViewModel, startInRegister: Boolean = false) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Optional subtle backdrop for readability
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -113,7 +109,6 @@ fun AuthScreen(viewModel: MainViewModel, startInRegister: Boolean = false) {
                         )
                         Spacer(Modifier.height(12.dp))
 
-                        // Added bio field
                         OutlinedTextField(
                             value = bio,
                             onValueChange = { bio = it },
@@ -173,7 +168,7 @@ fun AuthScreen(viewModel: MainViewModel, startInRegister: Boolean = false) {
                                     course = course,
                                     branch = branch,
                                     year = year,
-                                    bio = bio,  // Added bio parameter
+                                    bio = bio,
                                     onResult = { ok, err ->
                                         loading = false
                                         if (!ok) error = err
@@ -195,7 +190,7 @@ fun AuthScreen(viewModel: MainViewModel, startInRegister: Boolean = false) {
                                 course = ""
                                 branch = ""
                                 year = ""
-                                bio = "" // Reset bio field
+                                bio = ""
                             }
                         }
                     ) {

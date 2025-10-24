@@ -1,4 +1,3 @@
-// filepath: d:\AndroidStudioProjects\CampusConnect\app\src\main\java\com\example\campusconnect\ui\theme\WelcomeLoginScreens.kt
 package com.example.campusconnect.ui
 
 import androidx.compose.foundation.background
@@ -28,7 +27,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.example.campusconnect.MainViewModel
 
-// Simple welcome + host composables for login/register flow
 @Composable
 fun WelcomeHost(viewModel: MainViewModel) {
     val showingAuth = remember { mutableStateOf(false) }
@@ -54,7 +52,6 @@ fun WelcomeHost(viewModel: MainViewModel) {
 fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
     val isDark = isSystemInDarkTheme()
 
-    // Colors taken from the Tailwind config in the provided HTML
     val lightPrimary = Color(0xFF137FEC)
     val darkPrimary = Color(0xFF3B82F6)
     val bgLight = Color(0xFFF6F7F8)
@@ -65,22 +62,22 @@ fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
     val primaryColor = if (isDark) darkPrimary else lightPrimary
     val backgroundColor = if (isDark) bgDark else bgLight
     val headingColor = if (isDark) textLight else textDark
-    val subtitleColor = if (isDark) Color(0xFF9CA3AF) else Color(0xFF374151) // gray-300 / gray-700-ish
+    val subtitleColor = if (isDark) Color(0xFF9CA3AF) else Color(0xFF374151)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(backgroundColor)
     ) {
-        // Top image with gradient overlay using Coil-backed ThemedBackgroundImage
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(320.dp)
         ) {
+            // reduced blur to 2.dp for sharper image
             ThemedBackgroundImage(
                 modifier = Modifier.fillMaxSize(),
-                blur = if (isDark) 18.dp else 6.dp,
+                blur = 2.dp,
                 contentScale = ContentScale.Crop,
                 overlayBrush = if (isDark) {
                     Brush.verticalGradient(
@@ -94,7 +91,6 @@ fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
             )
         }
 
-        // Title and subtitle
         Column(
             modifier = Modifier
                 .padding(horizontal = 24.dp, vertical = 20.dp)
@@ -115,14 +111,12 @@ fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
             )
         }
 
-        // Buttons
         Column(
             modifier = Modifier
                 .padding(horizontal = 24.dp)
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Log In - primary filled
             Button(
                 onClick = onLogin,
                 modifier = Modifier.fillMaxWidth(),
@@ -132,7 +126,6 @@ fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
                 Text(text = "Log In")
             }
 
-            // Sign Up - subtle background (light) or dark variant
             val signUpBg = if (isDark) Color(0xFF374151) else primaryColor.copy(alpha = 0.16f)
             val signUpText = if (isDark) textLight else primaryColor
 
@@ -146,10 +139,8 @@ fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
             }
         }
 
-        // Spacer to push the terms to bottom
         Spacer(modifier = Modifier.weight(1f))
 
-        // Terms
         Column(
             modifier = Modifier
                 .fillMaxWidth()
