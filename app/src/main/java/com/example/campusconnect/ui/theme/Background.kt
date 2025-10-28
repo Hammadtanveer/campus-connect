@@ -20,6 +20,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
 import com.example.campusconnect.R
+import androidx.compose.material3.MaterialTheme
 
 private const val LIGHT_BG_URL = "https://lh3.googleusercontent.com/aida-public/AB6AXuCKN6n27dZKh-1Ttz3ZmuIsEeAsGi7AmXkmgFFD7P48WObgNwCWBPtp9iTf1AQqqea19KL3SC-Ch72mzcv0G7vrtNQjNCABmf9KKnuIYx5-b3LIfG0LS9kcVVu-yeMeGehv4ih3V76-gEoTub8JPiJyLv7XqK4FF3wZqv9Q5sKJTXTf1WlzbWqYODeYYGMsS0RquUeEUjq1IE2LspUGPXAuf0qzuWFNPbuAb3qIO-CRN9x4RpF7k3YX9OKKJPLgJEjviKAbu5MiMo8"
 private const val DARK_BG_URL = "https://lh3.googleusercontent.com/aida-public/AB6AXuBieLfdTYmbVKy71lkl40Jc-VTR-xlfYi6bKbyosvMAR8_MhaSDU06R_9TteL-dCwdGWBuJHElMH2gqAiHwvef72NOrnLql6DzdS6EsmFjAIY7HPDGQ11RwyHNxRRmWee-3aQzLRKPjSrAx2NEYDc_LG_gQvs2Kl6HfozmTi2z7sRN_mrtF1haVoLX44_5dGRK8NrfdKxS6c5JJOG1YlRBYjMLvF0goPvhWct0ukq6jVb78fjvsJyk-ERKdlo0CkElhThGqF6mkIQA"
@@ -28,20 +29,23 @@ private const val DARK_BG_URL = "https://lh3.googleusercontent.com/aida-public/A
 fun ThemedBackgroundImage(
     modifier: Modifier = Modifier,
     blur: Dp = 1.dp, // reduced default blur (even sharper)
+    isDarkOverride: Boolean? = null,
     contentScale: ContentScale = ContentScale.Crop,
     overlayBrush: Brush? = null,
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isDarkOverride ?: isSystemInDarkTheme()
     val imageUrl = if (isDark) DARK_BG_URL else LIGHT_BG_URL
     val localRes = if (isDark) R.drawable.welcome_bg_dark else R.drawable.welcome_bg_light
 
+    val colorScheme = MaterialTheme.colorScheme
+
     val defaultOverlay = if (isDark) {
         Brush.verticalGradient(
-            colors = listOf(Color(0xFF1F2937).copy(alpha = 0.98f), Color(0xFF1F2937).copy(alpha = 0.85f), Color.Transparent),
+            colors = listOf(colorScheme.background.copy(alpha = 0.98f), colorScheme.background.copy(alpha = 0.85f), Color.Transparent),
         )
     } else {
         Brush.verticalGradient(
-            colors = listOf(Color(0xFFF6F7F8).copy(alpha = 0.95f), Color(0xFFF6F7F8).copy(alpha = 0.6f), Color.Transparent),
+            colors = listOf(colorScheme.background.copy(alpha = 0.95f), colorScheme.background.copy(alpha = 0.6f), Color.Transparent),
         )
     }
 

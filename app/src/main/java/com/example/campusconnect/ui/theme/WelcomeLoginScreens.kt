@@ -28,12 +28,12 @@ import androidx.compose.ui.unit.dp
 import com.example.campusconnect.MainViewModel
 
 @Composable
-fun WelcomeHost(viewModel: MainViewModel) {
+fun WelcomeHost(viewModel: MainViewModel, darkTheme: Boolean = isSystemInDarkTheme()) {
     val showingAuth = remember { mutableStateOf(false) }
     val startRegister = remember { mutableStateOf(false) }
 
     if (showingAuth.value) {
-        AuthScreen(viewModel = viewModel, startInRegister = startRegister.value)
+        AuthScreen(viewModel = viewModel, startInRegister = startRegister.value, darkTheme = darkTheme)
     } else {
         WelcomeScreen(
             onLogin = {
@@ -43,26 +43,22 @@ fun WelcomeHost(viewModel: MainViewModel) {
             onSignUp = {
                 startRegister.value = true
                 showingAuth.value = true
-            }
+            },
+            darkTheme = darkTheme
         )
     }
 }
 
 @Composable
-fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
-    val isDark = isSystemInDarkTheme()
+fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit, darkTheme: Boolean = isSystemInDarkTheme()) {
+    // Use MaterialTheme color scheme so colors follow the unified design
+    val colorScheme = MaterialTheme.colorScheme
+    val isDark = darkTheme
 
-    val lightPrimary = Color(0xFF137FEC)
-    val darkPrimary = Color(0xFF3B82F6)
-    val bgLight = Color(0xFFF6F7F8)
-    val bgDark = Color(0xFF1F2937)
-    val textLight = Color(0xFFF9FAFB)
-    val textDark = Color(0xFF111827)
-
-    val primaryColor = if (isDark) darkPrimary else lightPrimary
-    val backgroundColor = if (isDark) bgDark else bgLight
-    val headingColor = if (isDark) textLight else textDark
-    val subtitleColor = if (isDark) Color(0xFF9CA3AF) else Color(0xFF374151)
+    val primaryColor = colorScheme.primary
+    val backgroundColor = colorScheme.background
+    val headingColor = colorScheme.onBackground
+    val subtitleColor = colorScheme.secondary
 
     Column(
         modifier = Modifier
@@ -74,18 +70,19 @@ fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
                 .fillMaxWidth()
                 .height(320.dp)
         ) {
-            // reduced blur to 2.dp for sharper image
+            // Themed background honors the app-level darkTheme via isDarkOverride
             ThemedBackgroundImage(
                 modifier = Modifier.fillMaxSize(),
-                blur = 2.dp,
+                blur = 1.dp,
+                isDarkOverride = isDark,
                 contentScale = ContentScale.Crop,
                 overlayBrush = if (isDark) {
                     Brush.verticalGradient(
-                        colors = listOf(bgDark.copy(alpha = 0.98f), bgDark.copy(alpha = 0.85f), Color.Transparent),
+                        colors = listOf(backgroundColor.copy(alpha = 0.98f), backgroundColor.copy(alpha = 0.85f), Color.Transparent),
                     )
                 } else {
                     Brush.verticalGradient(
-                        colors = listOf(bgLight.copy(alpha = 0.95f), bgLight.copy(alpha = 0.6f), Color.Transparent),
+                        colors = listOf(backgroundColor.copy(alpha = 0.95f), backgroundColor.copy(alpha = 0.6f), Color.Transparent),
                     )
                 }
             )
@@ -120,14 +117,14 @@ fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
             Button(
                 onClick = onLogin,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = primaryColor, contentColor = Color.White),
+                colors = ButtonDefaults.buttonColors(containerColor = primaryColor, contentColor = colorScheme.onPrimary),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(text = "Log In")
             }
 
-            val signUpBg = if (isDark) Color(0xFF374151) else primaryColor.copy(alpha = 0.16f)
-            val signUpText = if (isDark) textLight else primaryColor
+            val signUpBg = if (isDark) colorScheme.surfaceVariant else primaryColor.copy(alpha = 0.16f)
+            val signUpText = if (isDark) colorScheme.onBackground else primaryColor
 
             Button(
                 onClick = onSignUp,
@@ -149,7 +146,7 @@ fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
         ) {
             Text(
                 text = "By continuing, you agree to our Terms of Service and Privacy Policy.",
-                color = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280),
+                color = if (isDark) colorScheme.secondary else colorScheme.secondary,
                 style = MaterialTheme.typography.labelSmall
             )
         }

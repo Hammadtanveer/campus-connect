@@ -117,7 +117,7 @@ fun AccountView(viewModel: MainViewModel) {
                                 .size(32.dp)
                                 .background(MaterialTheme.colorScheme.primary, CircleShape)
                                 .padding(6.dp),
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
 
