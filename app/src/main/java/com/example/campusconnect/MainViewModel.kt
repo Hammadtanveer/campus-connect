@@ -2,12 +2,19 @@ package com.example.campusconnect
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.flow.Flow
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 class MainViewModel : ViewModel() {
 
@@ -34,6 +41,18 @@ class MainViewModel : ViewModel() {
     private val _downloads = mutableStateOf<List<DownloadItem>>(emptyList())
     val downloads: List<DownloadItem> get() = _downloads.value
 
+    // Events-related state
+    private val eventsRepo = EventsRepository(FirebaseFirestore.getInstance())
+
+    private val _eventsList = mutableStateOf<List<OnlineEvent>>(emptyList())
+    val eventsList: List<OnlineEvent> get() = _eventsList.value
+
+    private val _currentEvent = mutableStateOf<OnlineEvent?>(null)
+    val currentEvent: OnlineEvent? get() = _currentEvent.value
+
+    private val _isLoadingEvents = mutableStateOf(false)
+    val isLoadingEvents: Boolean get() = _isLoadingEvents.value
+
     init {
         auth.currentUser?.uid?.let { loadUserProfile(it) } ?: run { _initializing.value = false }
     }
@@ -47,10 +66,41 @@ class MainViewModel : ViewModel() {
                 if (doc.exists()) {
                     _userProfile.value = doc.toObject(UserProfile::class.java)
                     loadUserActivities(userId)
+                    // Navigate into the app after successful profile load
+                    _currentScreen.value = Screen.DrawerScreen.Profile
+                    Log.i("MainViewModel", "loadUserProfile: profile loaded, navigating to Profile for $userId")
+                } else {
+                    // Firestore document missing — attempt to build a fallback profile from FirebaseAuth user
+                    Log.w("MainViewModel", "loadUserProfile: no document found for $userId, creating fallback profile from auth user")
+                    val firebaseUser = auth.currentUser
+                    if (firebaseUser != null) {
+                        val fallback = UserProfile(
+                            id = firebaseUser.uid,
+                            displayName = firebaseUser.displayName ?: "",
+                            email = firebaseUser.email ?: "",
+                            course = "",
+                            branch = "",
+                            year = "",
+                            bio = "",
+                        )
+                        // set locally so AuthGate treats the user as authenticated
+                        _userProfile.value = fallback
+                        _currentScreen.value = Screen.DrawerScreen.Profile
+                        // write the fallback profile to Firestore (best-effort)
+                        db.collection("users").document(firebaseUser.uid)
+                            .set(fallback)
+                            .addOnSuccessListener {
+                                Log.i("MainViewModel", "loadUserProfile: wrote fallback profile for ${firebaseUser.uid}")
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("MainViewModel", "loadUserProfile: failed to write fallback profile", e)
+                            }
+                    }
                 }
                 _initializing.value = false
             }
-            .addOnFailureListener {
+            .addOnFailureListener { e ->
+                Log.e("MainViewModel", "loadUserProfile failed", e)
                 _initializing.value = false
             }
     }
@@ -63,12 +113,53 @@ class MainViewModel : ViewModel() {
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    auth.currentUser?.uid?.let {
-                        loadUserProfile(it)
+                    val uid = auth.currentUser?.uid
+                    Log.i("MainViewModel", "signInWithEmailPassword: success, uid=$uid")
+                    if (uid != null) {
+                        // Immediately set a minimal local profile so UI considers user authenticated
+                        val firebaseUser = auth.currentUser
+                        if (firebaseUser != null) {
+                            _userProfile.value = UserProfile(
+                                id = firebaseUser.uid,
+                                displayName = firebaseUser.displayName ?: "",
+                                email = firebaseUser.email ?: "",
+                                course = "",
+                                branch = "",
+                                year = "",
+                                bio = ""
+                            )
+                            // set current screen so MainView becomes visible
+                            _currentScreen.value = Screen.DrawerScreen.Profile
+                        }
+
+                        // Then attempt to load the full profile from Firestore (best-effort)
+                        loadUserProfile(uid)
                         onResult(true, null)
-                    } ?: onResult(false, "No user id")
+                    } else {
+                        onResult(false, "Signed in but no user id. Please restart the app.")
+                    }
                 } else {
-                    onResult(false, task.exception?.message ?: "Authentication failed")
+                    val ex = task.exception
+                    Log.e("MainViewModel", "signIn failed", ex)
+                    val lower = ex?.localizedMessage?.lowercase() ?: ""
+                    val message = when (ex) {
+                        is FirebaseAuthException -> {
+                            val code = try { ex.errorCode } catch (_: Exception) { null }
+                            when (code) {
+                                "ERROR_USER_NOT_FOUND", "USER_NOT_FOUND" -> "No user found with this email. Please sign up first."
+                                "ERROR_WRONG_PASSWORD", "WRONG_PASSWORD" -> "Incorrect password. Please try again."
+                                "ERROR_USER_DISABLED" -> "This user account has been disabled."
+                                "ERROR_NETWORK_REQUEST_FAILED" -> "Network error. Check your internet connection and try again."
+                                else -> ex.localizedMessage ?: "Authentication failed."
+                            }
+                        }
+                        else -> when {
+                            "network" in lower || "timeout" in lower || "unreachable" in lower ->
+                                "Network error. Please check your connection and try again."
+                            else -> ex?.localizedMessage ?: "Authentication failed."
+                        }
+                    }
+                    onResult(false, message)
                 }
             }
     }
@@ -83,23 +174,70 @@ class MainViewModel : ViewModel() {
         bio: String = "",
         onResult: (Boolean, String?) -> Unit
     ) {
+        Log.i("MainViewModel", "registerWithEmailPassword: starting for $email")
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    auth.currentUser?.uid?.let { uid ->
-                        createUserProfile(
-                            userId = uid,
-                            displayName = displayName,
-                            email = email,
-                            course = course,
-                            branch = branch,
-                            year = year,
-                            bio = bio
-                        )
-                        onResult(true, null)
-                    } ?: onResult(false, "No user id")
+                    Log.i("MainViewModel", "createUserWithEmailAndPassword succeeded")
+                    val user = auth.currentUser
+                    if (user == null) {
+                        onResult(false, "Registration succeeded but no user instance found.")
+                        return@addOnCompleteListener
+                    }
+
+                    // Update display name in FirebaseAuth profile
+                    val profileUpdates = UserProfileChangeRequest.Builder()
+                        .setDisplayName(displayName)
+                        .build()
+
+                    user.updateProfile(profileUpdates)
+                        .addOnCompleteListener { updateTask ->
+                            if (!updateTask.isSuccessful) {
+                                Log.w("MainViewModel", "updateProfile failed", updateTask.exception)
+                                // Continue even if updating displayName failed
+                            }
+
+                            // Create Firestore profile and call onResult only after write completes
+                            createUserProfile(
+                                userId = user.uid,
+                                displayName = displayName,
+                                email = email,
+                                course = course,
+                                branch = branch,
+                                year = year,
+                                bio = bio
+                            ) { ok, err ->
+                                if (ok) {
+                                    Log.i("MainViewModel", "createUserProfile succeeded for ${user.uid}")
+                                    onResult(true, null)
+                                } else {
+                                    Log.e("MainViewModel", "createUserProfile failed: $err")
+                                    onResult(false, err ?: "Failed to save user profile.")
+                                }
+                            }
+                        }
                 } else {
-                    onResult(false, task.exception?.message ?: "Registration failed")
+                    val ex = task.exception
+                    Log.e("MainViewModel", "registerWithEmailPassword failed", ex)
+                    val lower = ex?.localizedMessage?.lowercase() ?: ""
+                    val message = when (ex) {
+                        is FirebaseAuthException -> {
+                            val code = try { ex.errorCode } catch (_: Exception) { null }
+                            when (code) {
+                                "ERROR_NETWORK_REQUEST_FAILED" -> "Network error. Check your internet connection and try again."
+                                "ERROR_WEAK_PASSWORD", "WEAK_PASSWORD" -> "Password is too weak. Please use at least 6 characters."
+                                "ERROR_EMAIL_ALREADY_IN_USE", "EMAIL_EXISTS" -> "This email is already in use. Try signing in or use a different email."
+                                "ERROR_INVALID_EMAIL", "INVALID_EMAIL" -> "The email address is invalid. Check for typos."
+                                else -> ex.localizedMessage ?: "Registration failed."
+                            }
+                        }
+                        else -> when {
+                            "network" in lower || "timeout" in lower || "unreachable" in lower ->
+                                "Network error. Please check your connection and try again."
+                            else -> ex?.localizedMessage ?: "Registration failed."
+                        }
+                    }
+                    onResult(false, message)
                 }
             }
     }
@@ -111,7 +249,8 @@ class MainViewModel : ViewModel() {
         course: String,
         branch: String,
         year: String,
-        bio: String = ""
+        bio: String = "",
+        onResult: (Boolean, String?) -> Unit
     ) {
         val db = FirebaseFirestore.getInstance()
         val profile = UserProfile(
@@ -129,9 +268,12 @@ class MainViewModel : ViewModel() {
                 _userProfile.value = profile
                 _initializing.value = false
                 _currentScreen.value = Screen.DrawerScreen.Profile
+                onResult(true, null)
             }
-            .addOnFailureListener {
+            .addOnFailureListener { e ->
+                Log.e("MainViewModel", "createUserProfile failed", e)
                 _initializing.value = false
+                onResult(false, e.message)
             }
     }
 
@@ -150,6 +292,7 @@ class MainViewModel : ViewModel() {
             Screen.DrawerScreen.Societies.dRoute -> Screen.DrawerScreen.Societies
             Screen.DrawerScreen.PlacementCareer.dRoute -> Screen.DrawerScreen.PlacementCareer
             Screen.DrawerScreen.OnlineMeetingsEvents.dRoute -> Screen.DrawerScreen.OnlineMeetingsEvents
+            Screen.DrawerScreen.Events.dRoute -> Screen.DrawerScreen.Events
             else -> return
         }
         if (_currentScreen.value.route != newScreen.dRoute) {
@@ -218,6 +361,27 @@ class MainViewModel : ViewModel() {
         )
     }
 
+    // Helper to call trackEventJoin by event id (will fetch event title if available)
+    fun trackEventJoinById(eventId: String) {
+        // Try to find in local list first
+        val event = _eventsList.value.find { it.id == eventId } ?: _currentEvent.value
+        if (event != null) {
+            trackEventJoin(event.title)
+            return
+        }
+        // Fallback: read from Firestore
+        val db = FirebaseFirestore.getInstance()
+        db.collection("events").document(eventId)
+            .get()
+            .addOnSuccessListener { doc ->
+                if (doc.exists()) {
+                    val e = doc.toObject(OnlineEvent::class.java)
+                    if (e != null) trackEventJoin(e.title)
+                }
+            }
+            .addOnFailureListener { }
+    }
+
     fun trackNoteDownload(noteTitle: String) {
         addActivity(
             UserActivity(
@@ -268,5 +432,80 @@ class MainViewModel : ViewModel() {
             )
         )
         _userActivities.value = sampleActivities
+    }
+
+    // Events-related helper methods that call into repository
+    fun loadEvents(): Flow<Resource<List<OnlineEvent>>> {
+        return eventsRepo.observeEvents()
+    }
+
+    fun createEvent(
+        title: String,
+        description: String,
+        dateTime: com.google.firebase.Timestamp,
+        durationMinutes: Long,
+        category: EventCategory,
+        maxParticipants: Int = 0,
+        meetLink: String = "",
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        val organizerId = auth.currentUser?.uid ?: return onResult(false, "Not authenticated")
+        val organizerName = auth.currentUser?.displayName ?: ""
+        eventsRepo.createEvent(
+            title = title,
+            description = description,
+            dateTime = dateTime,
+            durationMinutes = durationMinutes,
+            organizerId = organizerId,
+            organizerName = organizerName,
+            category = category,
+            maxParticipants = maxParticipants,
+            meetLink = meetLink
+        ) { ok, err ->
+            onResult(ok, err)
+        }
+    }
+
+    fun registerForEvent(eventId: String, onResult: (Boolean, String?) -> Unit) {
+        val userId = auth.currentUser?.uid
+        if (userId == null) return onResult(false, "Not authenticated")
+        eventsRepo.registerForEvent(userId = userId, eventId = eventId) { ok, err ->
+            if (ok) {
+                // Track activity (find event title if possible)
+                val eventTitle = _eventsList.value.find { it.id == eventId }?.title
+                if (eventTitle != null) trackEventJoin(eventTitle) else trackEventJoinById(eventId)
+            }
+            onResult(ok, err)
+        }
+    }
+
+    fun getMyEventRegistrations(): Flow<Resource<List<EventRegistration>>> {
+        val userId = auth.currentUser?.uid ?: return kotlinx.coroutines.flow.flowOf(Resource.Error("Not authenticated"))
+        return eventsRepo.observeMyRegistrations(userId)
+    }
+
+    // Start background observation to populate local events list
+    private fun refreshEvents() {
+        viewModelScope.launch {
+            eventsRepo.observeEvents().collect { res ->
+                when (res) {
+                    is Resource.Loading -> _isLoadingEvents.value = true
+                    is Resource.Success -> {
+                        _isLoadingEvents.value = false
+                        _eventsList.value = res.data
+                    }
+                    is Resource.Error -> {
+                        _isLoadingEvents.value = false
+                        // Keep existing list if error; could log
+                        Log.w("MainViewModel", "refreshEvents error: ${res.message}")
+                    }
+                }
+            }
+        }
+    }
+
+    init {
+        // ensure events are observed into local state
+        refreshEvents()
     }
 }

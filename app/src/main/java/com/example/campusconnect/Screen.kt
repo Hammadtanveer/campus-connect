@@ -44,6 +44,11 @@ sealed class Screen(val title: String, val route: String) {
             "online_meetings_events",
             R.drawable.outline_video_chat_24
         )
+        object Events : DrawerScreen(
+            "Events",
+            "events",
+            R.drawable.baseline_event_24
+        )
     }
 }
 
@@ -54,5 +59,6 @@ val screenInDrawer = listOf(
     Screen.DrawerScreen.Societies,
     Screen.DrawerScreen.PlacementCareer,
     Screen.DrawerScreen.OnlineMeetingsEvents,
+    Screen.DrawerScreen.Events,
     Screen.DrawerScreen.Download
 )

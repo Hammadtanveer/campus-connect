@@ -13,6 +13,9 @@ import com.example.campusconnect.ui.theme.DownloadView
 import com.example.campusconnect.ui.theme.OnlineMeetingsEventsScreen
 import com.example.campusconnect.ui.theme.PlacementCareerScreen
 import com.example.campusconnect.ui.theme.Seniors
+import com.example.campusconnect.ui.theme.EventsListScreen
+import com.example.campusconnect.ui.theme.EventDetailScreen
+import com.example.campusconnect.ui.theme.CreateEventScreen
 
 @Composable
 fun Navigation(navController: NavController, viewModel: MainViewModel, pd: PaddingValues) {
@@ -31,6 +34,18 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         }
         composable(Screen.DrawerScreen.OnlineMeetingsEvents.dRoute) {
             OnlineMeetingsEventsScreen(viewModel = viewModel)
+        }
+
+        // Events screens
+        composable(Screen.DrawerScreen.Events.route) {
+            EventsListScreen(viewModel = viewModel, navController = navController)
+        }
+        composable("event/{eventId}") { backStack ->
+            val eventId = backStack.arguments?.getString("eventId")
+            EventDetailScreen(eventId = eventId, viewModel = viewModel, navController = navController)
+        }
+        composable("events/create") {
+            CreateEventScreen(viewModel = viewModel, navController = navController)
         }
     }
 }
