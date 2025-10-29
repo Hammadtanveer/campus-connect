@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">CampusConnect</string>
+    <string name="senior_profile_removed_placeholder">Senior profile removed for build: placeholder</string>
 </resources>
