@@ -13,14 +13,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.Card
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 
@@ -44,13 +43,14 @@ fun Notes(){
         sections.forEach { (sem, courses) ->
             stickyHeader {
                 Surface(
-                    color = MaterialTheme.colors.surface,
-                    elevation = 4.dp,
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 4.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    androidx.compose.material.Text(
+                    Text(
                         text = sem,
-                        style = MaterialTheme.typography.h6,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp)
@@ -70,12 +70,15 @@ fun Notes(){
 @Composable
 fun BrowserItem(cat:String, drawable:Int){
     Card(modifier = Modifier.padding(16.dp).size(200.dp),
-        border = BorderStroke(3.dp, color = Color.DarkGray)){
+        border = BorderStroke(3.dp, color = MaterialTheme.colorScheme.outline),
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ){
         Column (
             verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(8.dp)
         ){
-            Text(text = cat)
+            Text(text = cat, color = MaterialTheme.colorScheme.onSurface)
             Image(painter = painterResource(id = drawable), contentDescription = cat)
         }
     }

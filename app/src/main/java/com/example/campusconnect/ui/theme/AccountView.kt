@@ -37,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -136,6 +135,16 @@ fun AccountView(viewModel: MainViewModel) {
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
+
+                    // Show event count if available
+                    if (userProfile.eventCount > 0) {
+                        Text(
+                            text = "Events joined: ${userProfile.eventCount}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
 
                     if (userProfile.course.isNotBlank() || userProfile.branch.isNotBlank() || userProfile.year.isNotBlank()) {
                         Row(
@@ -399,6 +408,7 @@ fun EditProfileDialog(
                         Text("Save Changes")
                     }
                 }
+
             }
         }
     }

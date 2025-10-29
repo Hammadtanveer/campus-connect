@@ -10,12 +10,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.campusconnect.ui.theme.AccountView
 import com.example.campusconnect.ui.theme.DownloadView
-import com.example.campusconnect.ui.theme.OnlineMeetingsEventsScreen
 import com.example.campusconnect.ui.theme.PlacementCareerScreen
 import com.example.campusconnect.ui.theme.Seniors
 import com.example.campusconnect.ui.theme.EventsListScreen
 import com.example.campusconnect.ui.theme.EventDetailScreen
 import com.example.campusconnect.ui.theme.CreateEventScreen
+import com.example.campusconnect.ui.theme.MentorsListScreen
+import com.example.campusconnect.ui.theme.MentorProfileScreen
+import com.example.campusconnect.ui.theme.MyMentorshipScreen
+import com.example.campusconnect.ui.theme.RequestDetailScreen
 
 @Composable
 fun Navigation(navController: NavController, viewModel: MainViewModel, pd: PaddingValues) {
@@ -32,9 +35,6 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         composable(Screen.DrawerScreen.PlacementCareer.dRoute) {
             PlacementCareerScreen(viewModel = viewModel)
         }
-        composable(Screen.DrawerScreen.OnlineMeetingsEvents.dRoute) {
-            OnlineMeetingsEventsScreen(viewModel = viewModel)
-        }
 
         // Events screens
         composable(Screen.DrawerScreen.Events.route) {
@@ -46,6 +46,24 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         }
         composable("events/create") {
             CreateEventScreen(viewModel = viewModel, navController = navController)
+        }
+
+        // Mentors screens
+        composable(Screen.DrawerScreen.Mentors.route) {
+            MentorsListScreen(viewModel = viewModel, navController = navController)
+        }
+        composable("mentor/{mentorId}") { backStack ->
+            val mentorId = backStack.arguments?.getString("mentorId")
+            MentorProfileScreen(mentorId = mentorId, viewModel = viewModel, navController = navController)
+        }
+
+        // Mentorship management
+        composable(Screen.DrawerScreen.Mentorship.dRoute) {
+            MyMentorshipScreen(viewModel = viewModel, navController = navController)
+        }
+        composable("mentorship/request/{requestId}") { backStack ->
+            val requestId = backStack.arguments?.getString("requestId")
+            RequestDetailScreen(requestId = requestId, viewModel = viewModel, navController = navController)
         }
     }
 }
