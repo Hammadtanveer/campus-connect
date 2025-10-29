@@ -39,15 +39,20 @@ sealed class Screen(val title: String, val route: String) {
             "placement_career",
             R.drawable.outline_work_24
         )
-        object OnlineMeetingsEvents : DrawerScreen(
-            "Online Meetings & Events",
-            "online_meetings_events",
-            R.drawable.outline_video_chat_24
-        )
         object Events : DrawerScreen(
             "Events",
             "events",
             R.drawable.baseline_event_24
+        )
+        object Mentors : DrawerScreen(
+            "Find Mentors",
+            "mentors",
+            R.drawable.outline_person_raised_hand_24
+        )
+        object Mentorship : DrawerScreen(
+            "Mentorship",
+            "mentorship",
+            R.drawable.baseline_person_24
         )
     }
 }
@@ -58,7 +63,8 @@ val screenInDrawer = listOf(
     Screen.DrawerScreen.Seniors,
     Screen.DrawerScreen.Societies,
     Screen.DrawerScreen.PlacementCareer,
-    Screen.DrawerScreen.OnlineMeetingsEvents,
     Screen.DrawerScreen.Events,
-    Screen.DrawerScreen.Download
+    Screen.DrawerScreen.Download,
+    Screen.DrawerScreen.Mentors,
+    Screen.DrawerScreen.Mentorship
 )

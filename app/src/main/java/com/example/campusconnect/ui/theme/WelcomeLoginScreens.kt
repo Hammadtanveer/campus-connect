@@ -22,10 +22,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.example.campusconnect.MainViewModel
+import com.example.campusconnect.ui.theme.Transparent
+import androidx.compose.ui.graphics.Color
 
 @Composable
 fun WelcomeHost(viewModel: MainViewModel, darkTheme: Boolean = isSystemInDarkTheme()) {
@@ -33,7 +34,7 @@ fun WelcomeHost(viewModel: MainViewModel, darkTheme: Boolean = isSystemInDarkThe
     val startRegister = remember { mutableStateOf(false) }
 
     if (showingAuth.value) {
-        AuthScreen(viewModel = viewModel, startInRegister = startRegister.value, darkTheme = darkTheme)
+        AuthScreen(viewModel = viewModel, startInRegister = startRegister.value)
     } else {
         WelcomeScreen(
             onLogin = {
@@ -78,11 +79,11 @@ fun WelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit, darkTheme: Boolean 
                 contentScale = ContentScale.Crop,
                 overlayBrush = if (isDark) {
                     Brush.verticalGradient(
-                        colors = listOf(backgroundColor.copy(alpha = 0.98f), backgroundColor.copy(alpha = 0.85f), Color.Transparent),
+                        colors = listOf(backgroundColor.copy(alpha = 0.98f), backgroundColor.copy(alpha = 0.85f), Transparent),
                     )
                 } else {
                     Brush.verticalGradient(
-                        colors = listOf(backgroundColor.copy(alpha = 0.95f), backgroundColor.copy(alpha = 0.6f), Color.Transparent),
+                        colors = listOf(backgroundColor.copy(alpha = 0.95f), backgroundColor.copy(alpha = 0.6f), Transparent),
                     )
                 }
             )

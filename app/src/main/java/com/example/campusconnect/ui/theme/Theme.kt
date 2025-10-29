@@ -16,31 +16,61 @@ import androidx.compose.ui.graphics.Color
 private val LightColors: ColorScheme = lightColorScheme(
     primary = PrimaryLight,
     onPrimary = Color.White,
+    primaryContainer = PrimaryContainerLight,
+    onPrimaryContainer = OnPrimaryContainerLight,
+
     secondary = TextSecondaryLight,
-    onSecondary = Color.White,
+    onSecondary = TextPrimaryLight,
+    secondaryContainer = PrimaryContainerLight,
+
+    tertiary = TertiaryLight,
+    onTertiary = OnTertiaryLight,
+
     background = BackgroundLight,
     onBackground = TextPrimaryLight,
+
     surface = SurfaceLight,
     onSurface = TextPrimaryLight,
+    surfaceVariant = BorderLight,
+
+    inverseSurface = InverseSurfaceLight,
+    inverseOnSurface = InverseOnSurfaceLight,
+
     error = Error,
     onError = Color.White,
+
     // Additional roles
-    surfaceVariant = BorderLight,
+    surfaceTint = SurfaceTintLight,
     outline = BorderLight
 )
 
 private val DarkColors: ColorScheme = darkColorScheme(
     primary = PrimaryDark,
     onPrimary = Color.White,
+    primaryContainer = PrimaryContainerDark,
+    onPrimaryContainer = OnPrimaryContainerDark,
+
     secondary = TextSecondaryDark,
-    onSecondary = Color.White,
+    onSecondary = TextPrimaryDark,
+    secondaryContainer = PrimaryContainerDark,
+
+    tertiary = TertiaryDark,
+    onTertiary = OnTertiaryDark,
+
     background = BackgroundDark,
     onBackground = TextPrimaryDark,
+
     surface = SurfaceDark,
     onSurface = TextPrimaryDark,
-    error = Error,
-    onError = Color.Black,
     surfaceVariant = BorderDark,
+
+    inverseSurface = InverseSurfaceDark,
+    inverseOnSurface = InverseOnSurfaceDark,
+
+    error = Error,
+    onError = Color.White,
+
+    surfaceTint = SurfaceTintDark,
     outline = BorderDark
 )
 

@@ -39,7 +39,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -48,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.util.NetworkUtils
 import com.example.campusconnect.ui.theme.Success
+import com.example.campusconnect.ui.theme.Transparent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -56,15 +56,14 @@ private enum class LocalAuthMode { LOGIN, REGISTER }
 @Composable
 fun AuthScreen(
     viewModel: MainViewModel,
-    startInRegister: Boolean = false,
-    darkTheme: Boolean
+    startInRegister: Boolean = false
 ) {
     var mode by remember { mutableStateOf(if (startInRegister) LocalAuthMode.REGISTER else LocalAuthMode.LOGIN) }
 
     if (mode == LocalAuthMode.REGISTER) {
         RegisterScreen(viewModel = viewModel) { mode = LocalAuthMode.LOGIN }
     } else {
-        LoginScreen(viewModel = viewModel, onSwitchToRegister = { mode = LocalAuthMode.REGISTER }, darkTheme = darkTheme)
+        LoginScreen(viewModel = viewModel, onSwitchToRegister = { mode = LocalAuthMode.REGISTER })
     }
 }
 
@@ -89,7 +88,7 @@ private fun RegisterScreen(viewModel: MainViewModel, onBackToLogin: () -> Unit) 
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(text = "Create account", style = MaterialTheme.typography.headlineMedium)
+            Text(text = "Create account", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Display name") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
@@ -154,8 +153,7 @@ private fun RegisterScreen(viewModel: MainViewModel, onBackToLogin: () -> Unit) 
 @Composable
 private fun LoginScreen(
     viewModel: MainViewModel,
-    onSwitchToRegister: () -> Unit,
-    darkTheme: Boolean
+    onSwitchToRegister: () -> Unit
 ) {
     // Use the centralized Material color scheme
     val colorScheme = MaterialTheme.colorScheme
@@ -195,7 +193,7 @@ private fun LoginScreen(
                 // Form card
                 Column(modifier = Modifier
                     .fillMaxWidth()
-                    .background(color = Color.Transparent)
+                    .background(color = Transparent)
                 ) {
                     OutlinedTextField(
                         value = email,
@@ -274,7 +272,7 @@ private fun LoginScreen(
                         modifier = Modifier.fillMaxWidth(),
                         border = BorderStroke(1.dp, border),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = textPrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = Transparent, contentColor = textPrimary)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
                             // simple circular placeholder for Google icon

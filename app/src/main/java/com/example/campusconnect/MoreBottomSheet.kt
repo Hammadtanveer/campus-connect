@@ -9,54 +9,59 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.Icon
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
 fun MoreBottomSheet(modifier: Modifier, viewModel: MainViewModel) {
+    val colorScheme = MaterialTheme.colorScheme
+
     Box(
         Modifier
             .fillMaxWidth()
             .height(300.dp)
-            .background(androidx.compose.material3.MaterialTheme.colorScheme.primary)
+            .background(colorScheme.primary)
     ) {
         Column(modifier = modifier.padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Row(modifier = modifier.padding(16.dp)) {
                 Icon(
                     modifier = Modifier.padding(end = 8.dp),
                     painter = painterResource(id = R.drawable.baseline_settings_24),
-                    contentDescription = "Settings"
+                    contentDescription = "Settings",
+                    tint = colorScheme.onPrimary
                 )
-                Text(text = "Settings", fontSize = 20.sp, color = Color.White)
+                Text(text = "Settings", fontSize = 20.sp, color = colorScheme.onPrimary)
             }
             Row(modifier = modifier.padding(16.dp)) {
-                androidx.compose.material.Icon(
+                Icon(
                     modifier = Modifier.padding(end = 8.dp),
                     painter = painterResource(id = R.drawable.baseline_share_24),
-                    contentDescription = "Share"
+                    contentDescription = "Share",
+                    tint = colorScheme.onPrimary
                 )
-                androidx.compose.material.Text(
+                Text(
                     text = "Share",
                     fontSize = 20.sp,
-                    color = Color.White
+                    color = colorScheme.onPrimary
                 )
             }
             Row(modifier = modifier.padding(16.dp)) {
-                androidx.compose.material.Icon(
+                Icon(
                     modifier = Modifier.padding(end = 8.dp),
                     painter = painterResource(id = R.drawable.outline_help_24),
-                    contentDescription = "Help"
+                    contentDescription = "Help",
+                    tint = colorScheme.onPrimary
                 )
-                androidx.compose.material.Text(
+                Text(
                     text = "Help",
                     fontSize = 20.sp,
-                    color = Color.White
+                    color = colorScheme.onPrimary
                 )
             }
             // Sign out option to return to Welcome screen
@@ -65,15 +70,16 @@ fun MoreBottomSheet(modifier: Modifier, viewModel: MainViewModel) {
                     .padding(16.dp)
                     .clickable { viewModel.signOut() }
             ) {
-                androidx.compose.material.Icon(
+                Icon(
                     modifier = Modifier.padding(end = 8.dp),
                     painter = painterResource(id = R.drawable.outline_account_circle_24),
-                    contentDescription = "Sign Out"
+                    contentDescription = "Sign Out",
+                    tint = colorScheme.onPrimary
                 )
-                androidx.compose.material.Text(
+                Text(
                     text = "Sign Out",
                     fontSize = 20.sp,
-                    color = Color.White
+                    color = colorScheme.onPrimary
                 )
             }
         }
