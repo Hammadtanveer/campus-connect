@@ -23,6 +23,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Senior profile screen -->
+        <activity
+            android:name=".ui.SeniorProfileActivity"
+            android:exported="false"
+            android:theme="@style/Theme.CampusConnect" />
+
         <!-- Receiver for scheduled event reminders -->
         <receiver android:name=".NotificationReceiver" android:exported="false" />
 
