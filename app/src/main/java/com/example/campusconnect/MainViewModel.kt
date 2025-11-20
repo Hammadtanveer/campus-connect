@@ -12,17 +12,28 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
 import android.content.Context
 import java.util.Random
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.channels.awaitClose
 import com.google.firebase.firestore.ListenerRegistration
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import com.example.campusconnect.data.models.UserProfile
+import com.example.campusconnect.data.models.UserActivity
+import com.example.campusconnect.data.models.ActivityType
+import com.example.campusconnect.data.models.MentorshipRequest
+import com.example.campusconnect.data.models.MentorshipConnection
+import com.example.campusconnect.data.models.Resource
+import com.example.campusconnect.data.models.OnlineEvent
+import com.example.campusconnect.data.models.EventCategory
+import com.example.campusconnect.data.repository.EventsRepository
 
 class MainViewModel : ViewModel() {
+    companion object {
+        private const val EVENT_CREATION_TIMEOUT_MS = 30_000L
+    }
 
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
@@ -877,8 +888,12 @@ class MainViewModel : ViewModel() {
     ) {
         val organizerId = auth.currentUser?.uid ?: return onResult(false, "Not authenticated")
         val organizerName = auth.currentUser?.displayName ?: ""
-        // Auto-generate meet link if not provided
-        val finalMeetLink = if (meetLink.isBlank()) generateMeetLink() else meetLink
+        // Auto-generate meet link if not provided - simplified for speed
+        val finalMeetLink = if (meetLink.isBlank()) {
+            // Use a simpler, faster meet link generation
+            "https://meet.google.com/${UUID.randomUUID().toString().take(12).replace("-", "")}"
+        } else meetLink
+
         eventsRepo.createEvent(
             title = title,
             description = description,
@@ -890,18 +905,48 @@ class MainViewModel : ViewModel() {
             maxParticipants = maxParticipants,
             meetLink = finalMeetLink
         ) { ok, err ->
-            // schedule notification 30 minutes before start if possible (caller must provide context)
             onResult(ok, err)
         }
     }
 
-    // New: register for an event using repository and track activity
+    // New: suspend wrapper to allow try/catch usage from UI
+    suspend fun createEventAwait(
+        title: String,
+        description: String,
+        dateTime: Timestamp,
+        durationMinutes: Long,
+        category: EventCategory,
+        maxParticipants: Int = 0,
+        meetLink: String = ""
+    ) {
+        return kotlinx.coroutines.withTimeout(EVENT_CREATION_TIMEOUT_MS) {
+            kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                createEvent(
+                    title = title,
+                    description = description,
+                    dateTime = dateTime,
+                    durationMinutes = durationMinutes,
+                    category = category,
+                    maxParticipants = maxParticipants,
+                    meetLink = meetLink
+                ) { ok, err ->
+                    if (!cont.isActive) return@createEvent
+                    if (ok) {
+                        cont.resume(Unit)
+                    } else {
+                        cont.resumeWithException(IllegalStateException(err ?: "Failed to create event"))
+                    }
+                }
+            }
+        }
+    }
+
+    // New event registration method for UI
     fun registerForEvent(eventId: String, onResult: (Boolean, String?) -> Unit) {
         val userId = auth.currentUser?.uid
         if (userId == null) return onResult(false, "Not authenticated")
         eventsRepo.registerForEvent(userId = userId, eventId = eventId) { ok, err ->
             if (ok) {
-                // Track activity (find event title if possible)
                 val eventTitle = _eventsList.value.find { it.id == eventId }?.title
                 if (eventTitle != null) {
                     trackEventJoin(eventTitle)

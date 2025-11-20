@@ -10,7 +10,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
-import com.example.campusconnect.ui.AuthGate
+import com.example.campusconnect.ui.screens.AuthGate
 import com.example.campusconnect.ui.theme.CampusConnectTheme
 
 class MainActivity : ComponentActivity() {
