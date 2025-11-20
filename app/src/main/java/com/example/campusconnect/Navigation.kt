@@ -8,17 +8,19 @@ import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.campusconnect.ui.theme.AccountView
-import com.example.campusconnect.ui.theme.DownloadView
-import com.example.campusconnect.ui.theme.PlacementCareerScreen
-import com.example.campusconnect.ui.theme.Seniors
-import com.example.campusconnect.ui.theme.EventsListScreen
-import com.example.campusconnect.ui.theme.EventDetailScreen
-import com.example.campusconnect.ui.theme.CreateEventScreen
-import com.example.campusconnect.ui.theme.MentorsListScreen
-import com.example.campusconnect.ui.theme.MentorProfileScreen
-import com.example.campusconnect.ui.theme.MyMentorshipScreen
-import com.example.campusconnect.ui.theme.RequestDetailScreen
+import com.example.campusconnect.ui.screens.AccountView
+import com.example.campusconnect.ui.screens.DownloadView
+import com.example.campusconnect.ui.screens.PlacementCareerScreen
+import com.example.campusconnect.ui.screens.Seniors
+import com.example.campusconnect.ui.screens.Notes
+import com.example.campusconnect.ui.screens.Societies
+import com.example.campusconnect.ui.screens.EventsListScreen
+import com.example.campusconnect.ui.screens.EventDetailScreen
+import com.example.campusconnect.ui.screens.CreateEventScreen
+import com.example.campusconnect.ui.screens.MentorsListScreen
+import com.example.campusconnect.ui.screens.MentorProfileScreen
+import com.example.campusconnect.ui.screens.MyMentorshipScreen
+import com.example.campusconnect.ui.screens.RequestDetailScreen
 
 @Composable
 fun Navigation(navController: NavController, viewModel: MainViewModel, pd: PaddingValues) {
