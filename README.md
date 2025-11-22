@@ -158,4 +158,7 @@ Contributions are welcome!
 
 ## 📜 License  
 
-This project is licensed under the **MIT License**. 
+This project is licensed under the **MIT License**.
+
+## RBAC Summary
+CampusConnect now uses Firebase custom claims for admin & granular roles (event:create, notes:upload, senior:update, society:manage). UI hides privileged actions unless authorized and Firestore rules enforce server-side protection. See RBAC_GUIDE.md for full instructions and scripts to assign roles.

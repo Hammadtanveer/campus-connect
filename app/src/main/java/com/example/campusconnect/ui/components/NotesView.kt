@@ -14,20 +14,32 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import com.example.campusconnect.MainViewModel
+import com.example.campusconnect.security.canUploadNotes
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Context
+import android.net.Uri
+import androidx.compose.runtime.LaunchedEffect
+import com.example.campusconnect.data.models.Note
 
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun Notes(){
+fun Notes(viewModel: MainViewModel? = null){
     // Define different data per year
     val sections: List<Pair<String, List<String>>> = listOf(
         "8th Sem" to listOf("BCS-801", "BCS-802","BCS-851","MNPM-801"),
@@ -40,7 +52,37 @@ fun Notes(){
         "1st Sem" to listOf("BAS-101","BAS-103","BEC-101","BAS-105")
     )
 
+    val showUploadResult = remember { mutableStateOf<String?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val uploadState = remember { mutableStateOf<String?>(null) }
+    val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null && viewModel != null) {
+            val bytes = readAllBytes(context, uri)
+            if (bytes != null) {
+                viewModel.uploadPdfNote(title = uri.lastPathSegment ?: "note.pdf", pdfBytes = bytes) { ok, err ->
+                    uploadState.value = if (ok) "Uploaded" else err
+                }
+            } else uploadState.value = "Failed to read file"
+        }
+    }
+    LaunchedEffect(viewModel?.userProfile?.id) { viewModel?.observeMyNotes() }
     LazyColumn {
+        item {
+            if (viewModel?.userProfile?.canUploadNotes() == true) {
+                Button(onClick = { pdfPicker.launch("application/pdf") }) { Text("Select PDF & Upload") }
+                uploadState.value?.let { msg -> Text(msg ?: "", color = MaterialTheme.colorScheme.primary) }
+            }
+        }
+        // Show list of uploaded notes
+        item {
+            val notes = viewModel?.myNotes ?: emptyList()
+            if (notes.isNotEmpty()) {
+                Text("My Notes", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(8.dp))
+                notes.forEach { n ->
+                    Text("• ${n.title} (${n.fileSize/1024}KB)", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
         sections.forEach { (sem, courses) ->
             stickyHeader {
                 Surface(
@@ -84,3 +126,7 @@ fun BrowserItem(cat:String, drawable:Int){
         }
     }
 }
+
+private fun readAllBytes(context: Context, uri: Uri): ByteArray? = try {
+    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+} catch (_: Exception) { null }

@@ -1,0 +1,42 @@
+rules_version = '2';
+    }
+}
+  }
+    }
+      allow update: if hasRole('senior:update');
+      allow read: if true;
+    match /seniors/{seniorId} {
+
+    }
+      allow create: if hasRole('society:manage');
+      allow update, delete: if hasRole('society:manage') || (exists(/databases/$(database)/documents/societies/$(societyId)) && request.auth.uid in get(/databases/$(database)/documents/societies/$(societyId)).data.admins);
+      allow read: if true;
+    match /societies/{societyId} {
+
+    }
+      allow create, update, delete: if hasRole('notes:upload');
+      allow read: if true;
+    match /notes/{noteId} {
+
+    }
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && request.auth.uid != null;
+    match /registrations/{regId} {
+
+    }
+      allow update, delete: if hasRole('event:create');
+      allow create: if hasRole('event:create');
+      allow read: if true;
+    match /events/{eventId} {
+      allow update: if hasRole('user:update') || request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId; // self-edit only (extend for admin)
+      allow read: if true;
+    match /users/{userId} {
+
+    }
+      return request.auth != null && (request.auth.token.admin == true || (request.auth.token.roles is list && role in request.auth.token.roles));
+    function hasRole(role) {
+  match /databases/{database}/documents {
+service cloud.firestore {
+

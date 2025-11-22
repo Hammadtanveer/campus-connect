@@ -46,14 +46,36 @@ android {
         buildConfig = true
         viewBinding = true
     }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
 }
 
 dependencies {
-    // Firebase - make sure these are included
-    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    // Firebase - Updated to latest BOM to resolve conflicts
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+    implementation(libs.firebase.auth)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+
+    // Cloudinary for file storage
+    implementation("com.cloudinary:cloudinary-android:2.5.0") {
+        exclude(group = "com.google.firebase")
+    }
+    implementation("com.cloudinary:cloudinary-core:1.36.0") {
+        exclude(group = "com.google.firebase")
+    }
+
+    // Activity Result API for file picker
+    implementation("androidx.activity:activity-ktx:1.9.3")
 
     // Your existing dependencies
     implementation(libs.androidx.compose.material3)
