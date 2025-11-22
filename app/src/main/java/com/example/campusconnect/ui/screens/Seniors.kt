@@ -1,24 +1,19 @@
 package com.example.campusconnect.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Divider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.campusconnect.MainViewModel
+import com.example.campusconnect.security.canUpdateSenior
 
 @Composable
-fun Seniors() {
+fun Seniors(viewModel: MainViewModel? = null) {
     val names = listOf(
         "Hammad Tanveer",
         "Mohd Faisal",
@@ -30,6 +25,13 @@ fun Seniors() {
     LazyColumn {
         items(names.size) { index ->
             LibItem(name = names[index])
+        }
+    }
+
+    if (viewModel?.userProfile?.canUpdateSenior() == true) {
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = { viewModel.updateSeniorProfile(seniorId = 1, field = "bio", newValue = "Updated") { _, _ -> } }) {
+            Text("Quick Senior Update (Demo)")
         }
     }
 }
@@ -58,6 +60,6 @@ fun LibItem(name: String) {
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Divider(color = MaterialTheme.colorScheme.outline)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
     }
 }

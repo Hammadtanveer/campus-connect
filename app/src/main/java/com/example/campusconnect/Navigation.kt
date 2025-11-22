@@ -8,11 +8,11 @@ import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.campusconnect.ui.components.Notes
 import com.example.campusconnect.ui.screens.AccountView
 import com.example.campusconnect.ui.screens.DownloadView
 import com.example.campusconnect.ui.screens.PlacementCareerScreen
 import com.example.campusconnect.ui.screens.Seniors
-import com.example.campusconnect.ui.screens.Notes
 import com.example.campusconnect.ui.screens.Societies
 import com.example.campusconnect.ui.screens.EventsListScreen
 import com.example.campusconnect.ui.screens.EventDetailScreen
@@ -21,6 +21,7 @@ import com.example.campusconnect.ui.screens.MentorsListScreen
 import com.example.campusconnect.ui.screens.MentorProfileScreen
 import com.example.campusconnect.ui.screens.MyMentorshipScreen
 import com.example.campusconnect.ui.screens.RequestDetailScreen
+import com.example.campusconnect.ui.screens.AdminPanelScreen
 
 @Composable
 fun Navigation(navController: NavController, viewModel: MainViewModel, pd: PaddingValues) {
@@ -29,10 +30,10 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         startDestination = Screen.DrawerScreen.Profile.route,
         modifier = Modifier.padding(pd)
     ) {
-        composable(Screen.DrawerScreen.Notes.route) { Notes() }
-        composable(Screen.DrawerScreen.Seniors.route) { Seniors() }
+        composable(Screen.DrawerScreen.Notes.route) { Notes(viewModel) }
+        composable(Screen.DrawerScreen.Seniors.route) { Seniors(viewModel) }
         composable(Screen.DrawerScreen.Societies.route) { Societies() }
-        composable(Screen.DrawerScreen.Profile.route) { AccountView(viewModel) }
+        composable(Screen.DrawerScreen.Profile.route) { AccountView(viewModel, navController) }
         composable(Screen.DrawerScreen.Download.route) { DownloadView(viewModel) }
         composable(Screen.DrawerScreen.PlacementCareer.dRoute) {
             PlacementCareerScreen(viewModel = viewModel)
@@ -66,6 +67,11 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         composable("mentorship/request/{requestId}") { backStack ->
             val requestId = backStack.arguments?.getString("requestId")
             RequestDetailScreen(requestId = requestId, viewModel = viewModel, navController = navController)
+        }
+
+        // Admin Panel
+        composable("admin/panel") {
+            AdminPanelScreen(viewModel = viewModel, navController = navController)
         }
     }
 }

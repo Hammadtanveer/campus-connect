@@ -1,7 +1,7 @@
 package com.example.campusconnect
 
+import androidx.lifecycle.AndroidViewModel
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.ViewModel
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
@@ -29,8 +29,23 @@ import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.data.models.OnlineEvent
 import com.example.campusconnect.data.models.EventCategory
 import com.example.campusconnect.data.repository.EventsRepository
+import com.example.campusconnect.data.repository.NotesRepository
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPOutputStream
+import com.google.firebase.auth.GetTokenResult
+import com.example.campusconnect.security.Permissions
+import com.example.campusconnect.security.canCreateEvent
+import com.example.campusconnect.security.canUploadNotes
+import com.example.campusconnect.security.canUpdateSenior
+import com.example.campusconnect.security.canManageSociety
+import androidx.lifecycle.viewModelScope
+import com.example.campusconnect.data.models.Note
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import android.app.Application
+import com.example.campusconnect.util.Constants
 
-class MainViewModel : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val EVENT_CREATION_TIMEOUT_MS = 30_000L
     }
@@ -78,6 +93,9 @@ class MainViewModel : ViewModel() {
     private val _isLoadingEvents = mutableStateOf(false)
     val isLoadingEvents: Boolean get() = _isLoadingEvents.value
 
+    private val notesRepo = NotesRepository()
+    private val _myNotes = mutableStateOf<List<Note>>(emptyList())
+    val myNotes: List<Note> get() = _myNotes.value
 
     init {
         auth.currentUser?.uid?.let { loadUserProfile(it) } ?: run { _initializing.value = false }
@@ -123,12 +141,47 @@ class MainViewModel : ViewModel() {
                             }
                     }
                 }
+                // refresh claims after setting profile
+                refreshClaims()
                 _initializing.value = false
             }
             .addOnFailureListener { e ->
                 Log.e("MainViewModel", "loadUserProfile failed", e)
                 _initializing.value = false
             }
+    }
+
+    private fun applyClaimsToProfile(token: GetTokenResult) {
+        val claims = token.claims ?: return
+        val claimsAdmin = (claims["admin"] as? Boolean) == true
+        val claimRoles = when (val raw = claims["roles"]) {
+            is List<*> -> raw.filterIsInstance<String>()
+            is String -> raw.split(',').map { it.trim() }.filter { it.isNotBlank() }
+            else -> emptyList()
+        }
+        val current = _userProfile.value
+        if (current != null) {
+            val mergedRoles = (current.roles + claimRoles).distinct()
+            val mergedAdmin = current.isAdmin || claimsAdmin
+            _userProfile.value = current.copy(isAdmin = mergedAdmin, roles = mergedRoles)
+        }
+    }
+
+    fun refreshClaims(onDone: (() -> Unit)? = null) {
+        try {
+            val user = auth.currentUser ?: return
+            user.getIdToken(true)
+                .addOnSuccessListener { token ->
+                    applyClaimsToProfile(token)
+                    onDone?.invoke()
+                }
+                .addOnFailureListener { onDone?.invoke() }
+        } catch (_: Exception) { onDone?.invoke() }
+    }
+
+    fun canCreateEvent(): Boolean {
+        val p = _userProfile.value ?: return false
+        return p.canCreateEvent()
     }
 
     fun signInWithEmailPassword(
@@ -160,6 +213,7 @@ class MainViewModel : ViewModel() {
 
                         // Then attempt to load the full profile from Firestore (best-effort)
                         loadUserProfile(uid)
+                        // claims refresh will happen in loadUserProfile
                         onResult(true, null)
                     } else {
                         onResult(false, "Signed in but no user id. Please restart the app.")
@@ -198,6 +252,7 @@ class MainViewModel : ViewModel() {
         branch: String,
         year: String,
         bio: String = "",
+        adminCode: String = "",
         onResult: (Boolean, String?) -> Unit
     ) {
         Log.i("MainViewModel", "registerWithEmailPassword: starting for $email")
@@ -210,20 +265,15 @@ class MainViewModel : ViewModel() {
                         onResult(false, "Registration succeeded but no user instance found.")
                         return@addOnCompleteListener
                     }
-
-                    // Update display name in FirebaseAuth profile
+                    val isAdminRegistration = adminCode.isNotBlank() && adminCode == Constants.ADMIN_CODE
                     val profileUpdates = UserProfileChangeRequest.Builder()
                         .setDisplayName(displayName)
                         .build()
-
                     user.updateProfile(profileUpdates)
                         .addOnCompleteListener { updateTask ->
                             if (!updateTask.isSuccessful) {
                                 Log.w("MainViewModel", "updateProfile failed", updateTask.exception)
-                                // Continue even if updating displayName failed
                             }
-
-                            // Create Firestore profile and call onResult only after write completes
                             createUserProfile(
                                 userId = user.uid,
                                 displayName = displayName,
@@ -231,7 +281,8 @@ class MainViewModel : ViewModel() {
                                 course = course,
                                 branch = branch,
                                 year = year,
-                                bio = bio
+                                bio = bio,
+                                isAdmin = isAdminRegistration
                             ) { ok, err ->
                                 if (ok) {
                                     Log.i("MainViewModel", "createUserProfile succeeded for ${user.uid}")
@@ -276,6 +327,7 @@ class MainViewModel : ViewModel() {
         branch: String,
         year: String,
         bio: String = "",
+        isAdmin: Boolean = false,
         onResult: (Boolean, String?) -> Unit
     ) {
         val db = FirebaseFirestore.getInstance()
@@ -286,7 +338,9 @@ class MainViewModel : ViewModel() {
             course = course,
             branch = branch,
             year = year,
-            bio = bio
+            bio = bio,
+            isAdmin = isAdmin,
+            roles = if (isAdmin) listOf("admin", "event:create", "notes:upload") else emptyList()
         )
         db.collection("users").document(userId)
             .set(profile)
@@ -943,19 +997,14 @@ class MainViewModel : ViewModel() {
 
     // New event registration method for UI
     fun registerForEvent(eventId: String, onResult: (Boolean, String?) -> Unit) {
-        val userId = auth.currentUser?.uid
-        if (userId == null) return onResult(false, "Not authenticated")
-        eventsRepo.registerForEvent(userId = userId, eventId = eventId) { ok, err ->
+        val uid = auth.currentUser?.uid ?: return onResult(false, "Not authenticated")
+        eventsRepo.registerForEvent(userId = uid, eventId = eventId, onResult = { ok, err ->
             if (ok) {
-                val eventTitle = _eventsList.value.find { it.id == eventId }?.title
-                if (eventTitle != null) {
-                    trackEventJoin(eventTitle)
-                } else {
-                    trackEventJoinById(eventId)
-                }
+                val localTitle = _eventsList.value.firstOrNull { it.id == eventId }?.title
+                if (localTitle != null) trackEventJoin(localTitle) else trackEventJoinById(eventId)
             }
             onResult(ok, err)
-        }
+        })
     }
 
     // Track an event join by name (records a user activity)
@@ -997,5 +1046,154 @@ class MainViewModel : ViewModel() {
         fun seg(len: Int): String = (1..len).map { ('a' + rand.nextInt(26)) }.joinToString("")
         val link = "https://meet.google.com/${seg(3)}-${seg(4)}-${seg(3)}"
         return link
+    }
+
+    fun uploadNote(title: String, sizeLabel: String, onResult: (Boolean, String?) -> Unit) {
+        val p = _userProfile.value
+        if (p == null) return onResult(false, "Not authenticated")
+        if (!p.canUploadNotes()) return onResult(false, "No permission to upload notes")
+        try {
+            // Placeholder: integrate with Storage/Firestore later
+            addActivity(
+                UserActivity(
+                    id = UUID.randomUUID().toString(),
+                    type = ActivityType.NOTE_UPLOAD.name,
+                    title = "Note Uploaded",
+                    description = "You uploaded: $title",
+                    timestamp = getCurrentTimestamp(),
+                    iconResId = R.drawable.baseline_notes_24
+                )
+            )
+            addDownload(title, sizeLabel)
+            onResult(true, null)
+        } catch (e: Exception) {
+            onResult(false, e.message)
+        }
+    }
+
+    fun updateSeniorProfile(seniorId: Int, field: String, newValue: String, onResult: (Boolean, String?) -> Unit) {
+        val p = _userProfile.value ?: return onResult(false, "Not authenticated")
+        if (!p.canUpdateSenior()) return onResult(false, "No permission to update seniors")
+        // Placeholder for Firestore update; currently seniors are static
+        addActivity(
+            UserActivity(
+                id = UUID.randomUUID().toString(),
+                type = ActivityType.SENIOR_UPDATE.name,
+                title = "Senior Updated",
+                description = "Updated senior $seniorId field '$field'",
+                timestamp = getCurrentTimestamp(),
+                iconResId = R.drawable.outline_person_24
+            )
+        )
+        onResult(true, null)
+    }
+
+    fun manageSociety(action: String, societyId: String, onResult: (Boolean, String?) -> Unit) {
+        val p = _userProfile.value ?: return onResult(false, "Not authenticated")
+        if (!p.canManageSociety()) return onResult(false, "No permission to manage societies")
+        addActivity(
+            UserActivity(
+                id = UUID.randomUUID().toString(),
+                type = ActivityType.SOCIETY_MANAGE.name,
+                title = "Society $action",
+                description = "Action '$action' executed on society $societyId",
+                timestamp = getCurrentTimestamp(),
+                iconResId = R.drawable.outline_person_play_24
+            )
+        )
+        onResult(true, null)
+    }
+
+    fun observeMyNotes() {
+        val uid = auth.currentUser?.uid ?: return
+        notesRepo.observeMyNotes(uid).collectInViewModel { res ->
+            when (res) {
+                is Resource.Loading -> {}
+                is Resource.Success -> _myNotes.value = res.data
+                is Resource.Error -> {}
+            }
+        }
+    }
+
+    private fun ByteArray.gzipCompress(): ByteArray {
+        val bos = ByteArrayOutputStream()
+        GZIPOutputStream(bos).use { it.write(this) }
+        return bos.toByteArray()
+    }
+
+    private fun <T> Flow<T>.collectInViewModel(block: (T) -> Unit) {
+        viewModelScope.launch { this@collectInViewModel.collect { block(it) } }
+    }
+
+    private fun validatePdf(bytes: ByteArray): String? {
+        if (bytes.isEmpty()) return "Empty file"
+        if (bytes.size < 5) return "File too small"
+        // PDF starts with %PDF-
+        val header = bytes.take(5).map { it.toInt().toChar() }.joinToString("")
+        if (header != "%PDF-") return "Not a PDF"
+        return null
+    }
+
+    fun uploadPdfNote(title: String, pdfBytes: ByteArray, onResult: (Boolean, String?) -> Unit) {
+        val p = _userProfile.value ?: return onResult(false, "Not authenticated")
+        if (!p.canUploadNotes()) return onResult(false, "No permission")
+        validatePdf(pdfBytes)?.let { return onResult(false, it) }
+        if (pdfBytes.size > 10 * 1024 * 1024) return onResult(false, "PDF exceeds 10MB limit")
+        val compressed = pdfBytes.gzipCompress()
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val uid = p.id
+            val result = notesRepo.uploadCompressedPdf(uid, title, pdfBytes, compressed)
+            if (result is Resource.Success) {
+                addActivity(
+                    UserActivity(
+                        id = UUID.randomUUID().toString(),
+                        type = ActivityType.NOTE_UPLOAD.name,
+                        title = "Note Uploaded",
+                        description = "Uploaded '${title}' (original ${(pdfBytes.size/1024)}KB -> ${(compressed.size/1024)}KB)",
+                        timestamp = getCurrentTimestamp(),
+                        iconResId = R.drawable.baseline_notes_24
+                    )
+                )
+                observeMyNotes()
+                onResult(true, null)
+            } else if (result is Resource.Error) {
+                onResult(false, result.message)
+            }
+        }
+    }
+
+    /**
+     * Upgrade currently signed-in user to admin locally by updating Firestore document.
+     * NOTE: This does NOT set Firebase Custom Claims (requires Admin SDK). It enables client-side features.
+     */
+    fun upgradeToAdmin(providedCode: String, onResult: (Boolean, String?) -> Unit) {
+        val user = auth.currentUser ?: return onResult(false, "Not signed in")
+        if (providedCode != Constants.ADMIN_CODE) {
+            onResult(false, "Invalid admin code")
+            return
+        }
+        val uid = user.uid
+        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+        db.collection("users").document(uid)
+            .get()
+            .addOnSuccessListener { snap ->
+                val existingRoles = (snap.get("roles") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                val mergedRoles = (existingRoles + Constants.DEFAULT_ADMIN_ROLES).distinct()
+                val updates = mapOf(
+                    "isAdmin" to true,
+                    "roles" to mergedRoles
+                )
+                db.collection("users").document(uid)
+                    .update(updates)
+                    .addOnSuccessListener {
+                        // Update local profile state
+                        _userProfile.value = _userProfile.value?.copy(isAdmin = true, roles = mergedRoles)
+                        onResult(true, null)
+                    }
+                    .addOnFailureListener { e ->
+                        onResult(false, e.localizedMessage)
+                    }
+            }
+            .addOnFailureListener { e -> onResult(false, e.localizedMessage) }
     }
 }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -69,8 +70,10 @@ fun EventsListScreen(viewModel: MainViewModel, navController: NavController) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(text = "Events", style = MaterialTheme.typography.headlineMedium)
-            Button(onClick = { navController.navigate("events/create") }) {
-                Text("Create Event")
+            if (viewModel.canCreateEvent()) {
+                Button(onClick = { navController.navigate("events/create") }) { Text("Create Event") }
+            } else {
+                AssistChip(onClick = {}, label = { Text("View only") })
             }
         }
 

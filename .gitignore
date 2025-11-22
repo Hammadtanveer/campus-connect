@@ -88,3 +88,12 @@ app/debug/
 
 # Local-only artifacts (keep private on this machine)
 /local_only/
+
+# Firebase Admin Service Account Keys (NEVER COMMIT!)
+serviceAccountKey.json
+*-service-account*.json
+firebase-adminsdk-*.json
+
+# Node modules (if using Firebase Admin SDK)
+node_modules/
+package-lock.json

@@ -72,6 +72,8 @@ private fun RegisterScreen(viewModel: MainViewModel, onBackToLogin: () -> Unit) 
     var email by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
+    var adminCode by remember { mutableStateOf("") }
+    var showAdminField by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var success by remember { mutableStateOf<String?>(null) }
@@ -95,8 +97,17 @@ private fun RegisterScreen(viewModel: MainViewModel, onBackToLogin: () -> Unit) 
             OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(16.dp))
-
+            Spacer(modifier = Modifier.height(12.dp))
+            TextButton(onClick = { showAdminField = !showAdminField }) { Text(if (showAdminField) "Hide admin code" else "I have an admin code") }
+            if (showAdminField) {
+                OutlinedTextField(
+                    value = adminCode,
+                    onValueChange = { adminCode = it },
+                    label = { Text("Admin Code (Optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             // Show error or success message
             error?.let { Text(text = it, color = MaterialTheme.colorScheme.error) }
             success?.let { Text(text = it, color = Success) }
@@ -127,10 +138,11 @@ private fun RegisterScreen(viewModel: MainViewModel, onBackToLogin: () -> Unit) 
                     branch = "",
                     year = "",
                     bio = "",
+                    adminCode = adminCode.trim(),
                     onResult = { ok, err ->
                         loading = false
                         if (ok) {
-                            success = "Account created successfully. Redirecting to sign in..."
+                            success = if (adminCode.isNotBlank()) "Admin account created successfully. Redirecting to sign in..." else "Account created successfully. Redirecting to sign in..."
                             // Delay slightly then switch back to login
                             scope.launch {
                                 delay(1500)

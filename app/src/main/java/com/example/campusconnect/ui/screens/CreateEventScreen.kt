@@ -42,6 +42,13 @@ import java.util.Date
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateEventScreen(viewModel: MainViewModel, navController: NavController) {
+    if (!viewModel.canCreateEvent()) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text("You don't have permission to create events.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+        }
+        return
+    }
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 

@@ -19,5 +19,9 @@ data class UserProfile(
 
     // New data enhancements
     val mentorshipRating: Double? = null,
-    val totalConnections: Int = 0
+    val totalConnections: Int = 0,
+
+    // RBAC fields
+    val isAdmin: Boolean = false, // convenience flag from custom claims ("admin": true)
+    val roles: List<String> = emptyList() // arbitrary roles/permissions e.g. ["event:create", "notes:upload"]
 )

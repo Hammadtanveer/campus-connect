@@ -26,9 +26,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,13 +44,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.navigation.NavHostController
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.R
 import com.example.campusconnect.data.models.UserActivity
 import com.example.campusconnect.data.models.UserProfile
 
 @Composable
-fun AccountView(viewModel: MainViewModel) {
+fun AccountView(viewModel: MainViewModel, navController: NavHostController) {
     val userProfile = viewModel.userProfile
     val userActivities = viewModel.userActivities
     var isEditing by remember { mutableStateOf(false) }
@@ -221,6 +224,127 @@ fun AccountView(viewModel: MainViewModel) {
         } else {
             items(userActivities) { activity ->
                 ActivityItem(activity = activity)
+            }
+        }
+
+        item {
+            // Admin tools section
+            val profile = userProfile
+            if (profile.isAdmin || profile.roles.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Admin Tools",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = if (profile.isAdmin) "You have admin privileges." else "You have elevated roles.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        if (profile.roles.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Roles:", style = MaterialTheme.typography.labelLarge)
+                            profile.roles.forEach { r ->
+                                Text("• $r", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Event creation available: ${viewModel.canCreateEvent()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Admin Panel Button
+                        Button(
+                            onClick = { navController.navigate("admin/panel") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.outline_person_24),
+                                contentDescription = "Admin Panel",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.size(8.dp))
+                            Text("Open Admin Panel")
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            // Admin upgrade section (only if not already admin)
+            if (!userProfile.isAdmin) {
+                var adminCode by remember { mutableStateOf("") }
+                var upgrading by remember { mutableStateOf(false) }
+                var upgradeMessage by remember { mutableStateOf<String?>(null) }
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Admin Access", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Enter an admin code to enable admin features on this account.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = adminCode,
+                            onValueChange = { adminCode = it },
+                            label = { Text("Admin Code") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = {
+                                upgradeMessage = null
+                                if (adminCode.isBlank()) {
+                                    upgradeMessage = "Please enter a code"
+                                    return@Button
+                                }
+                                upgrading = true
+                                viewModel.upgradeToAdmin(adminCode.trim()) { ok, err ->
+                                    upgrading = false
+                                    upgradeMessage = if (ok) "Admin privileges granted!" else err ?: "Upgrade failed"
+                                }
+                            }) {
+                                Text(if (upgrading) "Upgrading..." else "Apply Code")
+                            }
+                            TextButton(onClick = { adminCode = "" }) { Text("Clear") }
+                        }
+                        upgradeMessage?.let { msg ->
+                            Spacer(Modifier.height(6.dp))
+                            Text(msg, color = if (msg.contains("granted", true)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            } else {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Admin", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(4.dp))
+                        Text("You have admin privileges.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { navController.navigate("admin/panel") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Open Admin Panel") }
+                    }
+                }
             }
         }
 

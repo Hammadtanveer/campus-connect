@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user has a specific role
+    function hasRole(role) {
+      return request.auth != null &&
+             (request.auth.token.admin == true ||
+              (request.auth.token.roles is list && role in request.auth.token.roles));
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId; // self-edit only
+      allow update: if hasRole('user:update') || request.auth.uid == userId;
+    }
+
+    // Events collection
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if hasRole('event:create');
+      allow update, delete: if hasRole('event:create');
+    }
+
+    // Event registrations
+    match /registrations/{regId} {
+      allow read: if request.auth != null && request.auth.uid != null;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Notes collection - NEW CLOUDINARY-BASED RULES
+    match /notes/{noteId} {
+      // Anyone authenticated can read notes
+      allow read: if request.auth != null;
+
+      // Only authenticated users can create notes with proper validation
+      allow create: if request.auth != null
+        && request.resource.data.uploaderId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.subject is string
+        && request.resource.data.semester is string
+        && request.resource.data.fileUrl is string
+        && request.resource.data.cloudinaryPublicId is string;
+
+      // Only the uploader can delete their notes
+      allow delete: if request.auth != null
+        && resource.data.uploaderId == request.auth.uid;
+
+      // Allow updating only download/view counts (not other fields)
+      allow update: if request.auth != null
+        && (request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['downloads', 'views']));
+    }
+
+    // Societies collection
+    match /societies/{societyId} {
+      allow read: if true;
+      allow update, delete: if hasRole('society:manage') ||
+        (exists(/databases/$(database)/documents/societies/$(societyId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/societies/$(societyId)).data.admins);
+      allow create: if hasRole('society:manage');
+    }
+
+    // Seniors collection
+    match /seniors/{seniorId} {
+      allow read: if true;
+      allow update: if hasRole('senior:update');
+    }
+  }
+}
+
