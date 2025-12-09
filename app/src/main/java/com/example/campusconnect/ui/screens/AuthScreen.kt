@@ -44,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.util.NetworkUtils
 import com.example.campusconnect.ui.theme.Success
@@ -55,15 +56,20 @@ private enum class LocalAuthMode { LOGIN, REGISTER }
 
 @Composable
 fun AuthScreen(
-    viewModel: MainViewModel,
-    startInRegister: Boolean = false
+    viewModel: MainViewModel = hiltViewModel(),
+    startInRegister: Boolean = false,
+    onLoginSuccess: () -> Unit = {}
 ) {
     var mode by remember { mutableStateOf(if (startInRegister) LocalAuthMode.REGISTER else LocalAuthMode.LOGIN) }
 
     if (mode == LocalAuthMode.REGISTER) {
         RegisterScreen(viewModel = viewModel) { mode = LocalAuthMode.LOGIN }
     } else {
-        LoginScreen(viewModel = viewModel, onSwitchToRegister = { mode = LocalAuthMode.REGISTER })
+        LoginScreen(
+            viewModel = viewModel,
+            onSwitchToRegister = { mode = LocalAuthMode.REGISTER },
+            onLoginSuccess = onLoginSuccess
+        )
     }
 }
 
@@ -138,21 +144,20 @@ private fun RegisterScreen(viewModel: MainViewModel, onBackToLogin: () -> Unit) 
                     branch = "",
                     year = "",
                     bio = "",
-                    adminCode = adminCode.trim(),
-                    onResult = { ok, err ->
-                        loading = false
-                        if (ok) {
-                            success = if (adminCode.isNotBlank()) "Admin account created successfully. Redirecting to sign in..." else "Account created successfully. Redirecting to sign in..."
-                            // Delay slightly then switch back to login
-                            scope.launch {
-                                delay(1500)
-                                onBackToLogin()
-                            }
-                        } else {
-                            error = err ?: "Registration failed. Please try again."
+                    adminCode = adminCode.trim()
+                ) { ok, err ->
+                    loading = false
+                    if (ok) {
+                        success = if (adminCode.isNotBlank()) "Admin account created successfully. Redirecting to sign in..." else "Account created successfully. Redirecting to sign in..."
+                        // Delay slightly then switch back to login
+                        scope.launch {
+                            delay(1500)
+                            onBackToLogin()
                         }
+                    } else {
+                        error = err
                     }
-                )
+                }
             }, modifier = Modifier.fillMaxWidth()) {
                 Text(text = if (loading) "Please wait..." else "Sign Up")
             }
@@ -165,7 +170,8 @@ private fun RegisterScreen(viewModel: MainViewModel, onBackToLogin: () -> Unit) 
 @Composable
 private fun LoginScreen(
     viewModel: MainViewModel,
-    onSwitchToRegister: () -> Unit
+    onSwitchToRegister: () -> Unit,
+    onLoginSuccess: () -> Unit
 ) {
     // Use the centralized Material color scheme
     val colorScheme = MaterialTheme.colorScheme
@@ -247,10 +253,12 @@ private fun LoginScreen(
                         onClick = {
                             loading = true
                             error = null
+                            success = null
                             viewModel.signInWithEmailPassword(email, pass) { ok, err ->
                                 loading = false
                                 if (ok) {
                                     success = "Signed in successfully"
+                                    onLoginSuccess()
                                 } else {
                                     error = err
                                 }

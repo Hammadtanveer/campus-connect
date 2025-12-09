@@ -4,6 +4,9 @@ import android.util.Log
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
+import com.example.campusconnect.data.local.NotesDao
+import com.example.campusconnect.data.local.NoteEntity
+import com.example.campusconnect.data.local.toEntity
 import com.example.campusconnect.data.models.Note
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.util.Constants
@@ -13,17 +16,30 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileOutputStream
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
-class NotesRepository(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+/**
+ * Repository for managing note operations.
+ *
+ * Uses dependency injection for Firebase and Cloudinary instances.
+ * All methods return Resource wrapper for consistent error handling.
+ */
+@Singleton
+class NotesRepository @Inject constructor(
+    private val firestore: FirebaseFirestore,
+    private val mediaManager: MediaManager,
+    private val notesDao: NotesDao
 ) {
 
     private val notesCollection = firestore.collection("notes")
@@ -59,8 +75,8 @@ class NotesRepository(
 
             Log.d("NotesRepository", "Starting upload to Cloudinary: ${file.name}")
 
-            // Upload to Cloudinary
-            MediaManager.get()
+            // Upload to Cloudinary using injected MediaManager
+            mediaManager
                 .upload(file.absolutePath)
                 .options(uploadOptions)
                 .callback(object : UploadCallback {
@@ -314,6 +330,27 @@ class NotesRepository(
             }
         } catch (e: Exception) {
             Resource.Error(e.message ?: "Failed to upload PDF")
+        }
+    }
+
+    /**
+     * Sync notes from Firestore to local Room database
+     */
+    suspend fun syncNotes(subject: String? = null, semester: String? = null) {
+        withContext(Dispatchers.IO) {
+            try {
+                // Fetch latest remote notes (one-shot)
+                var query: Query = notesCollection.orderBy("uploadedAt", Query.Direction.DESCENDING)
+                subject?.let { query = query.whereEqualTo("subject", it) }
+                semester?.let { query = query.whereEqualTo("semester", it) }
+                val snap = query.get().await()
+                val entities = snap.documents.mapNotNull { doc ->
+                    doc.toObject(Note::class.java)?.copy(id = doc.id)?.toEntity()
+                }
+                notesDao.insertNotes(entities)
+            } catch (e: Exception) {
+                Log.e("NotesRepository", "syncNotes failed", e)
+            }
         }
     }
 }

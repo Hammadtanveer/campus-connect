@@ -45,14 +45,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavHostController
-import com.example.campusconnect.MainViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.collectAsState
 import com.example.campusconnect.R
 import com.example.campusconnect.data.models.UserActivity
 import com.example.campusconnect.data.models.UserProfile
+import com.example.campusconnect.MainViewModel
+import com.example.campusconnect.profile.ProfileViewModel
 
 @Composable
 fun AccountView(viewModel: MainViewModel, navController: NavHostController) {
-    val userProfile = viewModel.userProfile
+    val profileVM = hiltViewModel<ProfileViewModel>()
+    val sessionState by profileVM.session.collectAsState()
+    val userProfile = sessionState.profile ?: viewModel.userProfile
     val userActivities = viewModel.userActivities
     var isEditing by remember { mutableStateOf(false) }
 
@@ -62,7 +67,7 @@ fun AccountView(viewModel: MainViewModel, navController: NavHostController) {
         EditProfileDialog(
             userProfile = userProfile,
             onSave = { updatedProfile ->
-                viewModel.updateUserProfile(updatedProfile) { success, error ->
+                profileVM.updateProfile(updatedProfile) { success, _ ->
                     if (success) {
                         isEditing = false
                     }

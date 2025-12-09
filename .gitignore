@@ -1,3 +1,7 @@
+# ===================================
+# CampusConnect - Android Project
+# ===================================
+
 # Built application files
 *.apk
 *.aar
@@ -16,84 +20,198 @@ gen/
 out/
 app/release/
 app/debug/
+app/build/
+build/
 
 # Gradle files
 .gradle/
-build/
-app/build/
+gradle-app.setting
+.gradletasknamecache
 
 # Local configuration file (sdk path, etc)
 local.properties
 
-# Log Files
-*.log
-
-# Android Studio files
+# ===================================
+# Android Studio / IntelliJ IDEA
+# ===================================
 *.iml
 .idea/
+.idea/*
+!.idea/runConfigurations/
+*.ipr
+*.iws
+*.ids
+*.orig
 .navigation/
 captures/
-*.keystore
+output.json
 
-# Firebase & Google Services
-google-services.json
+# Android Studio 3 in .gitignore file.
+.idea/caches
+.idea/modules.xml
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/.name
+.idea/compiler.xml
+.idea/copyright/profiles_settings.xml
+.idea/encodings.xml
+.idea/misc.xml
+.idea/vcs.xml
+.idea/jsLibraryMappings.xml
+.idea/datasources.xml
+.idea/dataSources.ids
+.idea/sqlDataSources.xml
+.idea/dynamic.xml
+.idea/uiDesigner.xml
+.idea/assetWizardSettings.xml
+.idea/gradle.xml
+.idea/jarRepositories.xml
+.idea/navEditor.xml
+
+# Keystore files (if you use them)
+*.jks
+*.keystore
+!debug.keystore
+
+# External native build folder
+.externalNativeBuild/
+.cxx/
+
+# Google Services (API, OAuth)
+# Keep google-services.json for collaboration but be careful with production keys
+# Uncomment the line below if you want to exclude it:
+# google-services.json
 google-services.json.license
 google-services.xml
 
+# ===================================
+# SECURITY - API Keys & Secrets
+# ===================================
+# Firebase Admin Service Account Keys (NEVER COMMIT!)
+serviceAccountKey.json
+*-service-account*.json
+firebase-adminsdk-*.json
+
+# Cloudinary credentials (if stored in separate files)
+cloudinary-config.json
+.env
+.env.local
+.env.production
+
+# Any file containing API keys or secrets
+**/secrets/
+**/credentials/
+
+# ===================================
+# Build Logs & Reports (Don't commit)
+# ===================================
+*.log
+*.txt
+build*.log
+*_build.log
+compile_check.log
+kapt_log.txt
+test.log
+test_results.log
+final_build*.log
+build_*.log
+hilt_build_result.txt
+deps.txt
+absolutely_final_build.log
+
+# ===================================
+# Backup & Temporary Files
+# ===================================
+*.bak
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.directory
+
+# ===================================
+# Node.js (Firebase Admin SDK)
+# ===================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# ===================================
+# Firebase
+# ===================================
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebaserc
+
+# Old backup files
+*.old.bak
+firestore.rules.old.bak
+
+# ===================================
+# Testing
+# ===================================
+/test-results/
+/androidTest-results/
+lint-results.html
+lint-results.xml
+
+# ===================================
+# Proguard
+# ===================================
+proguard/
+proguard-project.txt
+
+# ===================================
+# Crashlytics & Analytics
+# ===================================
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
+
+# ===================================
 # Fastlane
+# ===================================
 fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots
 fastlane/test_output
 fastlane/readme.md
 
-# Keystore files (if you use them)
-*.jks
-*.keystore
-
-# macOS
-.DS_Store
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Linux
-.directory
-
-# IntelliJ project files
-*.ipr
-*.iws
-*.ids
-*.orig
-
-# External native build folder
-.externalNativeBuild/
-.cxx/
-
-# Proguard
-proguard/
-proguard-project.txt
-
-# Crashlytics
-com_crashlytics_export_strings.xml
-crashlytics.properties
-crashlytics-build.properties
-fabric.properties
-
-# App-specific (adjust if needed)
-app/release/
-app/debug/
-
-# Local-only artifacts (keep private on this machine)
+# ===================================
+# Local-only folders (keep private)
+# ===================================
 /local_only/
+/private/
+/temp/
 
-# Firebase Admin Service Account Keys (NEVER COMMIT!)
-serviceAccountKey.json
-*-service-account*.json
-firebase-adminsdk-*.json
+# ===================================
+# Kotlin
+# ===================================
+.kotlin/
+*.kotlin_module
+*.kotlin_builtins
 
-# Node modules (if using Firebase Admin SDK)
-node_modules/
-package-lock.json
+# ===================================
+# Version Control
+# ===================================
+.svn/
+.hg/
+.bzr/
+
+# ===================================
+# Miscellaneous
+# ===================================
+*.hprof
+*.pid
+*.seed
+*.pid.lock
