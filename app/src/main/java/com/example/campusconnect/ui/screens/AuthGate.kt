@@ -7,12 +7,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.campusconnect.MainViewModel
 
 @Composable
 fun AuthGate(
-    viewModel: MainViewModel = viewModel(),
+    viewModel: MainViewModel = hiltViewModel(),
     darkTheme: Boolean
 ) {
     val initializing = viewModel.initializing

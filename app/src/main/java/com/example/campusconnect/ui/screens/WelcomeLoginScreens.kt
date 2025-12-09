@@ -35,7 +35,15 @@ fun WelcomeHost(viewModel: MainViewModel, darkTheme: Boolean = isSystemInDarkThe
     val startRegister = remember { mutableStateOf(false) }
 
     if (showingAuth.value) {
-        AuthScreen(viewModel = viewModel, startInRegister = startRegister.value)
+        AuthScreen(
+            startInRegister = startRegister.value,
+            onLoginSuccess = {
+                // When login succeeds, MainViewModel will pick up the session/profile changes
+                // and AuthGate will automatically switch to MainView. We can also hide the
+                // auth UI immediately for a snappier experience.
+                showingAuth.value = false
+            }
+        )
     } else {
         WelcomeScreen(
             onLogin = {

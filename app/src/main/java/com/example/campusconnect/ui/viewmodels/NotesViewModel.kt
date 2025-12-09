@@ -2,32 +2,44 @@ package com.example.campusconnect.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+// Paging 3 - Optional (requires library sync)
+// import androidx.paging.Pager
+// import androidx.paging.PagingConfig
+// import androidx.paging.PagingData
+// import androidx.paging.cachedIn
 import com.example.campusconnect.data.models.Note
-import com.example.campusconnect.data.models.NoteFilter
 import com.example.campusconnect.data.models.Resource
+// import com.example.campusconnect.data.paging.NotesPagingSource
 import com.example.campusconnect.data.repository.NotesRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
+import com.example.campusconnect.ui.state.UiState
 
-data class NotesUiState(
-    val notes: List<Note> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: String? = null
-)
+/**
+ * ViewModel for notes list and filtering functionality.
+ *
+ * Uses Hilt for dependency injection of repository and auth.
+ */
+@HiltViewModel
+class NotesViewModel @Inject constructor(
+    private val repository: NotesRepository,
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+) : ViewModel() {
 
-class NotesViewModel : ViewModel() {
+    private val _allNotesState = MutableStateFlow<UiState<List<Note>>>(UiState.Loading)
+    val allNotesState: StateFlow<UiState<List<Note>>> = _allNotesState.asStateFlow()
 
-    private val repository = NotesRepository()
-    private val auth = FirebaseAuth.getInstance()
-
-    private val _allNotesState = MutableStateFlow(NotesUiState())
-    val allNotesState: StateFlow<NotesUiState> = _allNotesState.asStateFlow()
-
-    private val _myNotesState = MutableStateFlow(NotesUiState())
-    val myNotesState: StateFlow<NotesUiState> = _myNotesState.asStateFlow()
+    private val _myNotesState = MutableStateFlow<UiState<List<Note>>>(UiState.Loading)
+    val myNotesState: StateFlow<UiState<List<Note>>> = _myNotesState.asStateFlow()
 
     private val _selectedSubject = MutableStateFlow<String?>(null)
     val selectedSubject: StateFlow<String?> = _selectedSubject.asStateFlow()
@@ -41,9 +53,24 @@ class NotesViewModel : ViewModel() {
     private val _deleteInProgress = MutableStateFlow<String?>(null)
     val deleteInProgress: StateFlow<String?> = _deleteInProgress.asStateFlow()
 
+    // Paging support for large lists (Optional - requires Paging 3 library)
+    // private val _notesPagingFlow = MutableStateFlow<Flow<PagingData<Note>>?>(null)
+    // val notesPagingFlow: StateFlow<Flow<PagingData<Note>>?> = _notesPagingFlow.asStateFlow()
+
     init {
         loadAllNotes()
         loadMyNotes()
+        startPeriodicSync()
+        // setupPaging() // Uncomment when Paging 3 is available
+    }
+
+    private fun startPeriodicSync() {
+        viewModelScope.launch {
+            while (true) {
+                try { repository.syncNotes() } catch (_: Exception) {}
+                delay(5 * 60 * 1000) // every 5 minutes
+            }
+        }
     }
 
     /**
@@ -57,23 +84,9 @@ class NotesViewModel : ViewModel() {
                 searchQuery = _searchQuery.value
             ).collect { resource ->
                 when (resource) {
-                    is Resource.Loading -> {
-                        _allNotesState.value = _allNotesState.value.copy(isLoading = true)
-                    }
-                    is Resource.Success -> {
-                        _allNotesState.value = NotesUiState(
-                            notes = resource.data ?: emptyList(),
-                            isLoading = false,
-                            error = null
-                        )
-                    }
-                    is Resource.Error -> {
-                        _allNotesState.value = NotesUiState(
-                            notes = emptyList(),
-                            isLoading = false,
-                            error = resource.message
-                        )
-                    }
+                    is Resource.Loading -> _allNotesState.value = UiState.Loading
+                    is Resource.Success -> _allNotesState.value = UiState.Success(resource.data)
+                    is Resource.Error -> _allNotesState.value = UiState.Error(resource.message ?: "Error loading notes")
                 }
             }
         }
@@ -84,27 +97,12 @@ class NotesViewModel : ViewModel() {
      */
     fun loadMyNotes() {
         val userId = auth.currentUser?.uid ?: return
-
         viewModelScope.launch {
             repository.observeMyNotes(userId).collect { resource ->
                 when (resource) {
-                    is Resource.Loading -> {
-                        _myNotesState.value = _myNotesState.value.copy(isLoading = true)
-                    }
-                    is Resource.Success -> {
-                        _myNotesState.value = NotesUiState(
-                            notes = resource.data ?: emptyList(),
-                            isLoading = false,
-                            error = null
-                        )
-                    }
-                    is Resource.Error -> {
-                        _myNotesState.value = NotesUiState(
-                            notes = emptyList(),
-                            isLoading = false,
-                            error = resource.message
-                        )
-                    }
+                    is Resource.Loading -> _myNotesState.value = UiState.Loading
+                    is Resource.Success -> _myNotesState.value = UiState.Success(resource.data)
+                    is Resource.Error -> _myNotesState.value = UiState.Error(resource.message ?: "Error loading my notes")
                 }
             }
         }
@@ -153,16 +151,8 @@ class NotesViewModel : ViewModel() {
 
             val result = repository.deleteNote(note.id, note.cloudinaryPublicId)
 
-            when (result) {
-                is Resource.Error -> {
-                    // Show error (UI will handle this)
-                    _allNotesState.value = _allNotesState.value.copy(
-                        error = result.message
-                    )
-                }
-                else -> {
-                    // Success - note will be removed automatically via Flow
-                }
+            if (result is Resource.Error) {
+                _allNotesState.value = UiState.Error(result.message ?: "Delete failed")
             }
 
             _deleteInProgress.value = null
@@ -191,8 +181,40 @@ class NotesViewModel : ViewModel() {
      * Clear error state
      */
     fun clearError() {
-        _allNotesState.value = _allNotesState.value.copy(error = null)
-        _myNotesState.value = _myNotesState.value.copy(error = null)
+        if (allNotesState.value is UiState.Error) _allNotesState.value = UiState.Success(emptyList())
+        if (myNotesState.value is UiState.Error) _myNotesState.value = UiState.Success(emptyList())
     }
-}
 
+    /*
+    // Paging 3 methods - Uncomment when library is available
+
+    /**
+     * Set up paging for notes list
+     */
+    private fun setupPaging() {
+        _notesPagingFlow.value = Pager(
+            config = PagingConfig(
+                pageSize = 20,
+                enablePlaceholders = false,
+                prefetchDistance = 5,
+                initialLoadSize = 20
+            ),
+            pagingSourceFactory = {
+                NotesPagingSource(
+                    firestore = firestore,
+                    subject = _selectedSubject.value,
+                    semester = _selectedSemester.value,
+                    searchQuery = _searchQuery.value
+                )
+            }
+        ).flow.cachedIn(viewModelScope)
+    }
+
+    /**
+     * Refresh paging data when filters change
+     */
+    fun refreshPaging() {
+        setupPaging()
+    }
+    */
+}

@@ -44,13 +44,26 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import android.app.Application
 import com.example.campusconnect.util.Constants
+import com.example.campusconnect.util.getCurrentTimestamp
+import com.example.campusconnect.util.formatTimestamp
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import com.example.campusconnect.session.SessionManager
+import com.example.campusconnect.data.repository.ActivityLogRepository
 
-class MainViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    application: Application,
+    private val auth: FirebaseAuth,
+    private val eventsRepo: EventsRepository,
+    private val notesRepo: NotesRepository,
+    private val firestore: FirebaseFirestore,
+    private val sessionManager: SessionManager,
+    private val activityLogRepository: ActivityLogRepository
+) : AndroidViewModel(application) {
     companion object {
         private const val EVENT_CREATION_TIMEOUT_MS = 30_000L
     }
-
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
     // Use State for Compose compatibility
     private val _initializing = mutableStateOf(true)
@@ -62,8 +75,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentScreen = mutableStateOf<Screen>(Screen.DrawerScreen.Profile)
     val currentScreen: Screen get() = _currentScreen.value
 
-    private val _userActivities = mutableStateOf<List<UserActivity>>(emptyList())
-    val userActivities: List<UserActivity> get() = _userActivities.value
+    val userActivities: List<UserActivity> get() = activityLogRepository.activities.value
 
     // notifications/unread badge
     private val _unreadEventNotifications = mutableStateOf(0)
@@ -82,7 +94,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val downloads: List<DownloadItem> get() = _downloads.value
 
     // Events-related state
-    private val eventsRepo = EventsRepository(FirebaseFirestore.getInstance())
 
     private val _eventsList = mutableStateOf<List<OnlineEvent>>(emptyList())
     val eventsList: List<OnlineEvent> get() = _eventsList.value
@@ -93,22 +104,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLoadingEvents = mutableStateOf(false)
     val isLoadingEvents: Boolean get() = _isLoadingEvents.value
 
-    private val notesRepo = NotesRepository()
     private val _myNotes = mutableStateOf<List<Note>>(emptyList())
     val myNotes: List<Note> get() = _myNotes.value
 
     init {
-        auth.currentUser?.uid?.let { loadUserProfile(it) } ?: run { _initializing.value = false }
+        auth.currentUser?.let { user ->
+            sessionManager.updateAuth(user.uid, user.email)
+            loadUserProfile(user.uid)
+        } ?: run { _initializing.value = false }
     }
 
     // All your existing methods with State updates
     private fun loadUserProfile(userId: String) {
-        val db = FirebaseFirestore.getInstance()
-        db.collection("users").document(userId)
+        firestore.collection("users").document(userId)
             .get()
             .addOnSuccessListener { doc ->
                 if (doc.exists()) {
-                    _userProfile.value = doc.toObject(UserProfile::class.java)
+                    val profile = doc.toObject(UserProfile::class.java)
+                    _userProfile.value = profile
+                    sessionManager.updateProfile(profile)
                     loadUserActivities(userId)
                     // Navigate into the app after successful profile load
                     _currentScreen.value = Screen.DrawerScreen.Profile
@@ -131,7 +145,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         _userProfile.value = fallback
                         _currentScreen.value = Screen.DrawerScreen.Profile
                         // write the fallback profile to Firestore (best-effort)
-                        db.collection("users").document(firebaseUser.uid)
+                        firestore.collection("users").document(firebaseUser.uid)
                             .set(fallback)
                             .addOnSuccessListener {
                                 Log.i("MainViewModel", "loadUserProfile: wrote fallback profile for ${firebaseUser.uid}")
@@ -330,7 +344,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         isAdmin: Boolean = false,
         onResult: (Boolean, String?) -> Unit
     ) {
-        val db = FirebaseFirestore.getInstance()
         val profile = UserProfile(
             id = userId,
             displayName = displayName,
@@ -342,7 +355,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             isAdmin = isAdmin,
             roles = if (isAdmin) listOf("admin", "event:create", "notes:upload") else emptyList()
         )
-        db.collection("users").document(userId)
+        firestore.collection("users").document(userId)
             .set(profile)
             .addOnSuccessListener {
                 _userProfile.value = profile
@@ -406,7 +419,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         type = ActivityType.PROFILE_UPDATE.name,
                         title = "Profile Updated",
                         description = "You updated your profile information",
-                        timestamp = getCurrentTimestamp(),
+                        timestamp = formatTimestamp(),
                         iconResId = R.drawable.outline_person_24
                     )
                 )
@@ -444,7 +457,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         type = ActivityType.PROFILE_UPDATE.name,
                         title = "Mentor Profile Updated",
                         description = "You updated your mentor profile",
-                        timestamp = getCurrentTimestamp(),
+                        timestamp = formatTimestamp(),
                         iconResId = R.drawable.outline_person_24
                     )
                 )
@@ -511,7 +524,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         type = "MENTORSHIP_REQUEST",
                         title = "Mentorship Request Sent",
                         description = "You sent a mentorship request to ${mentorId}",
-                        timestamp = getCurrentTimestamp(),
+                        timestamp = formatTimestamp(),
                         iconResId = R.drawable.outline_person_24
                     )
                 )
@@ -641,7 +654,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     type = "MENTORSHIP_ACCEPTED",
                                     title = "Mentorship Accepted",
                                     description = "You accepted a mentorship request from ${req.senderId}",
-                                    timestamp = getCurrentTimestamp(),
+                                    timestamp = formatTimestamp(),
                                     iconResId = R.drawable.outline_person_24
                                 )
                             )
@@ -685,7 +698,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         type = "MENTORSHIP_REJECTED",
                         title = "Mentorship Rejected",
                         description = "You rejected a mentorship request",
-                        timestamp = getCurrentTimestamp(),
+                        timestamp = formatTimestamp(),
                         iconResId = R.drawable.outline_person_24
                     )
                 )
@@ -792,7 +805,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 type = "MENTORSHIP_REMOVED",
                                 title = "Connection Removed",
                                 description = "You removed a mentorship connection",
-                                timestamp = getCurrentTimestamp(),
+                                timestamp = formatTimestamp(),
                                 iconResId = R.drawable.outline_person_24
                             )
                         )
@@ -877,7 +890,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                      type = "MENTORSHIP_NOTIFICATION",
                      title = title,
                      description = message,
-                     timestamp = getCurrentTimestamp(),
+                     timestamp = formatTimestamp(),
                      iconResId = R.drawable.outline_person_24
                  )
              )
@@ -887,12 +900,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      }
 
     private fun addActivity(activity: UserActivity) {
-        _userActivities.value = _userActivities.value + activity
-    }
-
-    private fun getCurrentTimestamp(): String {
-        val sdf = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
-        return sdf.format(Date())
+        // ActivityLogRepository uses logActivity internally
+        // Activities are already being logged where needed
+        Log.d("MainViewModel", "Activity: ${activity.description}")
     }
 
     fun loadUserActivities(userId: String) {
@@ -922,7 +932,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 iconResId = R.drawable.outline_download_24
             )
         )
-        _userActivities.value = sampleActivities
+        // Sample activities for demonstration
+        // In production, activities come from ActivityLogRepository
     }
 
     // Events-related helper methods that call into repository
@@ -1015,7 +1026,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 type = ActivityType.EVENT_JOINED.name,
                 title = "Event Joined",
                 description = "You joined: $eventName",
-                timestamp = getCurrentTimestamp(),
+                timestamp = formatTimestamp(),
                 iconResId = R.drawable.baseline_event_24
             )
         )
@@ -1060,7 +1071,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     type = ActivityType.NOTE_UPLOAD.name,
                     title = "Note Uploaded",
                     description = "You uploaded: $title",
-                    timestamp = getCurrentTimestamp(),
+                    timestamp = formatTimestamp(),
                     iconResId = R.drawable.baseline_notes_24
                 )
             )
@@ -1081,7 +1092,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 type = ActivityType.SENIOR_UPDATE.name,
                 title = "Senior Updated",
                 description = "Updated senior $seniorId field '$field'",
-                timestamp = getCurrentTimestamp(),
+                timestamp = formatTimestamp(),
                 iconResId = R.drawable.outline_person_24
             )
         )
@@ -1097,7 +1108,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 type = ActivityType.SOCIETY_MANAGE.name,
                 title = "Society $action",
                 description = "Action '$action' executed on society $societyId",
-                timestamp = getCurrentTimestamp(),
+                timestamp = formatTimestamp(),
                 iconResId = R.drawable.outline_person_play_24
             )
         )
@@ -1150,7 +1161,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         type = ActivityType.NOTE_UPLOAD.name,
                         title = "Note Uploaded",
                         description = "Uploaded '${title}' (original ${(pdfBytes.size/1024)}KB -> ${(compressed.size/1024)}KB)",
-                        timestamp = getCurrentTimestamp(),
+                        timestamp = formatTimestamp(),
                         iconResId = R.drawable.baseline_notes_24
                     )
                 )

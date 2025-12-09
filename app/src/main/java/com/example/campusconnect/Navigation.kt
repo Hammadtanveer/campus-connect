@@ -22,6 +22,8 @@ import com.example.campusconnect.ui.screens.MentorProfileScreen
 import com.example.campusconnect.ui.screens.MyMentorshipScreen
 import com.example.campusconnect.ui.screens.RequestDetailScreen
 import com.example.campusconnect.ui.screens.AdminPanelScreen
+import com.example.campusconnect.ui.screens.UploadNoteScreen
+import com.example.campusconnect.ui.screens.NotesScreen
 
 @Composable
 fun Navigation(navController: NavController, viewModel: MainViewModel, pd: PaddingValues) {
@@ -30,7 +32,19 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         startDestination = Screen.DrawerScreen.Profile.route,
         modifier = Modifier.padding(pd)
     ) {
-        composable(Screen.DrawerScreen.Notes.route) { Notes(viewModel) }
+        composable(Screen.DrawerScreen.Notes.route) {
+            NotesScreen(navController = navController)
+        }
+        composable("upload_note") {
+            UploadNoteScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onUploadSuccess = {
+                    navController.navigate(Screen.DrawerScreen.Notes.route) {
+                        popUpTo("upload_note") { inclusive = true }
+                    }
+                }
+            )
+        }
         composable(Screen.DrawerScreen.Seniors.route) { Seniors(viewModel) }
         composable(Screen.DrawerScreen.Societies.route) { Societies() }
         composable(Screen.DrawerScreen.Profile.route) { AccountView(viewModel, navController) }

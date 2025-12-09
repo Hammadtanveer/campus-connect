@@ -24,7 +24,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.example.campusconnect.data.models.Note
 import com.example.campusconnect.data.models.UploadProgress
 import com.example.campusconnect.ui.viewmodels.NotesViewModel
@@ -34,12 +36,20 @@ import com.example.campusconnect.util.FileUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotesScreen() {
-    val notesViewModel: NotesViewModel = viewModel()
-    val uploadViewModel: UploadNoteViewModel = viewModel()
+fun NotesScreen(navController: NavController? = null) {
+    val notesViewModel: NotesViewModel = hiltViewModel()
+    val uploadViewModel: UploadNoteViewModel = hiltViewModel()
 
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("All Notes", "My Uploads", "Upload")
+
+    // Navigate to upload screen when Upload tab is selected
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == 2 && navController != null) {
+            navController.navigate("upload_note")
+            selectedTab = 0 // Reset to All Notes tab
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -75,8 +85,13 @@ fun NotesScreen() {
             when (selectedTab) {
                 0 -> AllNotesTab(notesViewModel)
                 1 -> MyNotesTab(notesViewModel)
-                2 -> UploadTab(uploadViewModel) {
-                    selectedTab = 1 // Switch to My Uploads after successful upload
+                2 -> {
+                    // Show placeholder if navigation didn't trigger
+                    if (navController == null) {
+                        UploadTab(uploadViewModel) {
+                            selectedTab = 1
+                        }
+                    }
                 }
             }
         }
@@ -134,7 +149,7 @@ fun MyNotesTab(viewModel: NotesViewModel) {
 
 @Composable
 fun NotesListContent(
-    state: com.example.campusconnect.ui.viewmodels.NotesUiState,
+    state: com.example.campusconnect.ui.state.UiState<List<Note>>,
     onDownload: (Note) -> Unit,
     onDelete: ((Note) -> Unit)? = null,
     deleteInProgress: String? = null
@@ -142,42 +157,43 @@ fun NotesListContent(
     val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
-        when {
-            state.isLoading -> {
+        when (state) {
+            is com.example.campusconnect.ui.state.UiState.Loading -> {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
-            state.error != null -> {
+            is com.example.campusconnect.ui.state.UiState.Error -> {
                 ErrorMessage(
-                    message = state.error,
+                    message = state.message,
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
-            state.notes.isEmpty() -> {
-                EmptyState(
-                    message = "No notes available",
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(state.notes) { note ->
-                        NoteCard(
-                            note = note,
-                            onDownload = {
-                                onDownload(note)
-                                // Open file in browser/viewer
-                                val intent = Intent(Intent.ACTION_VIEW, note.fileUrl.toUri())
-                                context.startActivity(intent)
-                            },
-                            onDelete = onDelete?.let { { onDelete(note) } },
-                            isDeleting = deleteInProgress == note.id
-                        )
+            is com.example.campusconnect.ui.state.UiState.Success -> {
+                if (state.data.isEmpty()) {
+                    EmptyState(
+                        message = "No notes available",
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(state.data) { note ->
+                            NoteCard(
+                                note = note,
+                                onDownload = {
+                                    onDownload(note)
+                                    // Open file in browser/viewer
+                                    val intent = Intent(Intent.ACTION_VIEW, note.fileUrl.toUri())
+                                    context.startActivity(intent)
+                                },
+                                onDelete = onDelete?.let { { onDelete(note) } },
+                                isDeleting = deleteInProgress == note.id
+                            )
+                        }
                     }
                 }
             }

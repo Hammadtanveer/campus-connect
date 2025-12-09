@@ -9,14 +9,23 @@ import com.example.campusconnect.data.models.UploadProgress
 import com.example.campusconnect.data.repository.NotesRepository
 import com.example.campusconnect.util.FileUtils
 import com.google.firebase.auth.FirebaseAuth
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class UploadNoteViewModel : ViewModel() {
-    private val repository = NotesRepository()
-    private val auth = FirebaseAuth.getInstance()
+/**
+ * ViewModel for note upload functionality.
+ *
+ * Uses Hilt for dependency injection of repository and auth.
+ */
+@HiltViewModel
+class UploadNoteViewModel @Inject constructor(
+    private val repository: NotesRepository,
+    private val auth: FirebaseAuth
+) : ViewModel() {
 
     private val _uploadProgress = MutableStateFlow<UploadProgress>(UploadProgress.Idle)
     val uploadProgress: StateFlow<UploadProgress> = _uploadProgress.asStateFlow()

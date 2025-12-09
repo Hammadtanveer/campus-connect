@@ -12,8 +12,18 @@ import com.example.campusconnect.data.models.EventCategory
 import com.example.campusconnect.data.models.EventRegistration
 import com.example.campusconnect.data.models.RegistrationStatus
 import java.util.Date
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class EventsRepository(private val db: FirebaseFirestore) {
+/**
+ * Repository for managing event operations.
+ *
+ * Uses dependency injection for Firestore instance.
+ */
+@Singleton
+class EventsRepository @Inject constructor(
+    private val db: FirebaseFirestore
+) {
 
     fun observeEvents(): Flow<Resource<List<OnlineEvent>>> = callbackFlow {
         trySend(Resource.Loading)
