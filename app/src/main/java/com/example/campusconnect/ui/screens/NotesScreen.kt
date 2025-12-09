@@ -27,8 +27,10 @@ import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.models.Note
 import com.example.campusconnect.data.models.UploadProgress
+import com.example.campusconnect.security.canUploadNotes
 import com.example.campusconnect.ui.viewmodels.NotesViewModel
 import com.example.campusconnect.ui.viewmodels.UploadNoteViewModel
 import com.example.campusconnect.util.Constants
@@ -39,13 +41,24 @@ import com.example.campusconnect.util.FileUtils
 fun NotesScreen(navController: NavController? = null) {
     val notesViewModel: NotesViewModel = hiltViewModel()
     val uploadViewModel: UploadNoteViewModel = hiltViewModel()
+    val mainViewModel: MainViewModel = hiltViewModel()
+
+    val profile = mainViewModel.userProfile
+    val canUploadNotes = profile?.canUploadNotes() == true
 
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("All Notes", "My Uploads", "Upload")
 
-    // Navigate to upload screen when Upload tab is selected
-    LaunchedEffect(selectedTab) {
-        if (selectedTab == 2 && navController != null) {
+    // Build tabs based on permission:
+    // - Admin / allowed: All Notes, My Uploads, Upload
+    // - Non-admin: All Notes only
+    val tabs = remember(canUploadNotes) {
+        if (canUploadNotes) listOf("All Notes", "My Uploads", "Upload")
+        else listOf("All Notes")
+    }
+
+    // Navigate to upload screen when Upload tab is selected (index 2 only exists for allowed users)
+    LaunchedEffect(selectedTab, canUploadNotes) {
+        if (canUploadNotes && selectedTab == 2 && navController != null) {
             navController.navigate("upload_note")
             selectedTab = 0 // Reset to All Notes tab
         }
@@ -81,12 +94,14 @@ fun NotesScreen(navController: NavController? = null) {
                 }
             }
 
-            // Tab Content
+            // Tab Content mapped to filtered tabs list
             when (selectedTab) {
                 0 -> AllNotesTab(notesViewModel)
-                1 -> MyNotesTab(notesViewModel)
-                2 -> {
-                    // Show placeholder if navigation didn't trigger
+                1 -> if (canUploadNotes) {
+                    MyNotesTab(notesViewModel)
+                }
+                2 -> if (canUploadNotes) {
+                    // This branch only valid for admins/allowed users; when navController is null, show inline UploadTab
                     if (navController == null) {
                         UploadTab(uploadViewModel) {
                             selectedTab = 1
@@ -829,4 +844,3 @@ fun EmptyState(message: String, modifier: Modifier = Modifier) {
         )
     }
 }
-
