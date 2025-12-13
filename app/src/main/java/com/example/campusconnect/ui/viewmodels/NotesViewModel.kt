@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.example.campusconnect.ui.state.UiState
+import android.util.Log
 
 /**
  * ViewModel for notes list and filtering functionality.
@@ -86,7 +87,10 @@ class NotesViewModel @Inject constructor(
                 when (resource) {
                     is Resource.Loading -> _allNotesState.value = UiState.Loading
                     is Resource.Success -> _allNotesState.value = UiState.Success(resource.data)
-                    is Resource.Error -> _allNotesState.value = UiState.Error(resource.message ?: "Error loading notes")
+                    is Resource.Error -> {
+                        _allNotesState.value = UiState.Error(resource.message ?: "Error loading notes")
+                        Log.e("NotesViewModel", "loadAllNotes error: ${resource.message}")
+                    }
                 }
             }
         }
@@ -102,7 +106,11 @@ class NotesViewModel @Inject constructor(
                 when (resource) {
                     is Resource.Loading -> _myNotesState.value = UiState.Loading
                     is Resource.Success -> _myNotesState.value = UiState.Success(resource.data)
-                    is Resource.Error -> _myNotesState.value = UiState.Error(resource.message ?: "Error loading my notes")
+                    is Resource.Error -> {
+                        _myNotesState.value = UiState.Error(resource.message ?: "Error loading my notes")
+                        // Log full error so it appears in Logcat (helps copy the Firebase Console URL)
+                        Log.e("NotesViewModel", "loadMyNotes error: ${resource.message}")
+                    }
                 }
             }
         }

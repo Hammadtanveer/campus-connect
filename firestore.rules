@@ -2,73 +2,216 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if user has a specific role
-    function hasRole(role) {
-      return request.auth != null &&
+    // ========== HELPER FUNCTIONS ==========
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if user is super admin (from auth token)
+    function isSuperAdminFromToken() {
+      return isAuthenticated() &&
+             (request.auth.token.superAdmin == true ||
+              request.auth.token.role == 'super_admin');
+    }
+
+    // Check if user is admin (from auth token)
+    function isAdminFromToken() {
+      return isAuthenticated() &&
              (request.auth.token.admin == true ||
-              (request.auth.token.roles is list && role in request.auth.token.roles));
+              request.auth.token.role in ['admin', 'super_admin']);
     }
 
-    // Users collection
+    // Check if user has a specific permission (from auth token)
+    function hasPermissionFromToken(permission) {
+      return isAuthenticated() &&
+             (isSuperAdminFromToken() ||
+              (request.auth.token.permissions is list && permission in request.auth.token.permissions));
+    }
+
+    // Read user document safely
+    function getUserDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid));
+    }
+
+    // Check super admin via Firestore document
+    function isSuperAdminFromDoc() {
+      return isAuthenticated() && getUserDoc(request.auth.uid).data.role == 'super_admin';
+    }
+    // Check admin via Firestore document
+    function isAdminFromDoc() {
+      return isAuthenticated() && (getUserDoc(request.auth.uid).data.isAdmin == true || getUserDoc(request.auth.uid).data.role in ['admin', 'super_admin']);
+    }
+    // Check active status
+    function isActiveAdmin() {
+      return (isAdminFromToken() || isAdminFromDoc()) && getUserDoc(request.auth.uid).data.status == 'active';
+    }
+    // Permission via Firestore document permissions array OR wildcard
+    function hasPermissionFromDoc(permission) {
+      return isAuthenticated() && (
+        isSuperAdminFromDoc() ||
+        ('*:*:*' in getUserDoc(request.auth.uid).data.permissions) ||
+        (getUserDoc(request.auth.uid).data.permissions is list && permission in getUserDoc(request.auth.uid).data.permissions)
+      );
+    }
+    // Unified permission check: token OR document
+    function hasPermission(permission) {
+      return hasPermissionFromToken(permission) || hasPermissionFromDoc(permission);
+    }
+
+    // ========== USERS COLLECTION ==========
     match /users/{userId} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId; // self-edit only
-      allow update: if hasRole('user:update') || request.auth.uid == userId;
+      // Anyone can read basic user info
+      allow read: if isAuthenticated();
+
+      // Users can create their own profile during signup
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+
+      // Users can update their own profile (except admin fields)
+      allow update: if isAuthenticated() && request.auth.uid == userId &&
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['role', 'permissions', 'isAdmin', 'status', 'createdBy',
+                                  'expiresAt', 'suspendedBy', 'revokedBy']);
+
+      // Only super admin can modify admin-related fields
+      allow update: if (isSuperAdminFromToken() || isSuperAdminFromDoc()) && userId != request.auth.uid;
+
+      // Only super admin can delete users
+      allow delete: if isSuperAdminFromToken() || isSuperAdminFromDoc();
     }
 
-    // Events collection
+    // ========== ADMIN INVITATIONS COLLECTION ==========
+    match /admin_invitations/{invitationId} {
+      // Only super admin can create invitations
+      allow create: if isSuperAdminFromToken() || isSuperAdminFromDoc();
+
+      // Admins can read invitations
+      allow read: if isAdminFromToken() || isAdminFromDoc();
+
+      // Only super admin can update/delete invitations
+      allow update, delete: if isSuperAdminFromToken() || isSuperAdminFromDoc();
+    }
+
+    // ========== ADMIN AUDIT LOG COLLECTION ==========
+    match /admin_audit_log/{logId} {
+      // Only admins can read audit logs
+      allow read: if isAdminFromToken() || isAdminFromDoc();
+
+      // Only Cloud Functions can write (deny all client writes)
+      allow write: if false;
+    }
+
+    // ========== EVENTS COLLECTION ==========
     match /events/{eventId} {
-      allow read: if true;
-      allow create: if hasRole('event:create');
-      allow update, delete: if hasRole('event:create');
+      // Anyone authenticated can read events
+      allow read: if isAuthenticated();
+
+      // Can create if has permission
+      allow create: if hasPermission('events:create:own');
+
+      // Can edit own events or if has edit:all permission
+      allow update: if (resource.data.createdBy == request.auth.uid &&
+                       hasPermission('events:edit:own')) ||
+                       hasPermission('events:edit:all');
+
+      // Can delete own events or if has delete:all permission
+      allow delete: if (resource.data.createdBy == request.auth.uid &&
+                       hasPermission('events:delete:own')) ||
+                       hasPermission('events:delete:all');
     }
 
-    // Event registrations
-    match /registrations/{regId} {
-      allow read: if request.auth != null && request.auth.uid != null;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
-    }
-
-    // Notes collection - Cloudinary-based rules
+    // ========== NOTES COLLECTION ==========
     match /notes/{noteId} {
       // Anyone authenticated can read notes
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
 
-      // Only authenticated users can create notes with proper validation
-      allow create: if request.auth != null
-        && request.resource.data.uploaderId == request.auth.uid
-        && request.resource.data.title is string
-        && request.resource.data.title.size() > 0
-        && request.resource.data.title.size() <= 200
-        && request.resource.data.subject is string
-        && request.resource.data.semester is string
-        && request.resource.data.fileUrl is string
-        && request.resource.data.cloudinaryPublicId is string;
+      // Can upload if has permission
+      allow create: if isAuthenticated() &&
+        request.resource.data.uploaderId == request.auth.uid &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() > 0 &&
+        request.resource.data.title.size() <= 200 &&
+        request.resource.data.subject is string &&
+        request.resource.data.semester is string &&
+        request.resource.data.fileUrl is string &&
+        request.resource.data.cloudinaryPublicId is string &&
+        hasPermission('notes:upload:own');
 
-      // Only the uploader can delete their notes
-      allow delete: if request.auth != null
-        && resource.data.uploaderId == request.auth.uid;
+      // Can delete own notes or if has moderate permission
+      allow delete: if isAuthenticated() &&
+        (resource.data.uploaderId == request.auth.uid ||
+         hasPermission('notes:delete:all') ||
+         hasPermission('notes:moderate:all'));
 
       // Allow updating only download/view counts (not other fields)
-      allow update: if request.auth != null
-        && (request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['downloads', 'views']));
+      allow update: if isAuthenticated() &&
+        ((request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['downloads', 'views'])) ||
+         hasPermission('notes:moderate:all'));
     }
 
-    // Societies collection
+    // ========== SENIORS COLLECTION ==========
+    match /seniors/{seniorId} {
+      // Anyone can read senior profiles
+      allow read: if isAuthenticated();
+
+      // Can create if has permission
+      allow create: if hasPermission('seniors:add:all');
+
+      // Can edit if has permission
+      allow update: if hasPermission('seniors:edit:all') ||
+                       hasPermission('seniors:verify:all');
+
+      // Can delete if has permission
+      allow delete: if hasPermission('seniors:delete:all');
+    }
+
+    // ========== PLACEMENTS COLLECTION ==========
+    match /placements/{placementId} {
+      // Anyone can read placement data
+      allow read: if isAuthenticated();
+
+      // Can create if has permission
+      allow create: if hasPermission('placements:add:all');
+
+      // Can edit if has permission
+      allow update: if hasPermission('placements:edit:all');
+
+      // Can delete if has permission
+      allow delete: if hasPermission('placements:delete:all');
+    }
+
+    // ========== SOCIETIES COLLECTION ==========
     match /societies/{societyId} {
       allow read: if true;
-      allow update, delete: if hasRole('society:manage') ||
-        (exists(/databases/$(database)/documents/societies/$(societyId)) &&
-         request.auth.uid in get(/databases/$(database)/documents/societies/$(societyId)).data.admins);
-      allow create: if hasRole('society:manage');
+
+      allow create: if hasPermission('society:manage');
+
+      allow update, delete: if hasPermission('society:manage') || (
+        exists(/databases/$(database)/documents/societies/$(societyId)) && request.auth.uid in get(/databases/$(database)/documents/societies/$(societyId)).data.admins
+      );
     }
 
-    // Seniors collection
-    match /seniors/{seniorId} {
-      allow read: if true;
-      allow update: if hasRole('senior:update');
+    // ========== REGISTRATIONS ==========
+    match /registrations/{regId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // ========== MENTORSHIP ==========
+    match /mentorship_requests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.receiverId == request.auth.uid || resource.data.senderId == request.auth.uid);
+      allow delete: if isAuthenticated() && resource.data.senderId == request.auth.uid;
+    }
+
+    match /mentorship_connections/{connectionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
+      allow delete: if isAuthenticated() && request.auth.uid in resource.data.participants;
     }
   }
 }

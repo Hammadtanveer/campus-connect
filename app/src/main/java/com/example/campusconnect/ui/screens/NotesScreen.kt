@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -803,6 +804,13 @@ fun UploadTab(
 
 @Composable
 fun ErrorMessage(message: String, modifier: Modifier = Modifier) {
+    val uriHandler = LocalUriHandler.current
+
+    // Try to extract a Firebase Console URL if present
+    val urlRegex = "(https://console.firebase.google.com[^\\s]+)".toRegex()
+    val match = urlRegex.find(message)
+    val consoleUrl = match?.groups?.get(1)?.value
+
     Column(
         modifier = modifier.padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -820,6 +828,18 @@ fun ErrorMessage(message: String, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center
         )
+
+        // If we found a console URL, show an action button to open it directly
+        if (!consoleUrl.isNullOrBlank()) {
+            TextButton(
+                onClick = { uriHandler.openUri(consoleUrl) },
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text("Open required Firestore index in Console")
+            }
+        }
     }
 }
 
