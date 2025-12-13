@@ -63,7 +63,15 @@ fun AuthScreen(
     var mode by remember { mutableStateOf(if (startInRegister) LocalAuthMode.REGISTER else LocalAuthMode.LOGIN) }
 
     if (mode == LocalAuthMode.REGISTER) {
-        RegisterScreen(viewModel = viewModel) { mode = LocalAuthMode.LOGIN }
+        // pass through a success callback so RegisterScreen can close the whole auth UI
+        RegisterScreen(
+            viewModel = viewModel,
+            onRegistered = {
+                // When registration completes we want to hide auth UI and proceed into the app
+                onLoginSuccess()
+            },
+            onBackToLogin = { mode = LocalAuthMode.LOGIN }
+        )
     } else {
         LoginScreen(
             viewModel = viewModel,
@@ -74,7 +82,11 @@ fun AuthScreen(
 }
 
 @Composable
-private fun RegisterScreen(viewModel: MainViewModel, onBackToLogin: () -> Unit) {
+private fun RegisterScreen(
+    viewModel: MainViewModel,
+    onRegistered: () -> Unit,
+    onBackToLogin: () -> Unit
+) {
     var email by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
@@ -148,11 +160,11 @@ private fun RegisterScreen(viewModel: MainViewModel, onBackToLogin: () -> Unit) 
                 ) { ok, err ->
                     loading = false
                     if (ok) {
-                        success = if (adminCode.isNotBlank()) "Admin account created successfully. Redirecting to sign in..." else "Account created successfully. Redirecting to sign in..."
-                        // Delay slightly then switch back to login
+                        success = if (adminCode.isNotBlank()) "Admin account created successfully. Signing you in..." else "Account created successfully. Signing you in..."
+                        // Short delay to let the user read the success message, then notify parent to close auth UI
                         scope.launch {
-                            delay(1500)
-                            onBackToLogin()
+                            delay(900)
+                            onRegistered()
                         }
                     } else {
                         error = err

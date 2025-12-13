@@ -50,6 +50,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.example.campusconnect.session.SessionManager
 import com.example.campusconnect.data.repository.ActivityLogRepository
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.functions.ktx.functions
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -115,13 +117,29 @@ class MainViewModel @Inject constructor(
     }
 
     // All your existing methods with State updates
+    private fun normalizeRbac(profile: UserProfile): UserProfile {
+        var p = profile
+        val hasWildcard = p.permissions.any { it == "*:*:*" }
+        val isSuper = p.role == "super_admin" || hasWildcard
+        if (isSuper) {
+            val defaultLegacy = listOf("admin", "event:create", "notes:upload")
+            val mergedRoles = (p.roles + defaultLegacy).distinct()
+            p = p.copy(
+                isAdmin = true,
+                roles = mergedRoles
+            )
+        }
+        return p
+    }
+
     private fun loadUserProfile(userId: String) {
         firestore.collection("users").document(userId)
             .get()
             .addOnSuccessListener { doc ->
                 if (doc.exists()) {
                     val profile = doc.toObject(UserProfile::class.java)
-                    _userProfile.value = profile
+                    val normalized = profile?.let { normalizeRbac(it) }
+                    _userProfile.value = normalized
                     sessionManager.updateProfile(profile)
                     loadUserActivities(userId)
                     // Navigate into the app after successful profile load
@@ -270,6 +288,14 @@ class MainViewModel @Inject constructor(
         onResult: (Boolean, String?) -> Unit
     ) {
         Log.i("MainViewModel", "registerWithEmailPassword: starting for $email")
+
+        // Validate admin code locally before making any network call
+        val trimmedAdminCode = adminCode.trim()
+        if (trimmedAdminCode.isNotBlank() && trimmedAdminCode != Constants.ADMIN_CODE) {
+            onResult(false, Constants.ERROR_INVALID_ADMIN_CODE)
+            return
+        }
+
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
@@ -279,7 +305,7 @@ class MainViewModel @Inject constructor(
                         onResult(false, "Registration succeeded but no user instance found.")
                         return@addOnCompleteListener
                     }
-                    val isAdminRegistration = adminCode.isNotBlank() && adminCode == Constants.ADMIN_CODE
+                    val isAdminRegistration = trimmedAdminCode.isNotBlank() && trimmedAdminCode == Constants.ADMIN_CODE
                     val profileUpdates = UserProfileChangeRequest.Builder()
                         .setDisplayName(displayName)
                         .build()
@@ -323,6 +349,7 @@ class MainViewModel @Inject constructor(
                             }
                         }
                         else -> when {
+                            // Only map to network error if it clearly looks like a connectivity problem
                             "network" in lower || "timeout" in lower || "unreachable" in lower ->
                                 "Network error. Please check your connection and try again."
                             else -> ex?.localizedMessage ?: "Registration failed."
@@ -358,9 +385,18 @@ class MainViewModel @Inject constructor(
         firestore.collection("users").document(userId)
             .set(profile)
             .addOnSuccessListener {
+                // Update local state and session so UI recognizes admin immediately
                 _userProfile.value = profile
+                try {
+                    sessionManager.updateAuth(profile.id, profile.email)
+                    sessionManager.updateProfile(profile)
+                } catch (ex: Exception) {
+                    Log.w("MainViewModel", "createUserProfile: failed to update session manager", ex)
+                }
                 _initializing.value = false
                 _currentScreen.value = Screen.DrawerScreen.Profile
+                // refresh token-based claims (no-op if server not setting custom claims) so UI merges both sources
+                refreshClaims()
                 onResult(true, null)
             }
             .addOnFailureListener { e ->
@@ -1145,6 +1181,13 @@ class MainViewModel @Inject constructor(
         return null
     }
 
+    // Helper: extract Firebase Console composite index URL from Firestore error messages
+    private fun extractFirestoreIndexUrl(message: String?): String? {
+        if (message.isNullOrBlank()) return null
+        val regex = "(https://console.firebase.google.com[^\\s]+)".toRegex()
+        return regex.find(message)?.groups?.get(1)?.value
+    }
+
     fun uploadPdfNote(title: String, pdfBytes: ByteArray, onResult: (Boolean, String?) -> Unit) {
         val p = _userProfile.value ?: return onResult(false, "Not authenticated")
         if (!p.canUploadNotes()) return onResult(false, "No permission")
@@ -1168,7 +1211,13 @@ class MainViewModel @Inject constructor(
                 observeMyNotes()
                 onResult(true, null)
             } else if (result is Resource.Error) {
-                onResult(false, result.message)
+                // If Firestore suggests creating a composite index, extract the console URL and include it in the error message
+                val rawMsg = result.message ?: "An unknown error occurred"
+                val indexUrl = extractFirestoreIndexUrl(rawMsg)
+                val messageWithUrl = if (!indexUrl.isNullOrBlank()) {
+                    "$rawMsg\n\nCreate the required index here:\n$indexUrl"
+                } else rawMsg
+                onResult(false, messageWithUrl)
             }
         }
     }
@@ -1198,13 +1247,60 @@ class MainViewModel @Inject constructor(
                     .update(updates)
                     .addOnSuccessListener {
                         // Update local profile state
-                        _userProfile.value = _userProfile.value?.copy(isAdmin = true, roles = mergedRoles)
-                        onResult(true, null)
+                        val updated = _userProfile.value?.copy(isAdmin = true, roles = mergedRoles)
+                        _userProfile.value = updated
+                        try {
+                            // also update session manager so other viewmodels/screens see the change immediately
+                            sessionManager.updateProfile(updated)
+                        } catch (ex: Exception) {
+                            Log.w("MainViewModel", "upgradeToAdmin: failed to update session manager", ex)
+                        }
+                        // refresh claims so any token-based roles are merged into the profile
+                        refreshClaims { onResult(true, null) }
                     }
                     .addOnFailureListener { e ->
                         onResult(false, e.localizedMessage)
                     }
             }
             .addOnFailureListener { e -> onResult(false, e.localizedMessage) }
+    }
+
+    /**
+     * Request admin access using server-side validation (callable Cloud Function).
+     * This is preferred over client-only `upgradeToAdmin` because the admin code is validated server-side.
+     */
+    fun requestAdminAccessServer(adminCode: String, onResult: (Boolean, String?) -> Unit) {
+        val user = auth.currentUser ?: return onResult(false, "Not signed in")
+        try {
+            // Use KTX Firebase.functions accessor
+            val functions = Firebase.functions
+            // Use default region; if you deploy to a named region, adjust accordingly
+            val callable = functions.getHttpsCallable("requestAdminAccess")
+            val data = hashMapOf("adminCode" to adminCode)
+            callable.call(data)
+                .addOnSuccessListener { res ->
+                    // Server updated custom claims and Firestore. Now refresh token and local profile
+                    user.getIdToken(true)
+                        .addOnSuccessListener { token ->
+                            // Merge token claims into local profile
+                            applyClaimsToProfile(token)
+                            // Also reload Firestore profile document to pick up server updates
+                            loadUserProfile(user.uid)
+                            onResult(true, null)
+                        }
+                        .addOnFailureListener { e ->
+                            // Even if token refresh fails, still attempt to reload profile
+                            loadUserProfile(user.uid)
+                            onResult(false, e.localizedMessage)
+                        }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("MainViewModel", "requestAdminAccessServer failed", e)
+                    onResult(false, e.localizedMessage ?: e.message)
+                }
+        } catch (ex: Exception) {
+            Log.e("MainViewModel", "requestAdminAccessServer error", ex)
+            onResult(false, ex.localizedMessage)
+        }
     }
 }

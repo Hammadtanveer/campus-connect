@@ -8,6 +8,9 @@ object Constants {
     // Default admin roles granted on upgrade (mirrors server-side expectations)
     val DEFAULT_ADMIN_ROLES = listOf("admin", "event:create", "notes:upload")
 
+    // User-facing error messages
+    const val ERROR_INVALID_ADMIN_CODE = "Invalid admin code. Please contact your administrator for the correct code."
+
     // File size limits
     const val MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024L // 10 MB
     const val MAX_FILE_SIZE_MB = 10

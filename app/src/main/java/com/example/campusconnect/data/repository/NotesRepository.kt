@@ -44,6 +44,13 @@ class NotesRepository @Inject constructor(
 
     private val notesCollection = firestore.collection("notes")
 
+    // Simple helper to extract firebase console index URL from an error message
+    private fun extractFirestoreIndexUrl(message: String?): String? {
+        if (message.isNullOrBlank()) return null
+        val regex = "(https://console.firebase.google.com[^\\s]+)".toRegex()
+        return regex.find(message)?.groups?.get(1)?.value
+    }
+
     /**
      * Upload note file to Cloudinary and save metadata to Firestore
      */
@@ -177,7 +184,10 @@ class NotesRepository @Inject constructor(
         val registration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
                 Log.e("NotesRepository", "Error observing notes", error)
-                trySend(Resource.Error(error.message ?: "Failed to load notes"))
+                val raw = error.message ?: "Failed to load notes"
+                val idx = extractFirestoreIndexUrl(raw)
+                val message = if (!idx.isNullOrBlank()) "$raw\n\nCreate required index here:\n$idx" else raw
+                trySend(Resource.Error(message))
                 return@addSnapshotListener
             }
 
