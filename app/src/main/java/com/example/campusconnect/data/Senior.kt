@@ -1,22 +1,14 @@
 package com.example.campusconnect.data
 
-/**
- * Data classes representing a senior mentor profile.
- */
-
-data class ContactInfo(
-    val email: String,
-    val linkedin: String,
-    val github: String
-)
-
+// Senior data model
 data class Senior(
-    val id: Int,
-    val name: String,
-    val expertise: String,
-    val bio: String,
-    val technicalStack: List<String>,
-    val availability: String,
-    val contact: ContactInfo
+    val id: String = "",
+    val name: String = "",
+    val branch: String = "",
+    val year: String = "",
+    val mobileNumber: String = "",
+    val photoUrl: String = "", // URL from Cloudinary
+    val linkedinUrl: String = "",
+    val bio: String = ""
 )
 

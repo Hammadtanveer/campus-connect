@@ -176,6 +176,5 @@ dependencies {
     testImplementation("org.mockito:mockito-core:5.12.0")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
 
-    // LeakCanary for memory leak detection
-    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.12")
+
 }

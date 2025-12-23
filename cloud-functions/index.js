@@ -67,3 +67,44 @@ exports.requestAdminAccess = functions.https.onCall(async (data, context) => {
 // Import and export the bootstrap function
 const { bootstrapSuperAdmin } = require('./bootstrap-super-admin');
 exports.bootstrapSuperAdmin = bootstrapSuperAdmin;
+
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary (Best practice: use functions.config().cloudinary)
+// For now, using provided credentials for immediate fix
+cloudinary.config({
+  cloud_name: 'dkxunmucg',
+  api_key: '492784632542267',
+  api_secret: '3CSXo-IjIxXX6qy-CTo-9bBSunU'
+});
+
+/**
+ * Callable function: generateSignedPdfUrl
+ * Expects: { publicId: string }
+ * Returns: { url: string }
+ */
+exports.generateSignedPdfUrl = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const publicId = data.publicId;
+    if (!publicId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing publicId');
+    }
+
+    try {
+        // Generate the API Download URL (which works for authenticated PDFs)
+        const url = cloudinary.utils.private_download_url(publicId, 'pdf', {
+            resource_type: 'image', // PDFs are often stored as 'image' in Cloudinary unless 'raw' was specified
+            type: 'authenticated',
+            attachment: false, // Allow viewing
+            expires_at: Math.floor(Date.now() / 1000) + 3600 // 1 hour
+        });
+
+        return { url: url };
+    } catch (error) {
+        console.error("Error generating signed URL:", error);
+        throw new functions.https.HttpsError('internal', 'Failed to generate URL');
+    }
+});

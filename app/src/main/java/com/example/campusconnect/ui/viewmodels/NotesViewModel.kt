@@ -193,6 +193,8 @@ class NotesViewModel @Inject constructor(
         if (myNotesState.value is UiState.Error) _myNotesState.value = UiState.Success(emptyList())
     }
 
+
+
     /*
     // Paging 3 methods - Uncomment when library is available
 
