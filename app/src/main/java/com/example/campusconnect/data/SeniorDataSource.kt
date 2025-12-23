@@ -4,133 +4,57 @@ object SeniorDataSource {
 
     val seniors: List<Senior> = listOf(
         Senior(
-            id = 1,
+            id = "1",
             name = "Hammad Tanveer",
-            expertise = "Android Developer Full Stack",
-            bio = "Experienced Android engineer with full-stack experience; focused on building scalable mobile apps and mentoring juniors on end-to-end development.",
-            technicalStack = listOf(
-                "Kotlin",
-                "Java",
-                "Jetpack Compose",
-                "Android Architecture (ViewModel, LiveData)",
-                "Retrofit",
-                "Room",
-                "Firebase (Auth, Firestore)",
-                "GraphQL",
-                "Node.js",
-                "Express",
-                "MongoDB"
-            ),
-            availability = "Weekday evenings (India Time) - flexible for mentoring calls",
-            contact = ContactInfo(
-                email = "hammad.tanveer@example.com",
-                linkedin = "https://www.linkedin.com/in/hammad-tanveer",
-                github = "https://github.com/hammadtanveer"
-            )
+            branch = "Computer Science",
+            year = "4th Year",
+            mobileNumber = "",
+            photoUrl = "",
+            linkedinUrl = "https://www.linkedin.com/in/hammad-tanveer",
+            bio = "Expertise: Android Developer Full Stack. \n\nBio: Experienced Android engineer with full-stack experience; focused on building scalable mobile apps and mentoring juniors on end-to-end development.\n\nTech Stack: Kotlin, Java, Jetpack Compose, Android Architecture, Retrofit, Room, Firebase, GraphQL, Node.js, Express, MongoDB"
         ),
-
         Senior(
-            id = 2,
+            id = "2",
             name = "Mohammad Adnan",
-            expertise = "AI/ML",
-            bio = "AI/ML engineer who enjoys turning models into products; offers guidance on model selection, training and deployment for mentees.",
-            technicalStack = listOf(
-                "Python",
-                "TensorFlow",
-                "PyTorch",
-                "scikit-learn",
-                "NumPy",
-                "Pandas",
-                "Hugging Face Transformers",
-                "MLflow",
-                "Docker",
-                "Flask/FastAPI"
-            ),
-            availability = "Weekends and weekday mornings (by appointment)",
-            contact = ContactInfo(
-                email = "mohammad.adnan@example.com",
-                linkedin = "https://www.linkedin.com/in/mohammad-adnan",
-                github = "https://github.com/mohammadadnan"
-            )
+            branch = "Computer Science",
+            year = "4th Year",
+            mobileNumber = "",
+            photoUrl = "",
+            linkedinUrl = "https://www.linkedin.com/in/mohammad-adnan",
+            bio = "Expertise: AI/ML. \n\nBio: AI/ML engineer who enjoys turning models into products; offers guidance on model selection, training and deployment for mentees.\n\nTech Stack: Python, TensorFlow, PyTorch, scikit-learn, NumPy, Pandas, Hugging Face Transformers, MLflow, Docker, Flask/FastAPI"
         ),
-
         Senior(
-            id = 3,
+            id = "3",
             name = "Mohd Arham",
-            expertise = "Testing and UX",
-            bio = "Quality-focused engineer specializing in testing strategies and user-centered design; mentors on test automation and UX improvements.",
-            technicalStack = listOf(
-                "Espresso",
-                "JUnit",
-                "Mockito",
-                "Robolectric",
-                "UI/UX Principles",
-                "Accessibility Testing",
-                "Figma",
-                "Usability Testing",
-                "TestRail",
-                "Postman"
-            ),
-            availability = "Flexible — prefers short weekly sessions",
-            contact = ContactInfo(
-                email = "mohd.arham@example.com",
-                linkedin = "https://www.linkedin.com/in/mohd-arham",
-                github = "https://github.com/mohdarham"
-            )
+            branch = "Computer Science",
+            year = "4th Year",
+            mobileNumber = "",
+            photoUrl = "",
+            linkedinUrl = "https://www.linkedin.com/in/mohd-arham",
+            bio = "Expertise: Testing and UX. \n\nBio: Quality-focused engineer specializing in testing strategies and user-centered design; mentors on test automation and UX improvements.\n\nTech Stack: Espresso, JUnit, Mockito, Robolectric, UI/UX Principles, Accessibility Testing, Figma, Usability Testing, TestRail, Postman"
         ),
-
         Senior(
-            id = 4,
+            id = "4",
             name = "Mohd Faisal",
-            expertise = "Android Development UI",
-            bio = "UI-focused Android developer passionate about delightful interfaces and accessibility; helps mentees design and implement modern UIs.",
-            technicalStack = listOf(
-                "Kotlin",
-                "Jetpack Compose",
-                "XML Layouts",
-                "Material Design",
-                "ConstraintLayout",
-                "MotionLayout",
-                "Lottie",
-                "Accessible Design",
-                "Figma",
-                "Android Studio"
-            ),
-            availability = "Weekday afternoons (IST) — booking recommended",
-            contact = ContactInfo(
-                email = "mohd.faisal@example.com",
-                linkedin = "https://www.linkedin.com/in/mohd-faisal",
-                github = "https://github.com/mohdfaisal"
-            )
+            branch = "Computer Science",
+            year = "4th Year",
+            mobileNumber = "",
+            photoUrl = "",
+            linkedinUrl = "https://www.linkedin.com/in/mohd-faisal",
+            bio = "Expertise: Android Development UI. \n\nBio: UI-focused Android developer passionate about delightful interfaces and accessibility; helps mentees design and implement modern UIs.\n\nTech Stack: Kotlin, Jetpack Compose, XML Layouts, Material Design, ConstraintLayout, MotionLayout, Lottie, Accessible Design, Figma, Android Studio"
         ),
-
         Senior(
-            id = 5,
+            id = "5",
             name = "Mohd Arman",
-            expertise = "Full Stack Web App using React",
-            bio = "Full-stack web engineer focused on React-driven interfaces and backend services; mentors on building production-ready web apps.",
-            technicalStack = listOf(
-                "JavaScript",
-                "TypeScript",
-                "React",
-                "Redux",
-                "Next.js",
-                "Node.js",
-                "Express",
-                "PostgreSQL",
-                "GraphQL",
-                "Docker",
-                "AWS"
-            ),
-            availability = "Evenings and weekends — open to code reviews",
-            contact = ContactInfo(
-                email = "mohd.arman@example.com",
-                linkedin = "https://www.linkedin.com/in/mohd-arman",
-                github = "https://github.com/mohdarman"
-            )
+            branch = "Computer Science",
+            year = "4th Year",
+            mobileNumber = "",
+            photoUrl = "",
+            linkedinUrl = "https://www.linkedin.com/in/mohd-arman",
+            bio = "Expertise: Full Stack Web App using React. \n\nBio: Full-stack web engineer focused on React-driven interfaces and backend services; mentors on building production-ready web apps.\n\nTech Stack: JavaScript, TypeScript, React, Redux, Next.js, Node.js, Express, PostgreSQL, GraphQL, Docker, AWS"
         )
     )
 
-    fun getSeniorById(id: Int): Senior? = seniors.find { it.id == id }
+    fun getSeniorById(id: String): Senior? = seniors.find { it.id == id }
 }
 

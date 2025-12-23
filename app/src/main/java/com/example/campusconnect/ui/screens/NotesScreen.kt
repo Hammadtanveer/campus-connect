@@ -120,6 +120,7 @@ fun AllNotesTab(viewModel: NotesViewModel) {
     val selectedSubject by viewModel.selectedSubject.collectAsState()
     val selectedSemester by viewModel.selectedSemester.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Filters
@@ -140,6 +141,8 @@ fun AllNotesTab(viewModel: NotesViewModel) {
             state = state,
             onDownload = { note ->
                 viewModel.recordDownload(note.id)
+                val intent = Intent(Intent.ACTION_VIEW, note.fileUrl.toUri())
+                context.startActivity(intent)
             },
             onDelete = null // Can't delete others' notes
         )
@@ -150,11 +153,14 @@ fun AllNotesTab(viewModel: NotesViewModel) {
 fun MyNotesTab(viewModel: NotesViewModel) {
     val state by viewModel.myNotesState.collectAsState()
     val deleteInProgress by viewModel.deleteInProgress.collectAsState()
+    val context = LocalContext.current
 
     NotesListContent(
         state = state,
         onDownload = { note ->
             viewModel.recordDownload(note.id)
+            val intent = Intent(Intent.ACTION_VIEW, note.fileUrl.toUri())
+            context.startActivity(intent)
         },
         onDelete = { note ->
             viewModel.deleteNote(note)
@@ -202,9 +208,6 @@ fun NotesListContent(
                                 note = note,
                                 onDownload = {
                                     onDownload(note)
-                                    // Open file in browser/viewer
-                                    val intent = Intent(Intent.ACTION_VIEW, note.fileUrl.toUri())
-                                    context.startActivity(intent)
                                 },
                                 onDelete = onDelete?.let { { onDelete(note) } },
                                 isDeleting = deleteInProgress == note.id

@@ -7,9 +7,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
-import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import android.content.Context
@@ -30,10 +28,10 @@ import com.example.campusconnect.data.models.OnlineEvent
 import com.example.campusconnect.data.models.EventCategory
 import com.example.campusconnect.data.repository.EventsRepository
 import com.example.campusconnect.data.repository.NotesRepository
+import com.example.campusconnect.data.repository.SeniorsRepository
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
 import com.google.firebase.auth.GetTokenResult
-import com.example.campusconnect.security.Permissions
 import com.example.campusconnect.security.canCreateEvent
 import com.example.campusconnect.security.canUploadNotes
 import com.example.campusconnect.security.canUpdateSenior
@@ -41,10 +39,8 @@ import com.example.campusconnect.security.canManageSociety
 import androidx.lifecycle.viewModelScope
 import com.example.campusconnect.data.models.Note
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
 import android.app.Application
 import com.example.campusconnect.util.Constants
-import com.example.campusconnect.util.getCurrentTimestamp
 import com.example.campusconnect.util.formatTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -52,6 +48,7 @@ import com.example.campusconnect.session.SessionManager
 import com.example.campusconnect.data.repository.ActivityLogRepository
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.functions.ktx.functions
+import com.example.campusconnect.data.Senior
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -59,6 +56,7 @@ class MainViewModel @Inject constructor(
     private val auth: FirebaseAuth,
     private val eventsRepo: EventsRepository,
     private val notesRepo: NotesRepository,
+    private val seniorsRepo: SeniorsRepository,
     private val firestore: FirebaseFirestore,
     private val sessionManager: SessionManager,
     private val activityLogRepository: ActivityLogRepository
@@ -98,22 +96,38 @@ class MainViewModel @Inject constructor(
     // Events-related state
 
     private val _eventsList = mutableStateOf<List<OnlineEvent>>(emptyList())
+    @Suppress("unused")
     val eventsList: List<OnlineEvent> get() = _eventsList.value
 
     private val _currentEvent = mutableStateOf<OnlineEvent?>(null)
+    @Suppress("unused")
     val currentEvent: OnlineEvent? get() = _currentEvent.value
 
     private val _isLoadingEvents = mutableStateOf(false)
+    @Suppress("unused")
     val isLoadingEvents: Boolean get() = _isLoadingEvents.value
 
     private val _myNotes = mutableStateOf<List<Note>>(emptyList())
     val myNotes: List<Note> get() = _myNotes.value
+
+    // Seniors
+    private val _seniorsList = mutableStateOf<List<Senior>>(emptyList())
+    val seniorsList: List<Senior> get() = _seniorsList.value
 
     init {
         auth.currentUser?.let { user ->
             sessionManager.updateAuth(user.uid, user.email)
             loadUserProfile(user.uid)
         } ?: run { _initializing.value = false }
+        observeSeniors()
+    }
+
+    private fun observeSeniors() {
+        seniorsRepo.observeSeniors().collectInViewModel { res ->
+            if (res is Resource.Success) {
+                _seniorsList.value = res.data
+            }
+        }
     }
 
     // All your existing methods with State updates
@@ -184,7 +198,7 @@ class MainViewModel @Inject constructor(
     }
 
     private fun applyClaimsToProfile(token: GetTokenResult) {
-        val claims = token.claims ?: return
+        val claims = token.claims
         val claimsAdmin = (claims["admin"] as? Boolean) == true
         val claimRoles = when (val raw = claims["roles"]) {
             is List<*> -> raw.filterIsInstance<String>()
@@ -431,6 +445,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    @Suppress("unused")
     fun addDownload(title: String, sizeLabel: String) {
         _downloads.value = _downloads.value + DownloadItem(title = title, sizeLabel = sizeLabel)
     }
@@ -443,6 +458,7 @@ class MainViewModel @Inject constructor(
         _downloads.value = emptyList()
     }
 
+    @Suppress("unused")
     fun updateUserProfile(updatedProfile: UserProfile, onResult: (Boolean, String?) -> Unit) {
         val db = FirebaseFirestore.getInstance()
         db.collection("users").document(updatedProfile.id)
@@ -467,6 +483,7 @@ class MainViewModel @Inject constructor(
     }
 
     // New: update mentor profile fields and mark user as mentor
+    @Suppress("unused")
     fun updateMentorProfile(bio: String, expertise: List<String>, status: String, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         val uid = auth.currentUser?.uid
         if (uid == null) return onResult(false, "Not authenticated")
@@ -595,7 +612,7 @@ class MainViewModel @Inject constructor(
                         try {
                             val r = doc.toObject(MentorshipRequest::class.java)
                             if (r != null && r.id.isBlank()) r.copy(id = doc.id) else r
-                        } catch (ex: Exception) {
+                        } catch (_: Exception) {
                             null
                         }
                     }
@@ -627,7 +644,7 @@ class MainViewModel @Inject constructor(
                         try {
                             val r = doc.toObject(MentorshipRequest::class.java)
                             if (r != null && r.id.isBlank()) r.copy(id = doc.id) else r
-                        } catch (ex: Exception) {
+                        } catch (_: Exception) {
                             null
                         }
                     }
@@ -794,7 +811,7 @@ class MainViewModel @Inject constructor(
                                 remaining -= 1
                                 if (remaining <= 0) trySend(Resource.Success(profiles))
                             }
-                        } catch (ex: Exception) {
+                        } catch (_: Exception) {
                             remaining -= 1
                             if (remaining <= 0) trySend(Resource.Success(profiles))
                         }
@@ -886,7 +903,7 @@ class MainViewModel @Inject constructor(
                             try {
                                 val r = doc.toObject(MentorshipRequest::class.java)
                                 if (r != null && r.id.isBlank()) r.copy(id = doc.id) else r
-                            } catch (ex: Exception) { null }
+                            } catch (_: Exception) { null }
                         }
                         val pendingCount = reqs.count { it.status == "pending" }
                         val previous = _pendingMentorshipRequests.value
@@ -942,32 +959,6 @@ class MainViewModel @Inject constructor(
     }
 
     fun loadUserActivities(userId: String) {
-        val sampleActivities = listOf(
-            UserActivity(
-                id = UUID.randomUUID().toString(),
-                type = ActivityType.NOTE_UPLOAD.name,
-                title = "Note Uploaded",
-                description = "You uploaded: Data Structures Lecture Notes (user: $userId)",
-                timestamp = "Oct 15, 2023 14:30",
-                iconResId = R.drawable.baseline_notes_24
-            ),
-            UserActivity(
-                id = UUID.randomUUID().toString(),
-                type = ActivityType.EVENT_JOINED.name,
-                title = "Event Joined",
-                description = "You joined: Tech Symposium 2023 (user: $userId)",
-                timestamp = "Oct 10, 2023 10:15",
-                iconResId = R.drawable.baseline_event_24
-            ),
-            UserActivity(
-                id = UUID.randomUUID().toString(),
-                type = ActivityType.NOTE_DOWNLOAD.name,
-                title = "Note Downloaded",
-                description = "You downloaded: Algorithms Cheat Sheet (user: $userId)",
-                timestamp = "Oct 05, 2023 16:45",
-                iconResId = R.drawable.outline_download_24
-            )
-        )
         // Sample activities for demonstration
         // In production, activities come from ActivityLogRepository
     }
@@ -1087,6 +1078,7 @@ class MainViewModel @Inject constructor(
             .addOnFailureListener { /* ignore */ }
     }
 
+    @Suppress("unused")
     private fun generateMeetLink(): String {
         // Google Meet uses pattern: xxx-xxxx-xxx (letters)
         val rand = Random()
@@ -1095,6 +1087,7 @@ class MainViewModel @Inject constructor(
         return link
     }
 
+    @Suppress("unused")
     fun uploadNote(title: String, sizeLabel: String, onResult: (Boolean, String?) -> Unit) {
         val p = _userProfile.value
         if (p == null) return onResult(false, "Not authenticated")
@@ -1118,7 +1111,8 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun updateSeniorProfile(seniorId: Int, field: String, newValue: String, onResult: (Boolean, String?) -> Unit) {
+    @Suppress("unused")
+    fun updateSeniorProfile(seniorId: Int, field: String, onResult: (Boolean, String?) -> Unit) {
         val p = _userProfile.value ?: return onResult(false, "Not authenticated")
         if (!p.canUpdateSenior()) return onResult(false, "No permission to update seniors")
         // Placeholder for Firestore update; currently seniors are static
@@ -1135,6 +1129,7 @@ class MainViewModel @Inject constructor(
         onResult(true, null)
     }
 
+    @Suppress("unused")
     fun manageSociety(action: String, societyId: String, onResult: (Boolean, String?) -> Unit) {
         val p = _userProfile.value ?: return onResult(false, "Not authenticated")
         if (!p.canManageSociety()) return onResult(false, "No permission to manage societies")
@@ -1160,6 +1155,34 @@ class MainViewModel @Inject constructor(
                 is Resource.Error -> {}
             }
         }
+    }
+
+    // Seniors management methods
+    @Suppress("unused")
+    fun addSenior(senior: Senior) {
+        seniorsRepo.addSenior(senior) { success, error ->
+            if (!success) {
+                Log.e("MainViewModel", "Failed to add senior: $error")
+            }
+        }
+    }
+
+    @Suppress("unused")
+    fun updateSenior(senior: Senior) {
+        seniorsRepo.updateSenior(senior) { success, error ->
+            if (!success) {
+                Log.e("MainViewModel", "Failed to update senior: $error")
+            }
+        }
+    }
+
+    fun uploadSeniorImage(file: java.io.File, onResult: (String?) -> Unit) {
+        seniorsRepo.uploadSeniorImage(file, onResult)
+    }
+
+    @Suppress("unused")
+    fun getSenior(id: String): Senior? {
+        return _seniorsList.value.find { it.id == id }
     }
 
     private fun ByteArray.gzipCompress(): ByteArray {
@@ -1226,6 +1249,7 @@ class MainViewModel @Inject constructor(
      * Upgrade currently signed-in user to admin locally by updating Firestore document.
      * NOTE: This does NOT set Firebase Custom Claims (requires Admin SDK). It enables client-side features.
      */
+    @Suppress("unused")
     fun upgradeToAdmin(providedCode: String, onResult: (Boolean, String?) -> Unit) {
         val user = auth.currentUser ?: return onResult(false, "Not signed in")
         if (providedCode != Constants.ADMIN_CODE) {
@@ -1233,7 +1257,7 @@ class MainViewModel @Inject constructor(
             return
         }
         val uid = user.uid
-        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+        val db = FirebaseFirestore.getInstance()
         db.collection("users").document(uid)
             .get()
             .addOnSuccessListener { snap ->
@@ -1269,6 +1293,7 @@ class MainViewModel @Inject constructor(
      * Request admin access using server-side validation (callable Cloud Function).
      * This is preferred over client-only `upgradeToAdmin` because the admin code is validated server-side.
      */
+    @Suppress("unused")
     fun requestAdminAccessServer(adminCode: String, onResult: (Boolean, String?) -> Unit) {
         val user = auth.currentUser ?: return onResult(false, "Not signed in")
         try {
@@ -1278,7 +1303,7 @@ class MainViewModel @Inject constructor(
             val callable = functions.getHttpsCallable("requestAdminAccess")
             val data = hashMapOf("adminCode" to adminCode)
             callable.call(data)
-                .addOnSuccessListener { res ->
+                .addOnSuccessListener { _ ->
                     // Server updated custom claims and Firestore. Now refresh token and local profile
                     user.getIdToken(true)
                         .addOnSuccessListener { token ->

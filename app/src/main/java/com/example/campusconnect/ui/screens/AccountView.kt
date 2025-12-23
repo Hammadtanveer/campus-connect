@@ -1,7 +1,11 @@
 package com.example.campusconnect.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,15 +27,15 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,26 +44,50 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.navigation.NavHostController
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.runtime.collectAsState
+import coil.compose.AsyncImage
+import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.R
 import com.example.campusconnect.data.models.UserActivity
 import com.example.campusconnect.data.models.UserProfile
-import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.profile.ProfileViewModel
+import com.example.campusconnect.util.FileUtils
 
 @Composable
-fun AccountView(viewModel: MainViewModel, navController: NavHostController) {
+fun AccountView(viewModel: MainViewModel) {
     val profileVM = hiltViewModel<ProfileViewModel>()
     val sessionState by profileVM.session.collectAsState()
     val userProfile = sessionState.profile ?: viewModel.userProfile
     val userActivities = viewModel.userActivities
-    var isEditing by remember { mutableStateOf(false) }
+    val (isEditing, setIsEditing) = remember { mutableStateOf(false) }
+    var isUploading by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            isUploading = true
+            val fileName = FileUtils.getFileName(context, uri)
+            val file = FileUtils.copyFileToCache(context, uri, fileName)
+            if (file != null) {
+                profileVM.uploadProfileImage(file) { url: String? ->
+                    isUploading = false
+                    if (url != null && userProfile != null) {
+                        val updatedProfile = userProfile.copy(profilePictureUrl = url)
+                        profileVM.updateProfile(updatedProfile) { _, _ -> }
+                    }
+                }
+            } else {
+                isUploading = false
+            }
+        }
+    }
 
     if (userProfile == null) return
 
@@ -67,13 +95,13 @@ fun AccountView(viewModel: MainViewModel, navController: NavHostController) {
         EditProfileDialog(
             userProfile = userProfile,
             onSave = { updatedProfile ->
-                profileVM.updateProfile(updatedProfile) { success, _ ->
+                profileVM.updateProfile(updatedProfile) { success: Boolean, _: String? ->
                     if (success) {
-                        isEditing = false
+                        setIsEditing(false)
                     }
                 }
             },
-            onDismiss = { isEditing = false }
+            onDismiss = { setIsEditing(false) }
         )
     }
 
@@ -97,8 +125,8 @@ fun AccountView(viewModel: MainViewModel, navController: NavHostController) {
                 ) {
                     Box(contentAlignment = Alignment.BottomEnd) {
                         if (userProfile.profilePictureUrl.isNotEmpty()) {
-                            Image(
-                                painter = painterResource(R.drawable.profile_placeholder),
+                            AsyncImage(
+                                model = userProfile.profilePictureUrl,
                                 contentDescription = "Profile picture",
                                 modifier = Modifier
                                     .size(120.dp)
@@ -118,13 +146,18 @@ fun AccountView(viewModel: MainViewModel, navController: NavHostController) {
                             )
                         }
 
+                        if (isUploading) {
+                            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                        }
+
                         Icon(
                             painter = painterResource(R.drawable.outline_photo_camera_24),
                             contentDescription = "Change photo",
                             modifier = Modifier
                                 .size(32.dp)
                                 .background(MaterialTheme.colorScheme.primary, CircleShape)
-                                .padding(6.dp),
+                                .padding(6.dp)
+                                .clickable { launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -192,7 +225,7 @@ fun AccountView(viewModel: MainViewModel, navController: NavHostController) {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
-                        onClick = { isEditing = true },
+                        onClick = { setIsEditing(true) },
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     ) {
                         Icon(

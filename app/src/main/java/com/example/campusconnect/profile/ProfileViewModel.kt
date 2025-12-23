@@ -2,6 +2,9 @@ package com.example.campusconnect.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
 import com.example.campusconnect.data.models.ActivityType
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.data.models.UserProfile
@@ -19,7 +22,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
+import com.example.campusconnect.util.Constants
 
 /**
  * Enhanced ProfileViewModel for comprehensive profile management.
@@ -35,7 +40,8 @@ class ProfileViewModel @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val sessionManager: SessionManager,
-    private val activityLog: ActivityLogRepository
+    private val activityLog: ActivityLogRepository,
+    private val mediaManager: MediaManager
 ) : ViewModel() {
 
     val session: StateFlow<SessionState> = sessionManager.state
@@ -176,12 +182,32 @@ class ProfileViewModel @Inject constructor(
      * Upload avatar (placeholder for Phase 3)
      */
     fun uploadAvatar(
-        imageUri: String,
-        onProgress: (Int) -> Unit,
         onResult: (Boolean, String?) -> Unit
     ) {
         // TODO: Implement avatar upload with Cloudinary in Phase 3
         onResult(false, "Avatar upload not yet implemented")
+    }
+
+    /**
+     * Upload profile image to Cloudinary
+     */
+    fun uploadProfileImage(file: File, onResult: (String?) -> Unit) {
+        mediaManager.upload(file.absolutePath)
+            .option("folder", "${Constants.CLOUDINARY_BASE_FOLDER}/profiles")
+            .option("resource_type", "image")
+            .callback(object : UploadCallback {
+                override fun onStart(requestId: String) {}
+                override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {}
+                override fun onSuccess(requestId: String, resultData: Map<*, *>) {
+                    val url = resultData["secure_url"] as? String
+                    onResult(url)
+                }
+                override fun onError(requestId: String, error: ErrorInfo) {
+                    onResult(null)
+                }
+                override fun onReschedule(requestId: String, error: ErrorInfo) {}
+            })
+            .dispatch()
     }
 
     // Private helper methods
@@ -203,7 +229,7 @@ class ProfileViewModel @Inject constructor(
                             doc.toObject(UserProfile::class.java)?.let { profile ->
                                 if (profile.id.isBlank()) profile.copy(id = doc.id) else profile
                             }
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             null
                         }
                     }

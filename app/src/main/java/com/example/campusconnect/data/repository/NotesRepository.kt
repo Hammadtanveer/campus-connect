@@ -5,7 +5,6 @@ import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
 import com.example.campusconnect.data.local.NotesDao
-import com.example.campusconnect.data.local.NoteEntity
 import com.example.campusconnect.data.local.toEntity
 import com.example.campusconnect.data.models.Note
 import com.example.campusconnect.data.models.Resource
@@ -68,14 +67,20 @@ class NotesRepository @Inject constructor(
         try {
             val fileType = FileUtils.getFileType(file.name)
 
+            // Sanitize filename to avoid URL encoding issues
+            // Replace ALL non-alphanumeric characters with underscore to ensure clean URLs
+            val sanitizedFileName = file.nameWithoutExtension.replace(Regex("[^a-zA-Z0-9]"), "_")
+            Log.d("NotesRepository", "Sanitized filename: $sanitizedFileName")
+
             // Configure upload options for Cloudinary - PDF ONLY
             val folder = "${Constants.CLOUDINARY_BASE_FOLDER}/${semester.replace(" ", "_")}/${subject.replace(" ", "_")}"
             val uploadOptions = mapOf(
                 "folder" to folder,
-                "resource_type" to "auto", // Auto-detect file type
+                "resource_type" to "auto", // Let Cloudinary decide (usually 'raw' for PDF)
+                "type" to "authenticated", // SECURE: File is locked
+                "access_mode" to "authenticated",
                 "allowed_formats" to "pdf", // PDF files only
-                "public_id" to "${System.currentTimeMillis()}_${file.nameWithoutExtension}",
-                "use_filename" to true,
+                "public_id" to "${System.currentTimeMillis()}_${sanitizedFileName}",
                 "unique_filename" to true,
                 "overwrite" to false
             )
@@ -102,8 +107,22 @@ class NotesRepository @Inject constructor(
                     override fun onSuccess(requestId: String, resultData: Map<*, *>) {
                         Log.d("NotesRepository", "Upload successful: $resultData")
 
-                        val fileUrl = resultData["secure_url"] as? String ?: ""
                         val publicId = resultData["public_id"] as? String ?: ""
+                        val resourceType = resultData["resource_type"] as? String ?: "raw"
+                        val version = resultData["version"]
+
+                        // Generate SIGNED URL
+                        val signedUrl = try {
+                            mediaManager.url()
+                                .resourceType(resourceType)
+                                .type("authenticated")
+                                .signed(true)
+                                .version(version)
+                                .generate(publicId)
+                        } catch (e: Exception) {
+                            Log.e("NotesRepository", "Failed to generate signed URL", e)
+                            resultData["secure_url"] as? String ?: ""
+                        }
 
                         // Save metadata to Firestore
                         val noteMetadata = hashMapOf(
@@ -114,7 +133,7 @@ class NotesRepository @Inject constructor(
                             "fileName" to file.name,
                             "fileSize" to file.length(),
                             "fileType" to fileType,
-                            "fileUrl" to fileUrl,
+                            "fileUrl" to signedUrl,
                             "cloudinaryPublicId" to publicId,
                             "uploaderId" to userId,
                             "uploaderName" to userName,

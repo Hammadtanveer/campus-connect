@@ -8,7 +8,6 @@ import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.campusconnect.ui.components.Notes
 import com.example.campusconnect.ui.screens.AccountView
 import com.example.campusconnect.ui.screens.DownloadView
 import com.example.campusconnect.ui.screens.PlacementCareerScreen
@@ -24,6 +23,9 @@ import com.example.campusconnect.ui.screens.RequestDetailScreen
 import com.example.campusconnect.ui.screens.AdminPanelScreen
 import com.example.campusconnect.ui.screens.UploadNoteScreen
 import com.example.campusconnect.ui.screens.NotesScreen
+import com.example.campusconnect.ui.senior.SeniorDetailScreen
+import com.example.campusconnect.ui.senior.SeniorEditScreen
+import com.example.campusconnect.ui.senior.SeniorAddScreen
 
 @Composable
 fun Navigation(navController: NavController, viewModel: MainViewModel, pd: PaddingValues) {
@@ -45,9 +47,9 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
                 }
             )
         }
-        composable(Screen.DrawerScreen.Seniors.route) { Seniors(viewModel) }
+        composable(Screen.DrawerScreen.Seniors.route) { Seniors(viewModel, navController) }
         composable(Screen.DrawerScreen.Societies.route) { Societies() }
-        composable(Screen.DrawerScreen.Profile.route) { AccountView(viewModel, navController) }
+        composable(Screen.DrawerScreen.Profile.route) { AccountView(viewModel) }
         composable(Screen.DrawerScreen.Download.route) { DownloadView(viewModel) }
         composable(Screen.DrawerScreen.PlacementCareer.dRoute) {
             PlacementCareerScreen(viewModel = viewModel)
@@ -86,6 +88,44 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         // Admin Panel
         composable("admin/panel") {
             AdminPanelScreen(viewModel = viewModel, navController = navController)
+        }
+
+        // Senior screens
+        composable("senior_detail/{seniorId}") { backStackEntry ->
+            val seniorId = backStackEntry.arguments?.getString("seniorId")
+            val senior = viewModel.getSenior(seniorId ?: "")
+            if (senior != null) {
+                SeniorDetailScreen(
+                    senior = senior,
+                    onBackClick = { navController.popBackStack() },
+                    onEditClick = { navController.navigate("senior_edit/${senior.id}") }
+                )
+            }
+        }
+        composable("senior_edit/{seniorId}") { backStackEntry ->
+            val seniorId = backStackEntry.arguments?.getString("seniorId")
+            val senior = viewModel.getSenior(seniorId ?: "")
+            if (senior != null) {
+                SeniorEditScreen(
+                    viewModel = viewModel,
+                    senior = senior,
+                    onBackClick = { navController.popBackStack() },
+                    onSaveClick = { updatedSenior ->
+                        viewModel.updateSenior(updatedSenior)
+                        navController.popBackStack()
+                    }
+                )
+            }
+        }
+        composable("senior_add") {
+            SeniorAddScreen(
+                viewModel = viewModel,
+                onBackClick = { navController.popBackStack() },
+                onAddClick = { newSenior ->
+                    viewModel.addSenior(newSenior)
+                    navController.popBackStack()
+                }
+            )
         }
     }
 }
