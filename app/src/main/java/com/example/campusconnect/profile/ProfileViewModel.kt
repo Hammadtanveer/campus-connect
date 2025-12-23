@@ -62,9 +62,28 @@ class ProfileViewModel @Inject constructor(
      * Update user profile
      */
     fun updateProfile(profile: UserProfile, onResult: (Boolean, String?) -> Unit) {
+        // Use update instead of set to avoid touching restricted fields if possible,
+        // or just ensure we are not triggering the restricted keys check if values haven't changed.
+        // However, to be safe and robust against rule restrictions on 'set' (which might be seen as touching all fields),
+        // we should use .update() with only the editable fields.
+
+        val updates = mapOf(
+            "displayName" to profile.displayName,
+            "course" to profile.course,
+            "branch" to profile.branch,
+            "year" to profile.year,
+            "bio" to profile.bio,
+            "profilePictureUrl" to profile.profilePictureUrl
+            // Add other user-editable fields here if any
+        )
+
         firestore.collection("users").document(profile.id)
-            .set(profile)
+            .update(updates)
             .addOnSuccessListener {
+                // We need to update the local session with the full profile object
+                // Since we only updated specific fields in Firestore, we can assume the other fields in 'profile'
+                // (which came from the UI state) are correct or we should merge them.
+                // The 'profile' passed in is likely a copy of the current state with edits.
                 sessionManager.updateProfile(profile)
                 activityLog.logActivity(
                     ActivityType.PROFILE_UPDATE,

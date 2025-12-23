@@ -32,7 +32,7 @@ class SeniorsRepository @Inject constructor(
                         try {
                             val s = doc.toObject(Senior::class.java)
                             s?.copy(id = doc.id)
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
                             null
                         }
                     }
@@ -62,7 +62,7 @@ class SeniorsRepository @Inject constructor(
     }
 
     fun uploadSeniorImage(file: File, onResult: (String?) -> Unit) {
-        mediaManager.upload(file.absolutePath)
+        val requestId = mediaManager.upload(file.absolutePath)
             .option("folder", "${Constants.CLOUDINARY_BASE_FOLDER}/seniors")
             .option("resource_type", "image")
             .callback(object : UploadCallback {

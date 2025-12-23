@@ -115,6 +115,15 @@ class MainViewModel @Inject constructor(
     val seniorsList: List<Senior> get() = _seniorsList.value
 
     init {
+        // Sync with SessionManager to keep profile updated across ViewModels
+        viewModelScope.launch {
+            sessionManager.state.collect { state ->
+                if (state.profile != null) {
+                    _userProfile.value = state.profile
+                }
+            }
+        }
+
         auth.currentUser?.let { user ->
             sessionManager.updateAuth(user.uid, user.email)
             loadUserProfile(user.uid)

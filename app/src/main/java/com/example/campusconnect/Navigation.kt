@@ -1,5 +1,6 @@
 package com.example.campusconnect
 
+import com.example.campusconnect.ui.screens.AccountView
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -8,7 +9,6 @@ import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.campusconnect.ui.screens.AccountView
 import com.example.campusconnect.ui.screens.DownloadView
 import com.example.campusconnect.ui.screens.PlacementCareerScreen
 import com.example.campusconnect.ui.screens.Seniors
