@@ -1,5 +1,6 @@
 package com.example.campusconnect.ui.screens
 
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -66,6 +67,7 @@ fun AccountView(viewModel: MainViewModel) {
     val userActivities = viewModel.userActivities
     val (isEditing, setIsEditing) = remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
+    val (isSaving, setIsSaving) = remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val launcher = rememberLauncherForActivityResult(
@@ -77,14 +79,24 @@ fun AccountView(viewModel: MainViewModel) {
             val file = FileUtils.copyFileToCache(context, uri, fileName)
             if (file != null) {
                 profileVM.uploadProfileImage(file) { url: String? ->
-                    isUploading = false
                     if (url != null && userProfile != null) {
                         val updatedProfile = userProfile.copy(profilePictureUrl = url)
-                        profileVM.updateProfile(updatedProfile) { _, _ -> }
+                        profileVM.updateProfile(updatedProfile) { success, error ->
+                            isUploading = false
+                            if (success) {
+                                Toast.makeText(context, "Profile picture updated", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Failed to update profile: $error", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    } else {
+                        isUploading = false
+                        Toast.makeText(context, "Failed to upload image", Toast.LENGTH_SHORT).show()
                     }
                 }
             } else {
                 isUploading = false
+                Toast.makeText(context, "Failed to process file", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -94,14 +106,20 @@ fun AccountView(viewModel: MainViewModel) {
     if (isEditing) {
         EditProfileDialog(
             userProfile = userProfile,
+            isSaving = isSaving,
             onSave = { updatedProfile ->
-                profileVM.updateProfile(updatedProfile) { success: Boolean, _: String? ->
+                setIsSaving(true)
+                profileVM.updateProfile(updatedProfile) { success: Boolean, error: String? ->
+                    setIsSaving(false)
                     if (success) {
                         setIsEditing(false)
+                        Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Failed to update profile: $error", Toast.LENGTH_LONG).show()
                     }
                 }
             },
-            onDismiss = { setIsEditing(false) }
+            onDismiss = { if (!isSaving) setIsEditing(false) }
         )
     }
 
@@ -345,6 +363,7 @@ fun ActivityItem(activity: UserActivity) {
 @Composable
 fun EditProfileDialog(
     userProfile: UserProfile,
+    isSaving: Boolean,
     onSave: (UserProfile) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -354,7 +373,7 @@ fun EditProfileDialog(
     var year by remember { mutableStateOf(userProfile.year) }
     var bio by remember { mutableStateOf(userProfile.bio) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(onDismissRequest = { if (!isSaving) onDismiss() }) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -374,80 +393,91 @@ fun EditProfileDialog(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
-                OutlinedTextField(
-                    value = displayName,
-                    onValueChange = { displayName = it },
-                    label = { Text("Full Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = course,
-                    onValueChange = { course = it },
-                    label = { Text("Course") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = branch,
-                    onValueChange = { branch = it },
-                    label = { Text("Branch") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = year,
-                    onValueChange = { year = it },
-                    label = { Text("Year") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = bio,
-                    onValueChange = { bio = it },
-                    label = { Text("Bio") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
-                    maxLines = 4
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                if (isSaving) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text("Cancel")
+                        CircularProgressIndicator()
                     }
+                } else {
+                    OutlinedTextField(
+                        value = displayName,
+                        onValueChange = { displayName = it },
+                        label = { Text("Full Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-                    Button(
-                        onClick = {
-                            onSave(
-                                userProfile.copy(
-                                    displayName = displayName,
-                                    course = course,
-                                    branch = branch,
-                                    year = year,
-                                    bio = bio
-                                )
-                            )
-                        },
-                        modifier = Modifier.weight(1f).padding(start = 8.dp)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = course,
+                        onValueChange = { course = it },
+                        label = { Text("Course") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = branch,
+                        onValueChange = { branch = it },
+                        label = { Text("Branch") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = year,
+                        onValueChange = { year = it },
+                        label = { Text("Year") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = bio,
+                        onValueChange = { bio = it },
+                        label = { Text("Bio") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        maxLines = 4
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Save Changes")
+                        Button(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        ) {
+                            Text("Cancel")
+                        }
+
+                        Button(
+                            onClick = {
+                                onSave(
+                                    userProfile.copy(
+                                        displayName = displayName,
+                                        course = course,
+                                        branch = branch,
+                                        year = year,
+                                        bio = bio
+                                    )
+                                )
+                            },
+                            modifier = Modifier.weight(1f).padding(start = 8.dp)
+                        ) {
+                            Text("Save Changes")
+                        }
                     }
                 }
 

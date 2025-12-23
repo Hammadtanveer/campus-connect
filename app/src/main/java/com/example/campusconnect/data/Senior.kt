@@ -1,6 +1,5 @@
 package com.example.campusconnect.data
 
-// Senior data model
 data class Senior(
     val id: String = "",
     val name: String = "",
