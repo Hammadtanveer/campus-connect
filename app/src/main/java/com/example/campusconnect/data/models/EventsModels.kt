@@ -21,7 +21,8 @@ data class OnlineEvent(
     val category: EventCategory = EventCategory.SOCIAL,
     val maxParticipants: Int = 0,
     val createdAt: Timestamp? = null,
-    val organizerName: String = ""
+    val organizerName: String = "",
+    val participantCount: Int = 0
 )
 
 data class EventRegistration(
@@ -31,5 +32,3 @@ data class EventRegistration(
     val registeredAt: Timestamp? = null,
     val status: RegistrationStatus = RegistrationStatus.REGISTERED
 )
-
-

@@ -26,7 +26,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.models.Note
@@ -36,6 +35,7 @@ import com.example.campusconnect.ui.viewmodels.NotesViewModel
 import com.example.campusconnect.ui.viewmodels.UploadNoteViewModel
 import com.example.campusconnect.util.Constants
 import com.example.campusconnect.util.FileUtils
+import com.example.campusconnect.util.CloudinaryConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,7 +141,8 @@ fun AllNotesTab(viewModel: NotesViewModel) {
             state = state,
             onDownload = { note ->
                 viewModel.recordDownload(note.id)
-                val intent = Intent(Intent.ACTION_VIEW, note.fileUrl.toUri())
+                val signedUrl = CloudinaryConfig.getSignedPdfUrl(note.cloudinaryPublicId)
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(signedUrl))
                 context.startActivity(intent)
             },
             onDelete = null // Can't delete others' notes
@@ -159,7 +160,8 @@ fun MyNotesTab(viewModel: NotesViewModel) {
         state = state,
         onDownload = { note ->
             viewModel.recordDownload(note.id)
-            val intent = Intent(Intent.ACTION_VIEW, note.fileUrl.toUri())
+            val signedUrl = CloudinaryConfig.getSignedPdfUrl(note.cloudinaryPublicId)
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(signedUrl))
             context.startActivity(intent)
         },
         onDelete = { note ->
@@ -867,3 +869,4 @@ fun EmptyState(message: String, modifier: Modifier = Modifier) {
         )
     }
 }
+
