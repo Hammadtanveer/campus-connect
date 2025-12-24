@@ -2,6 +2,7 @@ package com.example.campusconnect.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -155,7 +156,7 @@ fun EventListItem(event: OnlineEvent, onClick: () -> Unit) {
                 Button(
                     onClick = {
                         try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(event.meetLink))
+                            val intent = Intent(Intent.ACTION_VIEW, event.meetLink.toUri())
                             context.startActivity(intent)
                         } catch (_: Exception) {
                             // Handle error
