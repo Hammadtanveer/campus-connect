@@ -156,15 +156,15 @@ service cloud.firestore {
       // Anyone can read senior profiles
       allow read: if isAuthenticated();
 
-      // Can create if has permission
-      allow create: if hasPermission('seniors:add:all');
+      // Can create if has permission or is admin
+      allow create: if hasPermission('seniors:add:all') || isAdminFromDoc();
 
-      // Can edit if has permission
+      // Can edit if has permission or is admin
       allow update: if hasPermission('seniors:edit:all') ||
-                       hasPermission('seniors:verify:all');
+                       hasPermission('seniors:verify:all') || isAdminFromDoc();
 
-      // Can delete if has permission
-      allow delete: if hasPermission('seniors:delete:all');
+      // Can delete if has permission or is admin
+      allow delete: if hasPermission('seniors:delete:all') || isAdminFromDoc();
     }
 
     // ========== PLACEMENTS COLLECTION ==========

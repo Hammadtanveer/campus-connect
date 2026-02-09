@@ -5,9 +5,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
@@ -19,8 +24,34 @@ import com.example.campusconnect.data.Senior
 fun SeniorDetailScreen(
     senior: Senior,
     onBackClick: () -> Unit,
-    onEditClick: () -> Unit
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Senior") },
+            text = { Text("Are you sure you want to delete ${senior.name}?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDeleteClick()
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -33,6 +64,9 @@ fun SeniorDetailScreen(
                 actions = {
                     IconButton(onClick = onEditClick) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Senior")
+                    }
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete Senior", tint = MaterialTheme.colorScheme.error)
                     }
                 }
             )

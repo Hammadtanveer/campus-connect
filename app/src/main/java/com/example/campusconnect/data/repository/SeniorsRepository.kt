@@ -32,7 +32,7 @@ class SeniorsRepository @Inject constructor(
                         try {
                             val s = doc.toObject(Senior::class.java)
                             s?.copy(id = doc.id)
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             null
                         }
                     }
@@ -62,7 +62,7 @@ class SeniorsRepository @Inject constructor(
     }
 
     fun uploadSeniorImage(file: File, onResult: (String?) -> Unit) {
-        val requestId = mediaManager.upload(file.absolutePath)
+        mediaManager.upload(file.absolutePath)
             .option("folder", "${Constants.CLOUDINARY_BASE_FOLDER}/seniors")
             .option("resource_type", "image")
             .callback(object : UploadCallback {
@@ -78,5 +78,16 @@ class SeniorsRepository @Inject constructor(
                 override fun onReschedule(requestId: String, error: ErrorInfo) {}
             })
             .dispatch()
+    }
+
+    fun deleteSenior(seniorId: String, onResult: (Boolean, String?) -> Unit) {
+        if (seniorId.isBlank()) {
+            onResult(false, "Invalid Senior ID")
+            return
+        }
+        db.collection("seniors").document(seniorId)
+            .delete()
+            .addOnSuccessListener { onResult(true, null) }
+            .addOnFailureListener { onResult(false, it.message) }
     }
 }

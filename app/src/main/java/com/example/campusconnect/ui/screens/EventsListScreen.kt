@@ -2,6 +2,7 @@ package com.example.campusconnect.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.ui.Modifier
 import androidx.core.net.toUri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,7 +26,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,26 +34,36 @@ import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.models.OnlineEvent
 import com.example.campusconnect.data.models.Resource
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.campusconnect.ui.events.EventsViewModel
+
 @Composable
-fun EventsListScreen(viewModel: MainViewModel, navController: NavController) {
-    val eventsState = remember { mutableStateOf<List<OnlineEvent>>(emptyList()) }
+fun EventsListScreen(
+    navController: NavController,
+    viewModel: EventsViewModel = hiltViewModel()
+) {
+    val resource by viewModel.eventsState.collectAsState()
+
+    val eventsList = remember { mutableStateOf<List<OnlineEvent>>(emptyList()) }
     val isLoading = remember { mutableStateOf(false) }
     val error = remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadEvents().collect { res ->
-            when (res) {
-                is Resource.Loading -> {
-                    isLoading.value = true
-                }
-                is Resource.Success -> {
-                    isLoading.value = false
-                    eventsState.value = res.data
-                }
-                is Resource.Error -> {
-                    isLoading.value = false
-                    error.value = res.message
-                }
+    LaunchedEffect(resource) {
+        when (val res = resource) {
+            is Resource.Loading -> {
+                isLoading.value = true
+                error.value = null
+            }
+            is Resource.Success -> {
+                isLoading.value = false
+                eventsList.value = res.data
+                error.value = null
+            }
+            is Resource.Error -> {
+                isLoading.value = false
+                error.value = res.message
             }
         }
     }
@@ -82,13 +92,13 @@ fun EventsListScreen(viewModel: MainViewModel, navController: NavController) {
             Text(text = "Error: $err", color = MaterialTheme.colorScheme.error)
         }
 
-        if (!isLoading.value && eventsState.value.isEmpty()) {
+        if (!isLoading.value && eventsList.value.isEmpty() && error.value == null) {
             // Empty state similar to downloads
             Text("No events available.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(16.dp))
         }
 
         LazyColumn {
-            items(eventsState.value) { event ->
+            items(eventsList.value) { event ->
                 EventListItem(event = event, onClick = { navController.navigate("event/${event.id}") })
             }
         }
