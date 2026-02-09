@@ -3,6 +3,7 @@ package com.example.campusconnect.data.repository
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -124,5 +125,28 @@ class EventsRepository @Inject constructor(
                 }
             }
         awaitClose { registration.remove() }
+    }
+
+    suspend fun getEvent(eventId: String): Resource<OnlineEvent> {
+        return try {
+            val doc = db.collection("events").document(eventId).get().await()
+            val event = doc.toObject(OnlineEvent::class.java)?.copy(id = doc.id)
+            if (event != null) {
+                Resource.Success(event)
+            } else {
+                Resource.Error("Event not found")
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.message)
+        }
+    }
+
+    suspend fun getParticipantCount(eventId: String): Int {
+        return try {
+            val snapshot = db.collection("registrations").whereEqualTo("eventId", eventId).get().await()
+            snapshot.size()
+        } catch (e: Exception) {
+            0
+        }
     }
 }

@@ -1,5 +1,13 @@
 package com.example.campusconnect.ui.screens
 
+import android.widget.Toast
+import com.example.campusconnect.data.models.EventCategory
+import com.example.campusconnect.util.NetworkUtils
+import com.google.firebase.Timestamp
+import java.util.Date
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.TimeoutCancellationException
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,19 +37,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.campusconnect.MainViewModel
-import com.example.campusconnect.data.models.EventCategory
-import com.example.campusconnect.util.NetworkUtils
-import com.google.firebase.Timestamp
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.launch
-import android.widget.Toast
-import java.util.Date
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.campusconnect.ui.events.EventsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateEventScreen(viewModel: MainViewModel, navController: NavController) {
+fun CreateEventScreen(
+    navController: NavController,
+    viewModel: EventsViewModel = hiltViewModel()
+) {
     if (!viewModel.canCreateEvent()) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text("You don't have permission to create events.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
@@ -200,7 +204,7 @@ fun CreateEventScreen(viewModel: MainViewModel, navController: NavController) {
                             error = null
 
                             navController.popBackStack()
-                        } catch (timeout: TimeoutCancellationException) {
+                        } catch (_: TimeoutCancellationException) {
                             error = "Request timed out. Please try again if the event doesn't appear."
                             Toast.makeText(context, "Event creation timed out", Toast.LENGTH_LONG).show()
                         } catch (e: Exception) {

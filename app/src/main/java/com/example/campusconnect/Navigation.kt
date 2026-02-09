@@ -1,10 +1,12 @@
 package com.example.campusconnect
 
+import android.widget.Toast
 import com.example.campusconnect.ui.screens.AccountView
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -26,6 +28,8 @@ import com.example.campusconnect.ui.screens.NotesScreen
 import com.example.campusconnect.ui.senior.SeniorDetailScreen
 import com.example.campusconnect.ui.senior.SeniorEditScreen
 import com.example.campusconnect.ui.senior.SeniorAddScreen
+import com.example.campusconnect.ui.placement.AddPlacementScreen
+import com.example.campusconnect.ui.placement.PlacementDetailScreen
 
 @Composable
 fun Navigation(navController: NavController, viewModel: MainViewModel, pd: PaddingValues) {
@@ -52,19 +56,28 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         composable(Screen.DrawerScreen.Profile.route) { AccountView(viewModel) }
         composable(Screen.DrawerScreen.Download.route) { DownloadView(viewModel) }
         composable(Screen.DrawerScreen.PlacementCareer.dRoute) {
-            PlacementCareerScreen(viewModel = viewModel)
+            PlacementCareerScreen(navController = navController, mainViewModel = viewModel)
+        }
+        composable("placement/add") {
+            AddPlacementScreen(navController = navController)
+        }
+        composable("placement/{placementId}") { backStack ->
+            val id = backStack.arguments?.getString("placementId")
+            if (id != null) {
+                PlacementDetailScreen(placementId = id, navController = navController)
+            }
         }
 
         // Events screens
         composable(Screen.DrawerScreen.Events.route) {
-            EventsListScreen(viewModel = viewModel, navController = navController)
+            EventsListScreen(navController = navController)
         }
         composable("event/{eventId}") { backStack ->
             val eventId = backStack.arguments?.getString("eventId")
-            EventDetailScreen(eventId = eventId, viewModel = viewModel, navController = navController)
+            EventDetailScreen(eventId = eventId, mainViewModel = viewModel, navController = navController)
         }
         composable("events/create") {
-            CreateEventScreen(viewModel = viewModel, navController = navController)
+            CreateEventScreen(navController = navController)
         }
 
         // Mentors screens
@@ -98,7 +111,17 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
                 SeniorDetailScreen(
                     senior = senior,
                     onBackClick = { navController.popBackStack() },
-                    onEditClick = { navController.navigate("senior_edit/${senior.id}") }
+                    onEditClick = { navController.navigate("senior_edit/${senior.id}") },
+                    onDeleteClick = {
+                        val context = navController.context
+                        viewModel.deleteSenior(senior.id) { success, error ->
+                            if (success) {
+                                navController.popBackStack()
+                            } else {
+                                Toast.makeText(context, "Delete failed: $error", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
                 )
             }
         }
@@ -106,24 +129,36 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
             val seniorId = backStackEntry.arguments?.getString("seniorId")
             val senior = viewModel.getSenior(seniorId ?: "")
             if (senior != null) {
+                val context = LocalContext.current
                 SeniorEditScreen(
                     viewModel = viewModel,
                     senior = senior,
                     onBackClick = { navController.popBackStack() },
                     onSaveClick = { updatedSenior ->
-                        viewModel.updateSenior(updatedSenior)
-                        navController.popBackStack()
+                        viewModel.updateSenior(updatedSenior) { success, error ->
+                            if (success) {
+                                navController.popBackStack()
+                            } else {
+                                Toast.makeText(context, "Update failed: $error", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 )
             }
         }
         composable("senior_add") {
+            val context = LocalContext.current
             SeniorAddScreen(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
                 onAddClick = { newSenior ->
-                    viewModel.addSenior(newSenior)
-                    navController.popBackStack()
+                    viewModel.addSenior(newSenior) { success, error ->
+                        if (success) {
+                            navController.popBackStack()
+                        } else {
+                            Toast.makeText(context, "Failed to add senior: $error", Toast.LENGTH_LONG).show()
+                        }
+                    }
                 }
             )
         }

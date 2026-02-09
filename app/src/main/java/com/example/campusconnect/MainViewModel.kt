@@ -24,8 +24,6 @@ import com.example.campusconnect.data.models.ActivityType
 import com.example.campusconnect.data.models.MentorshipRequest
 import com.example.campusconnect.data.models.MentorshipConnection
 import com.example.campusconnect.data.models.Resource
-import com.example.campusconnect.data.models.OnlineEvent
-import com.example.campusconnect.data.models.EventCategory
 import com.example.campusconnect.data.repository.EventsRepository
 import com.example.campusconnect.data.repository.NotesRepository
 import com.example.campusconnect.data.repository.SeniorsRepository
@@ -93,8 +91,8 @@ class MainViewModel @Inject constructor(
     private val _downloads = mutableStateOf<List<DownloadItem>>(emptyList())
     val downloads: List<DownloadItem> get() = _downloads.value
 
-    // Events-related state
-
+    // Events-related state moved to EventsViewModel
+    /*
     private val _eventsList = mutableStateOf<List<OnlineEvent>>(emptyList())
     @Suppress("unused")
     val eventsList: List<OnlineEvent> get() = _eventsList.value
@@ -106,6 +104,7 @@ class MainViewModel @Inject constructor(
     private val _isLoadingEvents = mutableStateOf(false)
     @Suppress("unused")
     val isLoadingEvents: Boolean get() = _isLoadingEvents.value
+    */
 
     private val _myNotes = mutableStateOf<List<Note>>(emptyList())
     val myNotes: List<Note> get() = _myNotes.value
@@ -133,8 +132,10 @@ class MainViewModel @Inject constructor(
 
     private fun observeSeniors() {
         seniorsRepo.observeSeniors().collectInViewModel { res ->
-            if (res is Resource.Success) {
-                _seniorsList.value = res.data
+            when (res) {
+                is Resource.Success -> _seniorsList.value = res.data
+                is Resource.Error -> Log.e("MainViewModel", "Error loading seniors: ${res.message}")
+                is Resource.Loading -> {} // Optional: handle loading
             }
         }
     }
@@ -972,129 +973,25 @@ class MainViewModel @Inject constructor(
         // In production, activities come from ActivityLogRepository
     }
 
-    // Events-related helper methods that call into repository
+    // Events-related logic moved to EventsViewModel
+    /*
     fun loadEvents(): Flow<Resource<List<OnlineEvent>>> {
         return eventsRepo.observeEvents()
     }
 
-    fun createEvent(
-        title: String,
-        description: String,
-        dateTime: Timestamp,
-        durationMinutes: Long,
-        category: EventCategory,
-        maxParticipants: Int = 0,
-        meetLink: String = "",
-        onResult: (Boolean, String?) -> Unit
-    ) {
-        val organizerId = auth.currentUser?.uid ?: return onResult(false, "Not authenticated")
-        val organizerName = auth.currentUser?.displayName ?: ""
-        // Auto-generate meet link if not provided - simplified for speed
-        val finalMeetLink = if (meetLink.isBlank()) {
-            // Use a simpler, faster meet link generation
-            "https://meet.google.com/${UUID.randomUUID().toString().take(12).replace("-", "")}"
-        } else meetLink
+    fun createEvent(...) { ... }
 
-        eventsRepo.createEvent(
-            title = title,
-            description = description,
-            dateTime = dateTime,
-            durationMinutes = durationMinutes,
-            organizerId = organizerId,
-            organizerName = organizerName,
-            category = category,
-            maxParticipants = maxParticipants,
-            meetLink = finalMeetLink
-        ) { ok, err ->
-            onResult(ok, err)
-        }
-    }
+    suspend fun createEventAwait(...) { ... }
 
-    // New: suspend wrapper to allow try/catch usage from UI
-    suspend fun createEventAwait(
-        title: String,
-        description: String,
-        dateTime: Timestamp,
-        durationMinutes: Long,
-        category: EventCategory,
-        maxParticipants: Int = 0,
-        meetLink: String = ""
-    ) {
-        return kotlinx.coroutines.withTimeout(EVENT_CREATION_TIMEOUT_MS) {
-            kotlinx.coroutines.suspendCancellableCoroutine { cont ->
-                createEvent(
-                    title = title,
-                    description = description,
-                    dateTime = dateTime,
-                    durationMinutes = durationMinutes,
-                    category = category,
-                    maxParticipants = maxParticipants,
-                    meetLink = meetLink
-                ) { ok, err ->
-                    if (!cont.isActive) return@createEvent
-                    if (ok) {
-                        cont.resume(Unit)
-                    } else {
-                        cont.resumeWithException(IllegalStateException(err ?: "Failed to create event"))
-                    }
-                }
-            }
-        }
-    }
+    fun registerForEvent(...) { ... }
 
-    // New event registration method for UI
-    fun registerForEvent(eventId: String, onResult: (Boolean, String?) -> Unit) {
-        val uid = auth.currentUser?.uid ?: return onResult(false, "Not authenticated")
-        eventsRepo.registerForEvent(userId = uid, eventId = eventId, onResult = { ok, err ->
-            if (ok) {
-                val localTitle = _eventsList.value.firstOrNull { it.id == eventId }?.title
-                if (localTitle != null) trackEventJoin(localTitle) else trackEventJoinById(eventId)
-            }
-            onResult(ok, err)
-        })
-    }
+    private fun trackEventJoin(...) { ... }
 
-    // Track an event join by name (records a user activity)
-    private fun trackEventJoin(eventName: String) {
-        addActivity(
-            UserActivity(
-                id = UUID.randomUUID().toString(),
-                type = ActivityType.EVENT_JOINED.name,
-                title = "Event Joined",
-                description = "You joined: $eventName",
-                timestamp = formatTimestamp(),
-                iconResId = R.drawable.baseline_event_24
-            )
-        )
-    }
+    private fun trackEventJoinById(...) { ... }
 
-    // Try to resolve an event title from the local cache, otherwise fetch from Firestore
-    private fun trackEventJoinById(eventId: String) {
-        val event = _eventsList.value.find { it.id == eventId }
-        if (event != null) {
-            trackEventJoin(event.title)
-            return
-        }
-        val db = FirebaseFirestore.getInstance()
-        db.collection("events").document(eventId)
-            .get()
-            .addOnSuccessListener { doc ->
-                if (doc.exists()) {
-                    val e = doc.toObject(OnlineEvent::class.java)
-                    if (e != null) trackEventJoin(e.title)
-                }
-            }
-            .addOnFailureListener { /* ignore */ }
-    }
+    private fun generateMeetLink(...) { ... }
+    */
 
-    @Suppress("unused")
-    private fun generateMeetLink(): String {
-        // Google Meet uses pattern: xxx-xxxx-xxx (letters)
-        val rand = Random()
-        fun seg(len: Int): String = (1..len).map { ('a' + rand.nextInt(26)) }.joinToString("")
-        val link = "https://meet.google.com/${seg(3)}-${seg(4)}-${seg(3)}"
-        return link
-    }
 
     @Suppress("unused")
     fun uploadNote(title: String, sizeLabel: String, onResult: (Boolean, String?) -> Unit) {
@@ -1168,20 +1065,23 @@ class MainViewModel @Inject constructor(
 
     // Seniors management methods
     @Suppress("unused")
-    fun addSenior(senior: Senior) {
+    fun addSenior(senior: Senior, onResult: (Boolean, String?) -> Unit) {
         seniorsRepo.addSenior(senior) { success, error ->
             if (!success) {
                 Log.e("MainViewModel", "Failed to add senior: $error")
             }
+            // Add slight delay to ensure Firestore propagation or local cache update before UI navigation
+            onResult(success, error)
         }
     }
 
     @Suppress("unused")
-    fun updateSenior(senior: Senior) {
+    fun updateSenior(senior: Senior, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         seniorsRepo.updateSenior(senior) { success, error ->
             if (!success) {
                 Log.e("MainViewModel", "Failed to update senior: $error")
             }
+            onResult(success, error)
         }
     }
 
@@ -1192,6 +1092,16 @@ class MainViewModel @Inject constructor(
     @Suppress("unused")
     fun getSenior(id: String): Senior? {
         return _seniorsList.value.find { it.id == id }
+    }
+
+    @Suppress("unused")
+    fun deleteSenior(seniorId: String, onResult: (Boolean, String?) -> Unit) {
+        seniorsRepo.deleteSenior(seniorId) { success, error ->
+            if (!success) {
+                Log.e("MainViewModel", "Failed to delete senior: $error")
+            }
+            onResult(success, error)
+        }
     }
 
     private fun ByteArray.gzipCompress(): ByteArray {

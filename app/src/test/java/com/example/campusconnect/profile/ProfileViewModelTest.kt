@@ -1,7 +1,6 @@
 package com.example.campusconnect.profile
 
-import com.example.campusconnect.data.models.ActivityType
-import com.example.campusconnect.data.models.UserProfile
+import com.cloudinary.android.MediaManager
 import com.example.campusconnect.data.repository.ActivityLogRepository
 import com.example.campusconnect.session.SessionManager
 import com.google.firebase.auth.FirebaseAuth
@@ -25,6 +24,7 @@ class ProfileViewModelTest {
     private lateinit var mockFirestore: FirebaseFirestore
     private lateinit var mockSessionManager: SessionManager
     private lateinit var mockActivityLog: ActivityLogRepository
+    private lateinit var mockMediaManager: MediaManager
     private lateinit var mockUser: FirebaseUser
 
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -37,6 +37,7 @@ class ProfileViewModelTest {
         mockFirestore = mock()
         mockSessionManager = mock()
         mockActivityLog = mock()
+        mockMediaManager = mock()
         mockUser = mock()
 
         whenever(mockAuth.currentUser).thenReturn(mockUser)
@@ -47,7 +48,7 @@ class ProfileViewModelTest {
     fun `updateMentorProfile when not authenticated returns error`() = runTest {
         // Given
         whenever(mockAuth.currentUser).thenReturn(null)
-        viewModel = ProfileViewModel(mockAuth, mockFirestore, mockSessionManager, mockActivityLog)
+        viewModel = ProfileViewModel(mockAuth, mockFirestore, mockSessionManager, mockActivityLog, mockMediaManager)
 
         var resultSuccess = true
         var resultError: String? = null
@@ -66,7 +67,7 @@ class ProfileViewModelTest {
     @Test
     fun `setEditMode updates state`() = runTest {
         // Given
-        viewModel = ProfileViewModel(mockAuth, mockFirestore, mockSessionManager, mockActivityLog)
+        viewModel = ProfileViewModel(mockAuth, mockFirestore, mockSessionManager, mockActivityLog, mockMediaManager)
 
         // When
         viewModel.setEditMode(true)
@@ -78,13 +79,13 @@ class ProfileViewModelTest {
     @Test
     fun `uploadAvatar returns not implemented error`() = runTest {
         // Given
-        viewModel = ProfileViewModel(mockAuth, mockFirestore, mockSessionManager, mockActivityLog)
+        viewModel = ProfileViewModel(mockAuth, mockFirestore, mockSessionManager, mockActivityLog, mockMediaManager)
 
         var resultSuccess = true
         var resultError: String? = null
 
         // When
-        viewModel.uploadAvatar("uri", {}) { success, error ->
+        viewModel.uploadAvatar { success, error ->
             resultSuccess = success
             resultError = error
         }
@@ -98,7 +99,7 @@ class ProfileViewModelTest {
     @Test
     fun `viewModel initializes successfully`() = runTest {
         // When
-        viewModel = ProfileViewModel(mockAuth, mockFirestore, mockSessionManager, mockActivityLog)
+        viewModel = ProfileViewModel(mockAuth, mockFirestore, mockSessionManager, mockActivityLog, mockMediaManager)
 
         // Then
         assertNotNull(viewModel.session)
