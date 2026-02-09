@@ -59,16 +59,16 @@ fun MainView(viewModel: MainViewModel) {
     val navBackStackEntry by controller.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    // Identify standalone screens that should not show the main drawer/toolbar structure
+    val isStandaloneScreen = currentRoute in listOf(
+        "senior_add",
+        "senior_detail/{seniorId}",
+        "senior_edit/{seniorId}"
+    )
+
     val context = LocalContext.current
 
-    // Start/stop pending requests listener when authentication/profile changes
-    LaunchedEffect(viewModel.userProfile?.id) {
-        if (viewModel.userProfile?.id != null) {
-            viewModel.startPendingRequestsListener(context)
-        } else {
-            viewModel.stopPendingRequestsListener()
-        }
-    }
+    // Mentorship listener logic removed
 
     // Update ViewModel's current screen based on navigation route changes
     LaunchedEffect(currentRoute) {
@@ -91,6 +91,7 @@ fun MainView(viewModel: MainViewModel) {
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = !isStandaloneScreen,
         // Use transparent scrim; we render our own to apply custom blur/scrim combo
         scrimColor = Color.Transparent,
         drawerContent = {
@@ -103,7 +104,6 @@ fun MainView(viewModel: MainViewModel) {
                         item = item,
                         badgeCount = when (item) {
                             Screen.DrawerScreen.Events -> viewModel.unreadEventNotifications
-                            Screen.DrawerScreen.Mentorship -> viewModel.pendingMentorshipRequests
                             else -> 0
                         },
                         onDrawerItemClicked = {
@@ -129,22 +129,24 @@ fun MainView(viewModel: MainViewModel) {
             ) {
                 Scaffold(
                     topBar = {
-                        TopAppBar(
-                            title = { Text(title) },
-                            actions = {
-                                IconButton(onClick = { /* placeholder for future actions */ }) {
-                                    Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "More options")
+                        if (!isStandaloneScreen) {
+                            TopAppBar(
+                                title = { Text(title) },
+                                actions = {
+                                    IconButton(onClick = { /* placeholder for future actions */ }) {
+                                        Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "More options")
+                                    }
+                                },
+                                navigationIcon = {
+                                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Menu,
+                                            contentDescription = "Open navigation drawer"
+                                        )
+                                    }
                                 }
-                            },
-                            navigationIcon = {
-                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Menu,
-                                        contentDescription = "Open navigation drawer"
-                                    )
-                                }
-                            }
-                        )
+                            )
+                        }
                     }
                 ) { paddingValues ->
                     Navigation(navController = controller, viewModel = viewModel, pd = paddingValues)

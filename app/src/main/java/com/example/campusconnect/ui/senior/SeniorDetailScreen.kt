@@ -75,7 +75,7 @@ fun SeniorDetailScreen(
         Column(
             modifier = Modifier
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             // Image

@@ -19,6 +19,8 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +40,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.campusconnect.ui.events.EventsViewModel
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 
 @Composable
 fun EventsListScreen(
@@ -99,14 +106,34 @@ fun EventsListScreen(
 
         LazyColumn {
             items(eventsList.value) { event ->
-                EventListItem(event = event, onClick = { navController.navigate("event/${event.id}") })
+                EventListItem(
+                    event = event,
+                    onClick = { navController.navigate("event/${event.id}") },
+                    canEdit = viewModel.canEditEvent(event),
+                    canDelete = viewModel.canDeleteEvent(event),
+                    onEdit = { /* TODO: Navigate to Edit Event */ },
+                    onDelete = {
+                        viewModel.deleteEvent(event.id) { success, _ ->
+                            if (!success) {
+                                // Handle error
+                            }
+                        }
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-fun EventListItem(event: OnlineEvent, onClick: () -> Unit) {
+fun EventListItem(
+    event: OnlineEvent,
+    onClick: () -> Unit,
+    canEdit: Boolean = false,
+    canDelete: Boolean = false,
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {}
+) {
     val context = LocalContext.current
     val now = System.currentTimeMillis()
     val start = event.dateTime?.toDate()?.time ?: 0L
@@ -162,6 +189,17 @@ fun EventListItem(event: OnlineEvent, onClick: () -> Unit) {
 
             Spacer(modifier = Modifier.width(8.dp))
 
+            if (canEdit) {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit Event", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+            if (canDelete) {
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete Event", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+
             if (isHappeningNow) {
                 Button(
                     onClick = {
@@ -188,4 +226,8 @@ fun EventListItem(event: OnlineEvent, onClick: () -> Unit) {
             }
         }
     }
+}
+
+fun cleanUpImports() {
+    // This is a dummy edit to force re-evaluation of the file by the compiler/IDE state
 }

@@ -17,6 +17,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
 import java.util.Random
@@ -25,6 +26,7 @@ import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import com.example.campusconnect.R
+import com.example.campusconnect.data.models.EventType
 
 @HiltViewModel
 class EventsViewModel @Inject constructor(
@@ -45,9 +47,30 @@ class EventsViewModel @Inject constructor(
             initialValue = Resource.Loading
         )
 
+    // Expose current user profile for UI reactivity
+    val currentUser = sessionManager.state
+        .map { it.profile }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = sessionManager.state.value.profile
+        )
+
     fun canCreateEvent(): Boolean {
         val p = sessionManager.state.value.profile ?: return false
         return p.canCreateEvent()
+    }
+
+    fun canEditEvent(event: OnlineEvent): Boolean {
+        val p = currentUser.value ?: return false
+        // Super/Admin rule from profile
+        if (p.isAdmin) return true
+        // Owner rule
+        return event.organizerId == p.id
+    }
+
+    fun canDeleteEvent(event: OnlineEvent): Boolean {
+        return canEditEvent(event) // Similar logic for now: owner or admin can delete
     }
 
     // Proxy the repository flow if raw flow is needed
@@ -60,7 +83,8 @@ class EventsViewModel @Inject constructor(
         description: String,
         dateTime: Timestamp,
         durationMinutes: Long,
-        category: EventCategory,
+        eventType: EventType,
+        venue: String,
         maxParticipants: Int = 0,
         meetLink: String = "",
         onResult: (Boolean, String?) -> Unit
@@ -69,10 +93,17 @@ class EventsViewModel @Inject constructor(
         val organizerId = currentUser?.id ?: return onResult(false, "Not authenticated")
         val organizerName = currentUser.displayName
 
-        // Auto-generate meet link if not provided
-        val finalMeetLink = if (meetLink.isBlank()) {
+        // Auto-generate meet link if not provided, ONLY for ONLINE events
+        val finalMeetLink = if (eventType == EventType.ONLINE && meetLink.isBlank()) {
             "https://meet.google.com/${generatePseudoMeetLink()}"
-        } else meetLink
+        } else if (eventType == EventType.OFFLINE) {
+            "" // No meet link for offline events
+        } else {
+            meetLink
+        }
+
+        // Default category to SOCIAL as it's no longer selectable
+        val defaultCategory = EventCategory.SOCIAL
 
         eventsRepo.createEvent(
             title = title,
@@ -81,7 +112,9 @@ class EventsViewModel @Inject constructor(
             durationMinutes = durationMinutes,
             organizerId = organizerId,
             organizerName = organizerName,
-            category = category,
+            category = defaultCategory,
+            eventType = eventType,
+            venue = venue,
             maxParticipants = maxParticipants,
             meetLink = finalMeetLink
         ) { ok, err ->
@@ -94,7 +127,8 @@ class EventsViewModel @Inject constructor(
         description: String,
         dateTime: Timestamp,
         durationMinutes: Long,
-        category: EventCategory,
+        eventType: EventType,
+        venue: String,
         maxParticipants: Int = 0,
         meetLink: String = ""
     ) {
@@ -105,7 +139,8 @@ class EventsViewModel @Inject constructor(
                     description = description,
                     dateTime = dateTime,
                     durationMinutes = durationMinutes,
-                    category = category,
+                    eventType = eventType,
+                    venue = venue,
                     maxParticipants = maxParticipants,
                     meetLink = meetLink
                 ) { ok, err ->
@@ -166,6 +201,12 @@ class EventsViewModel @Inject constructor(
 
     suspend fun getParticipantCount(eventId: String): Int {
         return eventsRepo.getParticipantCount(eventId)
+    }
+
+    fun deleteEvent(eventId: String, onResult: (Boolean, String?) -> Unit) {
+        eventsRepo.deleteEvent(eventId) { ok, err ->
+            onResult(ok, err)
+        }
     }
 
     private fun generatePseudoMeetLink(): String {
