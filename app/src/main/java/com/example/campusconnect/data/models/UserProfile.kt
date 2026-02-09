@@ -11,15 +11,8 @@ data class UserProfile(
     val profilePictureUrl: String = "",
     val eventCount: Int = 0,
 
-    // Mentorship fields (new)
-    val isMentor: Boolean = false,
-    val mentorshipBio: String = "",
-    val expertise: List<String> = emptyList(),
-    val mentorshipStatus: String = "available", // values: "available", "busy", "unavailable"
 
     // New data enhancements
-    val mentorshipRating: Double? = null,
-    val totalConnections: Int = 0,
 
     // RBAC (Role-Based Access Control) fields
     val isAdmin: Boolean = false, // convenience flag from custom claims ("admin": true)

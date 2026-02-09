@@ -475,44 +475,6 @@ class MainViewModel @Inject constructor(
             }
     }
 
-    // New: update mentor profile fields and mark user as mentor
-    @Suppress("unused")
-    fun updateMentorProfile(bio: String, expertise: List<String>, status: String, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
-        val uid = auth.currentUser?.uid
-        if (uid == null) return onResult(false, "Not authenticated")
-        val db = FirebaseFirestore.getInstance()
-        val updates = mapOf<String, Any>(
-            "isMentor" to true,
-            "mentorshipBio" to bio,
-            "expertise" to expertise,
-            "mentorshipStatus" to status
-        )
-        db.collection("users").document(uid)
-            .update(updates)
-            .addOnSuccessListener {
-                // update local profile if loaded
-                _userProfile.value = _userProfile.value?.copy(
-                    isMentor = true,
-                    mentorshipBio = bio,
-                    expertise = expertise,
-                    mentorshipStatus = status
-                )
-                addActivity(
-                    UserActivity(
-                        id = UUID.randomUUID().toString(),
-                        type = ActivityType.PROFILE_UPDATE.name,
-                        title = "Mentor Profile Updated",
-                        description = "You updated your mentor profile",
-                        timestamp = formatTimestamp(),
-                        iconResId = R.drawable.outline_person_24
-                    )
-                )
-                onResult(true, null)
-            }
-            .addOnFailureListener { e ->
-                onResult(false, e.message)
-            }
-    }
 
     private fun addActivity(activity: UserActivity) {
         // ActivityLogRepository uses logActivity internally
