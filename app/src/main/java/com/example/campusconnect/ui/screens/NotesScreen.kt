@@ -39,10 +39,12 @@ import com.example.campusconnect.util.CloudinaryConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotesScreen(navController: NavController? = null) {
+fun NotesScreen(
+    navController: NavController? = null,
+    mainViewModel: MainViewModel = hiltViewModel()
+) {
     val notesViewModel: NotesViewModel = hiltViewModel()
     val uploadViewModel: UploadNoteViewModel = hiltViewModel()
-    val mainViewModel: MainViewModel = hiltViewModel()
 
     val profile = mainViewModel.userProfile
     val canUploadNotes = profile?.canUploadNotes() == true

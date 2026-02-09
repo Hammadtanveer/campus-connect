@@ -7,30 +7,17 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
-import java.util.Date
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
-import android.content.Context
-import java.util.Random
-import com.google.firebase.Timestamp
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.channels.awaitClose
-import com.google.firebase.firestore.ListenerRegistration
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import com.example.campusconnect.data.models.UserProfile
 import com.example.campusconnect.data.models.UserActivity
 import com.example.campusconnect.data.models.ActivityType
-import com.example.campusconnect.data.models.MentorshipRequest
-import com.example.campusconnect.data.models.MentorshipConnection
 import com.example.campusconnect.data.models.Resource
-import com.example.campusconnect.data.repository.EventsRepository
 import com.example.campusconnect.data.repository.NotesRepository
 import com.example.campusconnect.data.repository.SeniorsRepository
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
 import com.google.firebase.auth.GetTokenResult
-import com.example.campusconnect.security.canCreateEvent
 import com.example.campusconnect.security.canUploadNotes
 import com.example.campusconnect.security.canUpdateSenior
 import com.example.campusconnect.security.canManageSociety
@@ -52,7 +39,7 @@ import com.example.campusconnect.data.Senior
 class MainViewModel @Inject constructor(
     application: Application,
     private val auth: FirebaseAuth,
-    private val eventsRepo: EventsRepository,
+    // private val eventsRepo: EventsRepository, // Removed unused
     private val notesRepo: NotesRepository,
     private val seniorsRepo: SeniorsRepository,
     private val firestore: FirebaseFirestore,
@@ -60,7 +47,6 @@ class MainViewModel @Inject constructor(
     private val activityLogRepository: ActivityLogRepository
 ) : AndroidViewModel(application) {
     companion object {
-        private const val EVENT_CREATION_TIMEOUT_MS = 30_000L
     }
 
     // Use State for Compose compatibility
@@ -79,9 +65,9 @@ class MainViewModel @Inject constructor(
     private val _unreadEventNotifications = mutableStateOf(0)
     val unreadEventNotifications: Int get() = _unreadEventNotifications.value
 
-    // pending mentorship requests badge
-    private val _pendingMentorshipRequests = mutableStateOf(0)
-    val pendingMentorshipRequests: Int get() = _pendingMentorshipRequests.value
+    // pending mentorship requests badge (Removed feature)
+    // private val _pendingMentorshipRequests = mutableStateOf(0)
+    // val pendingMentorshipRequests: Int get() = _pendingMentorshipRequests.value
 
     data class DownloadItem(
         val id: String = UUID.randomUUID().toString(),
@@ -165,7 +151,7 @@ class MainViewModel @Inject constructor(
                     val normalized = profile?.let { normalizeRbac(it) }
                     _userProfile.value = normalized
                     sessionManager.updateProfile(profile)
-                    loadUserActivities(userId)
+                    loadUserActivities()
                     // Navigate into the app after successful profile load
                     _currentScreen.value = Screen.DrawerScreen.Profile
                     Log.i("MainViewModel", "loadUserProfile: profile loaded, navigating to Profile for $userId")
@@ -219,7 +205,9 @@ class MainViewModel @Inject constructor(
         if (current != null) {
             val mergedRoles = (current.roles + claimRoles).distinct()
             val mergedAdmin = current.isAdmin || claimsAdmin
-            _userProfile.value = current.copy(isAdmin = mergedAdmin, roles = mergedRoles)
+            val updated = current.copy(isAdmin = mergedAdmin, roles = mergedRoles)
+            _userProfile.value = updated
+            sessionManager.updateProfile(updated)
         }
     }
 
@@ -235,10 +223,6 @@ class MainViewModel @Inject constructor(
         } catch (_: Exception) { onDone?.invoke() }
     }
 
-    fun canCreateEvent(): Boolean {
-        val p = _userProfile.value ?: return false
-        return p.canCreateEvent()
-    }
 
     fun signInWithEmailPassword(
         email: String,
@@ -435,7 +419,7 @@ class MainViewModel @Inject constructor(
         _userProfile.value = null
         _currentScreen.value = Screen.DrawerScreen.Profile
         // cleanup listeners
-        stopPendingRequestsListener()
+        // stopPendingRequestsListener() - Mentorship removed
     }
 
     fun setCurrentScreenByRoute(route: String) {
@@ -447,7 +431,6 @@ class MainViewModel @Inject constructor(
             Screen.DrawerScreen.Societies.dRoute -> Screen.DrawerScreen.Societies
             Screen.DrawerScreen.PlacementCareer.dRoute -> Screen.DrawerScreen.PlacementCareer
             Screen.DrawerScreen.Events.dRoute -> Screen.DrawerScreen.Events
-            Screen.DrawerScreen.Mentors.dRoute -> Screen.DrawerScreen.Mentors
             else -> return
         }
         if (_currentScreen.value.route != newScreen.dRoute) {
@@ -531,444 +514,13 @@ class MainViewModel @Inject constructor(
             }
     }
 
-    // Load all mentors (where isMentor == true)
-    fun loadMentors(): Flow<Resource<List<UserProfile>>> = callbackFlow {
-        trySend(Resource.Loading)
-        val db = FirebaseFirestore.getInstance()
-        val reg = db.collection("users").whereEqualTo("isMentor", true)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    trySend(Resource.Error(error.message))
-                    return@addSnapshotListener
-                }
-                if (snapshot != null) {
-                    val mentors = snapshot.documents.mapNotNull { doc ->
-                        try {
-                            val up = doc.toObject(UserProfile::class.java)
-                            if (up != null && up.id.isBlank()) up.copy(id = doc.id) else up
-                        } catch (ex: Exception) {
-                            null
-                        }
-                    }
-                    trySend(Resource.Success(mentors))
-                }
-            }
-        awaitClose { reg.remove() }
-    }
-
-    // Send a mentorship request (sender: current user)
-    fun sendMentorshipRequest(mentorId: String, message: String = ""): Flow<Resource<Boolean>> = callbackFlow {
-        trySend(Resource.Loading)
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            trySend(Resource.Error("Not authenticated"))
-            close()
-            awaitClose {}
-            return@callbackFlow
-        }
-        val db = FirebaseFirestore.getInstance()
-        val id = UUID.randomUUID().toString()
-        val req = MentorshipRequest(
-            id = id,
-            senderId = uid,
-            receiverId = mentorId,
-            message = message,
-            status = "pending",
-            createdAt = Timestamp(Date())
-        )
-        db.collection("mentorship_requests").document(id)
-            .set(req)
-            .addOnSuccessListener {
-                trySend(Resource.Success(true))
-                // track mentorship request as user activity
-                addActivity(
-                    UserActivity(
-                        id = UUID.randomUUID().toString(),
-                        type = "MENTORSHIP_REQUEST",
-                        title = "Mentorship Request Sent",
-                        description = "You sent a mentorship request to ${mentorId}",
-                        timestamp = formatTimestamp(),
-                        iconResId = R.drawable.outline_person_24
-                    )
-                )
-                close()
-            }
-            .addOnFailureListener { e ->
-                trySend(Resource.Error(e.message))
-                close()
-            }
-        awaitClose { }
-    }
-
-    // Get mentorship requests sent by current user
-    fun getMyMentorshipRequests(): Flow<Resource<List<MentorshipRequest>>> = callbackFlow {
-        trySend(Resource.Loading)
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            trySend(Resource.Error("Not authenticated"))
-            close()
-            awaitClose {}
-            return@callbackFlow
-        }
-        val db = FirebaseFirestore.getInstance()
-        val reg = db.collection("mentorship_requests").whereEqualTo("senderId", uid)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    trySend(Resource.Error(error.message))
-                    return@addSnapshotListener
-                }
-                if (snapshot != null) {
-                    val reqs = snapshot.documents.mapNotNull { doc ->
-                        try {
-                            val r = doc.toObject(MentorshipRequest::class.java)
-                            if (r != null && r.id.isBlank()) r.copy(id = doc.id) else r
-                        } catch (_: Exception) {
-                            null
-                        }
-                    }
-                    trySend(Resource.Success(reqs))
-                }
-            }
-        awaitClose { reg.remove() }
-    }
-
-    // Get mentorship requests received by current user (for mentors)
-    fun getReceivedRequests(): Flow<Resource<List<MentorshipRequest>>> = callbackFlow {
-        trySend(Resource.Loading)
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            trySend(Resource.Error("Not authenticated"))
-            close()
-            awaitClose {}
-            return@callbackFlow
-        }
-        val db = FirebaseFirestore.getInstance()
-        val reg = db.collection("mentorship_requests").whereEqualTo("receiverId", uid)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    trySend(Resource.Error(error.message))
-                    return@addSnapshotListener
-                }
-                if (snapshot != null) {
-                    val reqs = snapshot.documents.mapNotNull { doc ->
-                        try {
-                            val r = doc.toObject(MentorshipRequest::class.java)
-                            if (r != null && r.id.isBlank()) r.copy(id = doc.id) else r
-                        } catch (_: Exception) {
-                            null
-                        }
-                    }
-                    // update pending badge count
-                    val pendingCount = reqs.count { it.status == "pending" }
-                    _pendingMentorshipRequests.value = pendingCount
-                    trySend(Resource.Success(reqs))
-                }
-            }
-        awaitClose { reg.remove() }
-    }
-
-    // Accept a mentorship request: set status to accepted and create a connection
-    fun acceptRequest(requestId: String): Flow<Resource<Boolean>> = callbackFlow {
-        trySend(Resource.Loading)
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            trySend(Resource.Error("Not authenticated"))
-            close(); awaitClose {}
-            return@callbackFlow
-        }
-        val db = FirebaseFirestore.getInstance()
-        val ref = db.collection("mentorship_requests").document(requestId)
-        ref.get().addOnSuccessListener { doc ->
-            if (!doc.exists()) {
-                trySend(Resource.Error("Request not found"))
-                close(); return@addOnSuccessListener
-            }
-            val req = doc.toObject(MentorshipRequest::class.java)
-            if (req == null) {
-                trySend(Resource.Error("Malformed request"))
-                close(); return@addOnSuccessListener
-            }
-            // Update request status and updatedAt
-            val updates = mapOf<String, Any>("status" to "accepted", "updatedAt" to Timestamp.now())
-            ref.update(updates)
-                .addOnSuccessListener {
-                    // create connection document
-                    val connId = UUID.randomUUID().toString()
-                    val connection = MentorshipConnection(
-                        id = connId,
-                        mentorId = req.receiverId,
-                        menteeId = req.senderId,
-                        participants = listOf(req.receiverId, req.senderId),
-                        connectedAt = Timestamp.now()
-                    )
-                    db.collection("mentorship_connections").document(connId)
-                        .set(connection)
-                        .addOnSuccessListener {
-                            // increment totalConnections for both users (best-effort)
-                            val mentorRef = db.collection("users").document(req.receiverId)
-                            val menteeRef = db.collection("users").document(req.senderId)
-                            mentorRef.update("totalConnections", com.google.firebase.firestore.FieldValue.increment(1))
-                            menteeRef.update("totalConnections", com.google.firebase.firestore.FieldValue.increment(1))
-
-                            // track activity
-                            addActivity(
-                                UserActivity(
-                                    id = UUID.randomUUID().toString(),
-                                    type = "MENTORSHIP_ACCEPTED",
-                                    title = "Mentorship Accepted",
-                                    description = "You accepted a mentorship request from ${req.senderId}",
-                                    timestamp = formatTimestamp(),
-                                    iconResId = R.drawable.outline_person_24
-                                )
-                            )
-
-                            trySend(Resource.Success(true))
-                            close()
-                        }
-                        .addOnFailureListener { e ->
-                            trySend(Resource.Error(e.message))
-                            close()
-                        }
-                }
-                .addOnFailureListener { e ->
-                    trySend(Resource.Error(e.message))
-                    close()
-                }
-        }.addOnFailureListener { e ->
-            trySend(Resource.Error(e.message))
-            close()
-        }
-        awaitClose { }
-    }
-
-    // Reject a mentorship request: update status to rejected
-    fun rejectRequest(requestId: String): Flow<Resource<Boolean>> = callbackFlow {
-        trySend(Resource.Loading)
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            trySend(Resource.Error("Not authenticated"))
-            close(); awaitClose {}
-            return@callbackFlow
-        }
-        val db = FirebaseFirestore.getInstance()
-        val ref = db.collection("mentorship_requests").document(requestId)
-        val updates = mapOf<String, Any>("status" to "rejected", "updatedAt" to Timestamp.now())
-        ref.update(updates)
-            .addOnSuccessListener {
-                addActivity(
-                    UserActivity(
-                        id = UUID.randomUUID().toString(),
-                        type = "MENTORSHIP_REJECTED",
-                        title = "Mentorship Rejected",
-                        description = "You rejected a mentorship request",
-                        timestamp = formatTimestamp(),
-                        iconResId = R.drawable.outline_person_24
-                    )
-                )
-                trySend(Resource.Success(true))
-                close()
-            }
-            .addOnFailureListener { e ->
-                trySend(Resource.Error(e.message))
-                close()
-            }
-        awaitClose { }
-    }
-
-    // Get current accepted connections as a list of UserProfiles (either mentors or mentees)
-    fun getMyConnections(): Flow<Resource<List<UserProfile>>> = callbackFlow {
-        trySend(Resource.Loading)
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            trySend(Resource.Error("Not authenticated"))
-            close(); awaitClose {}
-            return@callbackFlow
-        }
-        val db = FirebaseFirestore.getInstance()
-        val reg = db.collection("mentorship_connections")
-            .whereArrayContains("participants", uid)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    trySend(Resource.Error(error.message))
-                    return@addSnapshotListener
-                }
-                if (snapshot != null) {
-                    val docs = snapshot.documents
-                    val profiles = mutableListOf<UserProfile>()
-                    var remaining = docs.size
-                    if (remaining == 0) {
-                        trySend(Resource.Success(emptyList()))
-                        return@addSnapshotListener
-                    }
-                    for (doc in docs) {
-                        try {
-                            val conn = doc.toObject(MentorshipConnection::class.java)
-                            if (conn != null) {
-                                // determine other party
-                                val otherId = if (conn.mentorId == uid) conn.menteeId else conn.mentorId
-                                db.collection("users").document(otherId).get()
-                                    .addOnSuccessListener { userDoc ->
-                                        val up = userDoc.toObject(UserProfile::class.java)
-                                        if (up != null) profiles.add(if (up.id.isBlank()) up.copy(id = userDoc.id) else up)
-                                        remaining -= 1
-                                        if (remaining <= 0) trySend(Resource.Success(profiles))
-                                    }
-                                    .addOnFailureListener {
-                                        remaining -= 1
-                                        if (remaining <= 0) trySend(Resource.Success(profiles))
-                                    }
-                            } else {
-                                remaining -= 1
-                                if (remaining <= 0) trySend(Resource.Success(profiles))
-                            }
-                        } catch (_: Exception) {
-                            remaining -= 1
-                            if (remaining <= 0) trySend(Resource.Success(profiles))
-                        }
-                    }
-                }
-            }
-        awaitClose { reg.remove() }
-    }
-
-    // Remove an existing connection (by mentorId or menteeId relative to current user)
-    fun removeConnection(otherUserId: String): Flow<Resource<Boolean>> = callbackFlow {
-        trySend(Resource.Loading)
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            trySend(Resource.Error("Not authenticated"))
-            close(); awaitClose {}
-            return@callbackFlow
-        }
-        val db = FirebaseFirestore.getInstance()
-        // find the connection document where participants contains both ids
-        db.collection("mentorship_connections")
-            .whereArrayContains("participants", uid)
-            .get()
-            .addOnSuccessListener { snap ->
-                val found = snap.documents.find { doc ->
-                    val conn = try { doc.toObject(MentorshipConnection::class.java) } catch (_: Exception) { null }
-                    conn != null && ((conn.mentorId == otherUserId && conn.menteeId == uid) || (conn.menteeId == otherUserId && conn.mentorId == uid) || (conn.participants.contains(otherUserId)))
-                }
-                if (found == null) {
-                    trySend(Resource.Error("Connection not found"))
-                    close()
-                    return@addOnSuccessListener
-                }
-                val connId = found.id
-                db.collection("mentorship_connections").document(connId)
-                    .delete()
-                    .addOnSuccessListener {
-                        // decrement counts (best-effort)
-                        db.collection("users").document(uid).update("totalConnections", com.google.firebase.firestore.FieldValue.increment(-1))
-                        db.collection("users").document(otherUserId).update("totalConnections", com.google.firebase.firestore.FieldValue.increment(-1))
-                        addActivity(
-                            UserActivity(
-                                id = UUID.randomUUID().toString(),
-                                type = "MENTORSHIP_REMOVED",
-                                title = "Connection Removed",
-                                description = "You removed a mentorship connection",
-                                timestamp = formatTimestamp(),
-                                iconResId = R.drawable.outline_person_24
-                            )
-                        )
-                        trySend(Resource.Success(true))
-                        close()
-                    }
-                    .addOnFailureListener { e ->
-                        trySend(Resource.Error(e.message))
-                        close()
-                    }
-            }
-            .addOnFailureListener { e ->
-                trySend(Resource.Error(e.message))
-                close()
-            }
-        awaitClose { }
-    }
-
-    // Listener registration to keep badge updated even when the user is not on the mentorship screen
-    private var pendingRequestsListener: ListenerRegistration? = null
-
-    /**
-     * Start listening for incoming mentorship requests for the current user.
-     * If a Context is provided we will show a simple local notification when the pending count increases.
-     */
-    fun startPendingRequestsListener(context: Context? = null) {
-        try {
-            val appCtx = context?.applicationContext
-            val uid = auth.currentUser?.uid ?: return
-            // remove any existing listener
-            try { pendingRequestsListener?.remove() } catch (_: Exception) {}
-            val db = FirebaseFirestore.getInstance()
-            pendingRequestsListener = db.collection("mentorship_requests")
-                .whereEqualTo("receiverId", uid)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        Log.w("MainViewModel", "pendingRequestsListener error: ${error.message}")
-                        return@addSnapshotListener
-                    }
-                    if (snapshot != null) {
-                        val reqs = snapshot.documents.mapNotNull { doc ->
-                            try {
-                                val r = doc.toObject(MentorshipRequest::class.java)
-                                if (r != null && r.id.isBlank()) r.copy(id = doc.id) else r
-                            } catch (_: Exception) { null }
-                        }
-                        val pendingCount = reqs.count { it.status == "pending" }
-                        val previous = _pendingMentorshipRequests.value
-                        _pendingMentorshipRequests.value = pendingCount
-                        // if application Context provided and pending increased, notify
-                        if (appCtx != null && pendingCount > previous) {
-                            try {
-                                notifyMentorship(appCtx, "New mentorship request", "You have $pendingCount pending mentorship request(s)")
-                            } catch (ex: Exception) {
-                                Log.w("MainViewModel", "Failed to show mentorship notification", ex)
-                            }
-                        }
-                    }
-                }
-        } catch (ex: Exception) {
-            Log.e("MainViewModel", "startPendingRequestsListener failed", ex)
-        }
-    }
-
-    fun stopPendingRequestsListener() {
-        try {
-            pendingRequestsListener?.remove()
-            pendingRequestsListener = null
-        } catch (ex: Exception) {
-            Log.w("MainViewModel", "stopPendingRequestsListener failed", ex)
-        }
-    }
-
-    // Provide a helper to show mentorship notifications (requires Context)
-    fun notifyMentorship(context: Context, title: String, message: String, id: Int = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()) {
-         try {
-             NotificationHelper.showSimpleNotification(context, id, title, message)
-             // track as activity
-             addActivity(
-                 UserActivity(
-                     id = UUID.randomUUID().toString(),
-                     type = "MENTORSHIP_NOTIFICATION",
-                     title = title,
-                     description = message,
-                     timestamp = formatTimestamp(),
-                     iconResId = R.drawable.outline_person_24
-                 )
-             )
-         } catch (ex: Exception) {
-             Log.e("MainViewModel", "notifyMentorship failed", ex)
-         }
-     }
-
     private fun addActivity(activity: UserActivity) {
         // ActivityLogRepository uses logActivity internally
         // Activities are already being logged where needed
         Log.d("MainViewModel", "Activity: ${activity.description}")
     }
 
-    fun loadUserActivities(userId: String) {
+    fun loadUserActivities() {
         // Sample activities for demonstration
         // In production, activities come from ActivityLogRepository
     }

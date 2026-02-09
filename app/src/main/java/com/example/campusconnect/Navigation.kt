@@ -18,10 +18,6 @@ import com.example.campusconnect.ui.screens.Societies
 import com.example.campusconnect.ui.screens.EventsListScreen
 import com.example.campusconnect.ui.screens.EventDetailScreen
 import com.example.campusconnect.ui.screens.CreateEventScreen
-import com.example.campusconnect.ui.screens.MentorsListScreen
-import com.example.campusconnect.ui.screens.MentorProfileScreen
-import com.example.campusconnect.ui.screens.MyMentorshipScreen
-import com.example.campusconnect.ui.screens.RequestDetailScreen
 import com.example.campusconnect.ui.screens.AdminPanelScreen
 import com.example.campusconnect.ui.screens.UploadNoteScreen
 import com.example.campusconnect.ui.screens.NotesScreen
@@ -39,7 +35,7 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         modifier = Modifier.padding(pd)
     ) {
         composable(Screen.DrawerScreen.Notes.route) {
-            NotesScreen(navController = navController)
+            NotesScreen(navController = navController, mainViewModel = viewModel)
         }
         composable("upload_note") {
             UploadNoteScreen(
@@ -80,23 +76,6 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
             CreateEventScreen(navController = navController)
         }
 
-        // Mentors screens
-        composable(Screen.DrawerScreen.Mentors.route) {
-            MentorsListScreen(viewModel = viewModel, navController = navController)
-        }
-        composable("mentor/{mentorId}") { backStack ->
-            val mentorId = backStack.arguments?.getString("mentorId")
-            MentorProfileScreen(mentorId = mentorId, viewModel = viewModel, navController = navController)
-        }
-
-        // Mentorship management
-        composable(Screen.DrawerScreen.Mentorship.dRoute) {
-            MyMentorshipScreen(viewModel = viewModel, navController = navController)
-        }
-        composable("mentorship/request/{requestId}") { backStack ->
-            val requestId = backStack.arguments?.getString("requestId")
-            RequestDetailScreen(requestId = requestId, viewModel = viewModel, navController = navController)
-        }
 
         // Admin Panel
         composable("admin/panel") {

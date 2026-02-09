@@ -10,6 +10,10 @@ enum class RegistrationStatus {
     REGISTERED, CANCELLED
 }
 
+enum class EventType {
+    ONLINE, OFFLINE
+}
+
 data class OnlineEvent(
     val id: String = "",
     val title: String = "",
@@ -18,6 +22,8 @@ data class OnlineEvent(
     val durationMinutes: Long = 0,
     val organizerId: String = "",
     val meetLink: String = "",
+    val venue: String = "",
+    val eventType: EventType = EventType.ONLINE,
     val category: EventCategory = EventCategory.SOCIAL,
     val maxParticipants: Int = 0,
     val createdAt: Timestamp? = null,

@@ -50,7 +50,7 @@ fun SeniorItem(senior: Senior, onClick: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp, horizontal = 16.dp),
+                .padding(vertical = 8.dp, horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row {

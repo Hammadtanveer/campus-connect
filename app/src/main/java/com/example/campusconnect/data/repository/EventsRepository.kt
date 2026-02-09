@@ -12,6 +12,7 @@ import com.example.campusconnect.data.models.OnlineEvent
 import com.example.campusconnect.data.models.EventCategory
 import com.example.campusconnect.data.models.EventRegistration
 import com.example.campusconnect.data.models.RegistrationStatus
+import com.example.campusconnect.data.models.EventType
 import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,7 +41,7 @@ class EventsRepository @Inject constructor(
                             val e = doc.toObject(OnlineEvent::class.java)
                             // Always ensure the in-memory id matches the Firestore document id
                             e?.let { if (it.id.isBlank()) it.copy(id = doc.id) else it }
-                        } catch (ex: Exception) {
+                        } catch (_: Exception) {
                             null
                         }
                     }
@@ -59,6 +60,8 @@ class EventsRepository @Inject constructor(
         organizerId: String,
         organizerName: String,
         category: EventCategory,
+        eventType: EventType,
+        venue: String,
         maxParticipants: Int = 0,
         meetLink: String = "",
         onResult: (Boolean, String?) -> Unit
@@ -74,13 +77,23 @@ class EventsRepository @Inject constructor(
             durationMinutes = durationMinutes,
             organizerId = organizerId,
             meetLink = meetLink,
+            venue = venue,
             category = category,
+            eventType = eventType,
             maxParticipants = maxParticipants,
             createdAt = Timestamp(Date()),
             organizerName = organizerName
         )
+
         db.collection("events").document(id)
             .set(event)
+            .addOnSuccessListener { onResult(true, null) }
+            .addOnFailureListener { e -> onResult(false, e.message) }
+    }
+
+    fun deleteEvent(eventId: String, onResult: (Boolean, String?) -> Unit) {
+        db.collection("events").document(eventId)
+            .delete()
             .addOnSuccessListener { onResult(true, null) }
             .addOnFailureListener { e -> onResult(false, e.message) }
     }
@@ -117,7 +130,7 @@ class EventsRepository @Inject constructor(
                             val r = doc.toObject(EventRegistration::class.java)
                             // Align in-memory id with Firestore document id if missing
                             r?.let { if (it.id.isBlank()) it.copy(id = doc.id) else it }
-                        } catch (ex: Exception) {
+                        } catch (_: Exception) {
                             null
                         }
                     }
@@ -145,7 +158,7 @@ class EventsRepository @Inject constructor(
         return try {
             val snapshot = db.collection("registrations").whereEqualTo("eventId", eventId).get().await()
             snapshot.size()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             0
         }
     }

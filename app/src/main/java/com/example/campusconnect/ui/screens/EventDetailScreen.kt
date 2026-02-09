@@ -20,10 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.models.OnlineEvent
-import com.google.firebase.firestore.FirebaseFirestore
 import com.example.campusconnect.util.NetworkUtils
 import android.util.Log
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.Alignment
@@ -33,6 +33,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.campusconnect.ui.events.EventsViewModel
 import com.example.campusconnect.data.models.Resource
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import com.example.campusconnect.data.models.EventType
 
 @Composable
 fun EventDetailScreen(
@@ -75,7 +77,18 @@ fun EventDetailScreen(
     Card(modifier = Modifier.padding(16.dp), elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = event.title, style = MaterialTheme.typography.headlineMedium)
-            // ...existing code...
+            Text(text = event.description, style = MaterialTheme.typography.bodyMedium)
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (event.eventType == EventType.OFFLINE && event.venue.isNotBlank()) {
+                Text(text = "Venue: ${event.venue}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(4.dp))
+            } else if (event.eventType == EventType.ONLINE) {
+                Text(text = "Online Event", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
             // Action buttons: Register / Join / Schedule / Share / Save Offline
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 // Register or Join depending on time
