@@ -25,7 +25,7 @@ sealed class Screen(val title: String, val route: String) {
             R.drawable.outline_person_raised_hand_24
         )
         object Societies : DrawerScreen(
-            "Societies",
+            "Societies & Clubs",
             "societies",
             R.drawable.outline_person_play_24
         )
