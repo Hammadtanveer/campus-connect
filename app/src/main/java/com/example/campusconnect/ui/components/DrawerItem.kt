@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.tooling.preview.Preview
 import com.example.campusconnect.Screen
 import com.example.campusconnect.ui.theme.Transparent
 
@@ -65,4 +66,9 @@ fun DrawerItem(
             }
         }
     }
+}
+@Preview(showBackground = true)
+@Composable
+fun drawp(){
+    DrawerItem(true, Screen.DrawerScreen.Societies, 0) { }
 }
