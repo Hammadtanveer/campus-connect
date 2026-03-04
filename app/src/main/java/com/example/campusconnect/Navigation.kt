@@ -21,6 +21,7 @@ import com.example.campusconnect.ui.screens.CreateEventScreen
 import com.example.campusconnect.ui.screens.AdminPanelScreen
 import com.example.campusconnect.ui.screens.UploadNoteScreen
 import com.example.campusconnect.ui.screens.NotesScreen
+import com.example.campusconnect.ui.screens.SocietyDetailScreen
 import com.example.campusconnect.ui.senior.SeniorDetailScreen
 import com.example.campusconnect.ui.senior.SeniorEditScreen
 import com.example.campusconnect.ui.senior.SeniorAddScreen
@@ -48,7 +49,17 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
             )
         }
         composable(Screen.DrawerScreen.Seniors.route) { Seniors(viewModel, navController) }
-        composable(Screen.DrawerScreen.Societies.route) { Societies() }
+        composable(Screen.DrawerScreen.Societies.route) { Societies(navController) }
+        
+        composable("societyDetail/{societyName}") { backStackEntry ->
+            val societyName = backStackEntry.arguments?.getString("societyName")
+            SocietyDetailScreen(
+                societyName = societyName ?: "",
+                navController = navController,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Screen.DrawerScreen.Profile.route) { AccountView(viewModel) }
         composable(Screen.DrawerScreen.Download.route) { DownloadView(viewModel) }
         composable(Screen.DrawerScreen.PlacementCareer.dRoute) {
@@ -73,7 +84,7 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
             EventDetailScreen(eventId = eventId, mainViewModel = viewModel, navController = navController)
         }
         composable("events/create") {
-            CreateEventScreen(navController = navController)
+            CreateEventScreen(onEventCreated = { navController.popBackStack() })
         }
 
 
