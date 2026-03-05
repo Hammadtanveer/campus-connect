@@ -1,0 +1,32 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function userData() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdminOrSuperAdmin() {
+      return isAuthenticated() && (
+        userData().role in ['admin', 'superadmin', 'super_admin'] ||
+        request.auth.token.role in ['admin', 'superadmin', 'super_admin'] ||
+        request.auth.token.admin == true ||
+        request.auth.token.superAdmin == true
+      );
+    }
+
+    match /societies/{societyId}/events/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrSuperAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+  }
+}
+

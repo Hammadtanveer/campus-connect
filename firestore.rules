@@ -13,14 +13,14 @@ service cloud.firestore {
     function isSuperAdminFromToken() {
       return isAuthenticated() &&
              (request.auth.token.superAdmin == true ||
-              request.auth.token.role == 'super_admin');
+              request.auth.token.role in ['superadmin', 'super_admin']);
     }
 
     // Check if user is admin (from auth token)
     function isAdminFromToken() {
       return isAuthenticated() &&
              (request.auth.token.admin == true ||
-              request.auth.token.role in ['admin', 'super_admin']);
+              request.auth.token.role in ['admin', 'superadmin', 'super_admin']);
     }
 
     // Check if user has a specific permission (from auth token)
@@ -35,17 +35,22 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(uid));
     }
 
+    function currentUserData() {
+      return getUserDoc(request.auth.uid).data;
+    }
+
     // Check super admin via Firestore document
     function isSuperAdminFromDoc() {
-      return isAuthenticated() && getUserDoc(request.auth.uid).data.role == 'super_admin';
+      return isAuthenticated() && currentUserData().role in ['superadmin', 'super_admin'];
     }
     // Check admin via Firestore document
     function isAdminFromDoc() {
-      return isAuthenticated() && (getUserDoc(request.auth.uid).data.isAdmin == true || getUserDoc(request.auth.uid).data.role in ['admin', 'super_admin']);
+      return isAuthenticated() && (currentUserData().isAdmin == true || currentUserData().role in ['admin', 'superadmin', 'super_admin']);
     }
-    // Check active status
+    // Check active status (if status missing, treat as active for backward compatibility)
     function isActiveAdmin() {
-      return (isAdminFromToken() || isAdminFromDoc()) && getUserDoc(request.auth.uid).data.status == 'active';
+      return (isAdminFromToken() || isAdminFromDoc()) &&
+             (!('status' in currentUserData()) || currentUserData().status == 'active');
     }
     // Permission via Firestore document permissions array OR wildcard
     function hasPermissionFromDoc(permission) {
@@ -123,10 +128,8 @@ service cloud.firestore {
 
     // ========== NOTES COLLECTION ==========
     match /notes/{noteId} {
-      // Anyone authenticated can read notes
       allow read: if isAuthenticated();
 
-      // Can upload if has permission
       allow create: if isAuthenticated() &&
         request.resource.data.uploaderId == request.auth.uid &&
         request.resource.data.title is string &&
@@ -138,13 +141,11 @@ service cloud.firestore {
         request.resource.data.cloudinaryPublicId is string &&
         hasPermission('notes:upload:own');
 
-      // Can delete own notes or if has moderate permission
       allow delete: if isAuthenticated() &&
         (resource.data.uploaderId == request.auth.uid ||
          hasPermission('notes:delete:all') ||
          hasPermission('notes:moderate:all'));
 
-      // Allow updating only download/view counts (not other fields)
       allow update: if isAuthenticated() &&
         ((request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['downloads', 'views'])) ||
@@ -153,32 +154,18 @@ service cloud.firestore {
 
     // ========== SENIORS COLLECTION ==========
     match /seniors/{seniorId} {
-      // Anyone can read senior profiles
       allow read: if isAuthenticated();
-
-      // Can create if has permission or is admin
       allow create: if hasPermission('seniors:add:all') || isAdminFromDoc();
-
-      // Can edit if has permission or is admin
       allow update: if hasPermission('seniors:edit:all') ||
                        hasPermission('seniors:verify:all') || isAdminFromDoc();
-
-      // Can delete if has permission or is admin
       allow delete: if hasPermission('seniors:delete:all') || isAdminFromDoc();
     }
 
     // ========== PLACEMENTS COLLECTION ==========
     match /placements/{placementId} {
-      // Anyone can read placement data
       allow read: if isAuthenticated();
-
-      // Can create if has permission
       allow create: if hasPermission('placements:add:all');
-
-      // Can edit if has permission
       allow update: if hasPermission('placements:edit:all');
-
-      // Can delete if has permission
       allow delete: if hasPermission('placements:delete:all');
     }
 
@@ -191,6 +178,38 @@ service cloud.firestore {
       allow update, delete: if hasPermission('society:manage') || (
         exists(/databases/$(database)/documents/societies/$(societyId)) && request.auth.uid in get(/databases/$(database)/documents/societies/$(societyId)).data.admins
       );
+
+      // Society events nested under each society
+      match /events/{eventId} {
+        function hasValidSocietyEventPayload() {
+          return request.resource.data.societyId is string && request.resource.data.societyId == societyId &&
+                 request.resource.data.societyName is string && request.resource.data.societyName.size() > 0 &&
+                 request.resource.data.name is string && request.resource.data.name.size() > 0 &&
+                 request.resource.data.date is string && request.resource.data.date.size() > 0 &&
+                 request.resource.data.time is string && request.resource.data.time.size() > 0 &&
+                 request.resource.data.venue is string && request.resource.data.venue.size() > 0 &&
+                 request.resource.data.coordinator is string && request.resource.data.coordinator.size() > 0 &&
+                 request.resource.data.convener is string && request.resource.data.convener.size() > 0 &&
+                 request.resource.data.register is string && request.resource.data.register.size() > 0 &&
+                 request.resource.data.posterUrl is string && request.resource.data.posterUrl.size() > 0;
+        }
+
+        allow read: if isAuthenticated();
+
+        // Admin and super admin can create and update
+        allow create: if isAuthenticated() && isActiveAdmin() &&
+                      request.resource.data.createdBy == request.auth.uid &&
+                      hasValidSocietyEventPayload();
+
+        allow update: if isAuthenticated() && isActiveAdmin() &&
+                      hasValidSocietyEventPayload() &&
+                      request.resource.data.createdBy == resource.data.createdBy &&
+                      request.resource.data.createdByRole == resource.data.createdByRole &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+
+        // Super admin only can delete
+        allow delete: if isSuperAdminFromToken() || isSuperAdminFromDoc();
+      }
     }
 
     // ========== REGISTRATIONS ==========
