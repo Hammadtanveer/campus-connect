@@ -42,7 +42,7 @@ object PermissionChecker {
         if (user == null) return false
 
         // Super admin has all permissions
-        if (user.role == "super_admin") return true
+        if (isSuperAdmin(user)) return true
 
         // User must be active to have permissions
         if (user.status != "active") return false
@@ -122,7 +122,7 @@ object PermissionChecker {
         if (user == null) return false
 
         // Super admin can do anything
-        if (user.role == "super_admin") return true
+        if (isSuperAdmin(user)) return true
 
         // Check "all" scope first (least restrictive)
         if (hasPermission(user, "$action:all")) return true
@@ -152,7 +152,7 @@ object PermissionChecker {
      * @return true if user is super admin
      */
     fun isSuperAdmin(user: UserProfile?): Boolean {
-        return user?.role == "super_admin"
+        return user?.role in listOf("super_admin", "superadmin")
     }
 
     /**
@@ -162,7 +162,7 @@ object PermissionChecker {
      * @return true if user has admin role
      */
     fun isAdmin(user: UserProfile?): Boolean {
-        return user?.role in listOf("super_admin", "admin") || user?.isAdmin == true
+        return user?.role in listOf("super_admin", "superadmin", "admin") || user?.isAdmin == true
     }
 
     /**
@@ -199,7 +199,7 @@ object PermissionChecker {
         if (user == null) return emptySet()
 
         // Super admin has all permissions
-        if (user.role == "super_admin") {
+        if (isSuperAdmin(user)) {
             return setOf("*:*:*")
         }
 
@@ -296,4 +296,3 @@ object PermissionChecker {
         return "You don't have the required permission: $permission"
     }
 }
-
