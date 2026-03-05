@@ -1,7 +1,7 @@
 package com.example.campusconnect
 
+import android.net.Uri
 import android.widget.Toast
-import com.example.campusconnect.ui.screens.AccountView
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -11,22 +11,25 @@ import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.campusconnect.ui.placement.AddPlacementScreen
+import com.example.campusconnect.ui.placement.PlacementDetailScreen
+import com.example.campusconnect.ui.screens.AccountView
+import com.example.campusconnect.ui.screens.AdminPanelScreen
+import com.example.campusconnect.ui.screens.CreateEventScreen
+import com.example.campusconnect.ui.screens.CreateSocietyEventScreen
 import com.example.campusconnect.ui.screens.DownloadView
+import com.example.campusconnect.ui.screens.EventDetailScreen
+import com.example.campusconnect.ui.screens.EventsListScreen
+import com.example.campusconnect.ui.screens.NotesScreen
 import com.example.campusconnect.ui.screens.PlacementCareerScreen
 import com.example.campusconnect.ui.screens.Seniors
 import com.example.campusconnect.ui.screens.Societies
-import com.example.campusconnect.ui.screens.EventsListScreen
-import com.example.campusconnect.ui.screens.EventDetailScreen
-import com.example.campusconnect.ui.screens.CreateEventScreen
-import com.example.campusconnect.ui.screens.AdminPanelScreen
+import com.example.campusconnect.ui.screens.SocietyEventDetailScreen
+import com.example.campusconnect.ui.screens.SocietyEventsScreen
 import com.example.campusconnect.ui.screens.UploadNoteScreen
-import com.example.campusconnect.ui.screens.NotesScreen
-import com.example.campusconnect.ui.screens.SocietyDetailScreen
+import com.example.campusconnect.ui.senior.SeniorAddScreen
 import com.example.campusconnect.ui.senior.SeniorDetailScreen
 import com.example.campusconnect.ui.senior.SeniorEditScreen
-import com.example.campusconnect.ui.senior.SeniorAddScreen
-import com.example.campusconnect.ui.placement.AddPlacementScreen
-import com.example.campusconnect.ui.placement.PlacementDetailScreen
 
 @Composable
 fun Navigation(navController: NavController, viewModel: MainViewModel, pd: PaddingValues) {
@@ -50,14 +53,63 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         }
         composable(Screen.DrawerScreen.Seniors.route) { Seniors(viewModel, navController) }
         composable(Screen.DrawerScreen.Societies.route) { Societies(navController) }
-        
-        composable("societyDetail/{societyName}") { backStackEntry ->
-            val societyName = backStackEntry.arguments?.getString("societyName")
-            SocietyDetailScreen(
-                societyName = societyName ?: "",
-                navController = navController,
-                onBack = { navController.popBackStack() }
-            )
+
+        composable("societyEvents/{societyId}/{societyName}") { backStackEntry ->
+            val societyId = backStackEntry.arguments?.getString("societyId") ?: ""
+            val encodedName = backStackEntry.arguments?.getString("societyName") ?: ""
+            val societyName = Uri.decode(encodedName)
+            if (societyId.isBlank() || societyName.isBlank()) {
+                navController.popBackStack()
+            } else {
+                SocietyEventsScreen(
+                    societyId = societyId,
+                    societyName = societyName,
+                    navController = navController
+                )
+            }
+        }
+
+        composable("societyEvent/create/{societyId}/{societyName}") { backStackEntry ->
+            val societyId = backStackEntry.arguments?.getString("societyId") ?: ""
+            val encodedName = backStackEntry.arguments?.getString("societyName") ?: ""
+            val societyName = Uri.decode(encodedName)
+            if (societyId.isBlank() || societyName.isBlank()) {
+                navController.popBackStack()
+            } else {
+                CreateSocietyEventScreen(
+                    societyId = societyId,
+                    societyName = societyName,
+                    onEventSaved = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable("societyEvent/edit/{societyId}/{eventId}") { backStackEntry ->
+            val societyId = backStackEntry.arguments?.getString("societyId") ?: ""
+            val eventId = backStackEntry.arguments?.getString("eventId") ?: ""
+            if (societyId.isBlank() || eventId.isBlank()) {
+                navController.popBackStack()
+            } else {
+                CreateSocietyEventScreen(
+                    societyId = societyId,
+                    societyName = "",
+                    eventId = eventId,
+                    onEventSaved = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable("societyEvent/{societyId}/{eventId}") { backStackEntry ->
+            val societyId = backStackEntry.arguments?.getString("societyId") ?: ""
+            val eventId = backStackEntry.arguments?.getString("eventId") ?: ""
+            if (societyId.isNotBlank() && eventId.isNotBlank()) {
+                SocietyEventDetailScreen(
+                    societyId = societyId,
+                    eventId = eventId,
+                    onBack = { navController.popBackStack() },
+                    onEdit = { id -> navController.navigate("societyEvent/edit/$societyId/$id") }
+                )
+            }
         }
 
         composable(Screen.DrawerScreen.Profile.route) { AccountView(viewModel) }
@@ -84,9 +136,8 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
             EventDetailScreen(eventId = eventId, mainViewModel = viewModel, navController = navController)
         }
         composable("events/create") {
-            CreateEventScreen(onEventCreated = { navController.popBackStack() })
+            CreateEventScreen(navController = navController)
         }
-
 
         // Admin Panel
         composable("admin/panel") {
