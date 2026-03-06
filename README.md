@@ -1,164 +1,114 @@
-# CampusConnect  
+# Campus Connect
 
-CampusConnect is a comprehensive Android application designed to enhance the college experience by creating a unified platform for academic collaboration, campus engagement, student networking, and career support.  
+## Overview
+Campus Connect is an Android application built with Kotlin and Firebase to improve communication and engagement across a college campus. It gives students a centralized experience for societies, events, notes, and campus updates.
 
-The app facilitates **note sharing, event discovery, mentorship connections, placement support, and online events** — making campus life smarter and more connected.  
+## Features
+- Student login and authentication
+- Societies and clubs discovery
+- Society-based event browsing
+- Role-based event creation (admin/super admin)
+- Event image upload using Cloudinary
+- Event calendar and reminders
+- Notes sharing module
+- Real-time updates with Firebase Firestore
+- Clean, responsive Android UI
 
----
+## Tech Stack
+- Kotlin
+- Android Studio
+- Firebase Authentication
+- Firebase Firestore
+- Firebase Storage
+- Cloudinary (event images)
+- MVVM Architecture
 
-## 🚀 Features  
+## App Architecture
+Campus Connect follows MVVM for clear separation of concerns:
+- **Model**: data models and repositories
+- **ViewModel**: business logic and UI state
+- **View**: Jetpack Compose screens/components
 
-### 📚 Academic Resource Sharing  
-- Smart Notes Repository organized by course, semester, and topic  
-- Collaborative study materials with annotation capabilities  
-- Version control for tracking document changes  
-- Advanced search and filter for academic content  
+### Key Highlights
+- Built with MVVM architecture
+- Uses Firebase for real-time data
+- Cloudinary integration for media storage
+- Modular Android architecture
 
-### 🏫 Campus Life Hub  
-- Comprehensive event calendar for all campus activities  
-- Society profiles with information and updates  
-- Announcement system for important campus updates  
-- RSVP system for event attendance tracking  
+## Project Structure
+```text
+campus-connect/
+|- app/
+|  |- src/main/java/com/example/campusconnect/
+|  |  |- data/          # Models, repositories, data sources
+|  |  |- ui/            # Screens, components, viewmodels
+|  |  |- util/          # Helpers and utilities
+|  |  |- di/            # Dependency injection modules
+|  |- src/main/res/     # Android resources
+|- cloud-functions/     # Firebase cloud functions
+|- scripts/             # Setup and admin scripts
+|- firebase.json
+|- firestore.rules
+|- README.md
+```
 
-### 🤝 Mentorship Network  
-- Senior-Junior connection platform with profile matching  
-- Topic-specific Q&A forums  
-- Office hours scheduling for mentorship sessions  
-- Showcase of success stories and testimonials  
+## Installation & Setup
+### Prerequisites
+- Android Studio (latest stable)
+- JDK 11+
+- Firebase project access
+- Android emulator or physical device
 
-### 💼 Placement Support *(New)*  
-- Centralized placement cell updates and notifications  
-- Company profiles with eligibility criteria and recruitment process  
-- Mock interview scheduling and preparation resources  
-- Internship & job application tracking system  
+### Setup Steps
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd campus-connect
+   ```
+2. Open the project in Android Studio.
+3. Add `google-services.json` inside `app/`.
+4. Configure Firebase and Cloudinary credentials as required.
+5. Sync Gradle and run the app.
 
-### 🌐 Online Events *(New)*  
-- Virtual seminar and workshop hosting  
-- In-app event live streaming integration  
-- Chat and Q&A during live sessions  
-- Event recordings and resources available post-session  
+## How the App Works
+1. Users sign in through Firebase Authentication.
+2. Students browse societies and related events.
+3. Admin users create/manage events.
+4. Event images are uploaded to Cloudinary and stored as URLs.
+5. Event and notes data are stored in Firestore and update in real time.
 
----
+## Screenshots
+> Add screenshots here.
 
-## 🛠 Tech Stack  
+Suggested sections:
+- Login Screen
+- Societies Screen
+- Society Events Screen
+- Create Event Screen
+- Notes Screen
 
-- **Language:** Kotlin  
-- **UI Framework:** Jetpack Compose  
-- **Architecture:** MVVM with Clean Architecture  
-- **Backend:** Firebase (Authentication, Firestore, Storage)  
-- **Dependency Injection:** Hilt  
-- **Asynchronous Operations:** Coroutines & Flow  
-- **Navigation:** Jetpack Navigation Component  
-- **Image Loading:** Coil  
-- **Testing:** JUnit5, Mockito, Espresso  
+## Future Improvements
+- Push notifications for event reminders
+- In-app event registration workflow
+- Advanced search and filters
+- Offline caching enhancements
+- Admin analytics dashboard
 
----
+## Contribution Guidelines
+Contributions are welcome.
 
-## 📲 Installation  
+1. Fork the repository.
+2. Create a feature branch:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+3. Commit with clear messages.
+4. Push and open a pull request.
 
-### Prerequisites  
-- Android Studio Arctic Fox (2020.3.1) or newer  
-- Kotlin 1.5.0 or newer  
-- JDK 11  
-- Android SDK 21+  
+Please ensure:
+- Changes align with existing architecture
+- Code is tested before PR submission
+- Relevant documentation is updated
 
-### Setup  
-```bash
-# Clone the repository
-git clone https://github.com/Hammadtanveer/campus-connect-android.git
-
-# Open the project in Android Studio
-
-# Create a Firebase project and add the google-services.json file to the app module
-
-# Build the project
-./gradlew build
-
-# Run on an emulator or physical device
-./gradlew installDebug
-
-## 📂 Project Structure
-app/
-├── src/
-│ ├── main/
-│ │ ├── java/com/campusconnect/
-│ │ │ ├── data/ # Data layer: repositories, data sources
-│ │ │ ├── di/ # Dependency injection modules
-│ │ │ ├── domain/ # Domain layer: use cases, models
-│ │ │ ├── presentation/ # UI layer: screens, viewmodels
-│ │ │ ├── util/ # Utility classes
-│ │ │ └── CampusConnectApp.kt
-│ │ ├── res/ # Resources
-│ │ └── AndroidManifest.xml
-│ ├── test/ # Unit tests
-│ └── androidTest/ # Instrumentation tests
-├── build.gradle
-└── proguard-rules.pro
-
----
-
-## 📸 Screenshots  
-Coming soon!  
-
----
-
-## 🛤 Roadmap  
-
-- [x] Project initialization  
-- [x] User authentication system  
-- [x] Profile management  
-- [ ] Notes repository implementation  
-- [ ] Event calendar integration  
-- [ ] Mentorship matching algorithm  
-- [ ] Placement support module  
-- [ ] Online events integration  
-- [ ] Offline caching  
-- [ ] Push notifications  
-- [ ] Performance optimization  
-- [ ] Beta testing  
-
----
-## 🤝 Contributing  
-
-Contributions are welcome!  
-- Fork the repository  
-- Create a new branch (`git checkout -b feature-name`)  
-- Commit your changes (`git commit -m "Add feature"`)  
-- Push to the branch (`git push origin feature-name`)  
-- Open a Pull Request  
----
-## 📚 Documentation
-
-**NEW!** Comprehensive project documentation is now available:
-
-- **[📖 INDEX.md](INDEX.md)** - Start here! Complete documentation index
-- **[📋 PROJECT_ANALYSIS_SUMMARY.md](PROJECT_ANALYSIS_SUMMARY.md)** - Project overview and analysis
-- **[🏗️ ARCHITECTURE_ANALYSIS.md](ARCHITECTURE_ANALYSIS.md)** - Complete architecture deep dive
-- **[📘 TECHNICAL_SPECIFICATIONS.md](TECHNICAL_SPECIFICATIONS.md)** - API reference and technical specs
-- **[🔧 REFACTORING_GUIDE.md](REFACTORING_GUIDE.md)** - Step-by-step improvement roadmap
-- **[⚡ QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick lookup for developers
-- **[📊 ARCHITECTURE_DIAGRAMS.md](ARCHITECTURE_DIAGRAMS.md)** - Visual architecture diagrams
-
-### Quick Start with Documentation
-
-**New to the project?**  
-1. Read [INDEX.md](INDEX.md) for navigation guide
-2. Check [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for key concepts
-3. Follow setup instructions above
-
-**Want to understand the architecture?**  
-1. Read [ARCHITECTURE_ANALYSIS.md](ARCHITECTURE_ANALYSIS.md)
-2. View [ARCHITECTURE_DIAGRAMS.md](ARCHITECTURE_DIAGRAMS.md)
-
-**Planning improvements?**  
-1. Review [PROJECT_ANALYSIS_SUMMARY.md](PROJECT_ANALYSIS_SUMMARY.md)
-2. Follow [REFACTORING_GUIDE.md](REFACTORING_GUIDE.md)
-
----
-
-## 📜 License  
-
-This project is licensed under the **MIT License**.
-
-## RBAC Summary
-CampusConnect now uses Firebase custom claims for admin & granular roles (event:create, notes:upload, senior:update, society:manage). UI hides privileged actions unless authorized and Firestore rules enforce server-side protection. See RBAC_GUIDE.md for full instructions and scripts to assign roles.
+## License
+This project is licensed under the terms defined in the repository `LICENSE` file.
