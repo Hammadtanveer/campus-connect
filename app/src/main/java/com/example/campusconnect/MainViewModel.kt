@@ -9,6 +9,7 @@ import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Job
 import com.example.campusconnect.data.models.UserProfile
 import com.example.campusconnect.data.models.UserActivity
 import com.example.campusconnect.data.models.ActivityType
@@ -98,6 +99,9 @@ class MainViewModel @Inject constructor(
     // Seniors
     private val _seniorsList = mutableStateOf<List<Senior>>(emptyList())
     val seniorsList: List<Senior> get() = _seniorsList.value
+    private var seniorsObserverJob: Job? = null
+    private val _deleteSeniorStatus = mutableStateOf<Resource<Unit>?>(null)
+    val deleteSeniorStatus: Resource<Unit>? get() = _deleteSeniorStatus.value
 
     init {
         // Sync with SessionManager to keep profile updated across ViewModels
@@ -117,11 +121,18 @@ class MainViewModel @Inject constructor(
     }
 
     private fun observeSeniors() {
-        seniorsRepo.observeSeniors().collectInViewModel { res ->
-            when (res) {
-                is Resource.Success -> _seniorsList.value = res.data
-                is Resource.Error -> Log.e("MainViewModel", "Error loading seniors: ${res.message}")
-                is Resource.Loading -> {} // Optional: handle loading
+        seniorsObserverJob?.cancel()
+        seniorsObserverJob = viewModelScope.launch {
+            seniorsRepo.observeSeniors().collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        if (res.data != _seniorsList.value) {
+                            _seniorsList.value = res.data
+                        }
+                    }
+                    is Resource.Error -> Log.e("MainViewModel", "Error loading seniors: ${res.message}")
+                    is Resource.Loading -> Unit
+                }
             }
         }
     }
@@ -583,8 +594,13 @@ class MainViewModel @Inject constructor(
         seniorsRepo.addSenior(senior) { success, error ->
             if (!success) {
                 Log.e("MainViewModel", "Failed to add senior: $error")
+            } else {
+                // Optimistic local update so UI reflects a newly added senior instantly.
+                val current = _seniorsList.value
+                if (current.none { it.id == senior.id }) {
+                    _seniorsList.value = current + senior
+                }
             }
-            // Add slight delay to ensure Firestore propagation or local cache update before UI navigation
             onResult(success, error)
         }
     }
@@ -610,12 +626,22 @@ class MainViewModel @Inject constructor(
 
     @Suppress("unused")
     fun deleteSenior(seniorId: String, onResult: (Boolean, String?) -> Unit) {
+        _deleteSeniorStatus.value = Resource.Loading
         seniorsRepo.deleteSenior(seniorId) { success, error ->
             if (!success) {
                 Log.e("MainViewModel", "Failed to delete senior: $error")
+                _deleteSeniorStatus.value = Resource.Error(error ?: "Failed to delete senior")
+            } else {
+                // Immediate UI update; listener remains source of truth for sync.
+                _seniorsList.value = _seniorsList.value.filterNot { it.id == seniorId }
+                _deleteSeniorStatus.value = Resource.Success(Unit)
             }
             onResult(success, error)
         }
+    }
+
+    fun resetDeleteSeniorStatus() {
+        _deleteSeniorStatus.value = null
     }
 
     private fun ByteArray.gzipCompress(): ByteArray {
@@ -760,5 +786,10 @@ class MainViewModel @Inject constructor(
             Log.e("MainViewModel", "requestAdminAccessServer error", ex)
             onResult(false, ex.localizedMessage)
         }
+    }
+
+    override fun onCleared() {
+        seniorsObserverJob?.cancel()
+        super.onCleared()
     }
 }
