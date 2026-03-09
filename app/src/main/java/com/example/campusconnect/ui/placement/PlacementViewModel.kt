@@ -8,6 +8,7 @@ import com.example.campusconnect.data.repository.PlacementRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -18,6 +19,9 @@ class PlacementViewModel @Inject constructor(
 
     private val _placements = MutableStateFlow<Resource<List<Placement>>>(Resource.Loading)
     val placements: StateFlow<Resource<List<Placement>>> = _placements
+
+    private val _deletePlacementStatus = MutableStateFlow<Resource<Unit>?>(null)
+    val deletePlacementStatus = _deletePlacementStatus.asStateFlow()
 
     init {
         loadPlacements()
@@ -37,10 +41,43 @@ class PlacementViewModel @Inject constructor(
         }
     }
 
-    fun deletePlacement(id: String) {
-        viewModelScope.launch {
-            repository.deletePlacement(id)
+    private fun isAdminOrSuperAdmin(role: String?, isAdminFlag: Boolean): Boolean {
+        if (isAdminFlag) return true
+        return when (role.orEmpty().trim().lowercase()) {
+            "admin", "super_admin", "superadmin" -> true
+            else -> false
         }
+    }
+
+    fun deletePlacement(
+        id: String,
+        currentUserRole: String?,
+        isAdminFlag: Boolean
+    ) {
+        if (!isAdminOrSuperAdmin(currentUserRole, isAdminFlag)) {
+            _deletePlacementStatus.value = Resource.Error("Only Admin/Super Admin can delete jobs")
+            return
+        }
+
+        viewModelScope.launch {
+            _deletePlacementStatus.value = Resource.Loading
+            when (val result = repository.deletePlacement(id)) {
+                is Resource.Success -> {
+                    // Immediate UI update while Firestore listener syncs source-of-truth.
+                    val current = _placements.value
+                    if (current is Resource.Success) {
+                        _placements.value = Resource.Success(current.data.filterNot { it.id == id })
+                    }
+                    _deletePlacementStatus.value = Resource.Success(Unit)
+                }
+                is Resource.Error -> _deletePlacementStatus.value = Resource.Error(result.message ?: "Delete failed")
+                is Resource.Loading -> Unit
+            }
+        }
+    }
+
+    fun resetDeletePlacementStatus() {
+        _deletePlacementStatus.value = null
     }
 
     suspend fun getPlacement(id: String): Resource<Placement> {

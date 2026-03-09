@@ -1,13 +1,18 @@
 package com.example.campusconnect
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 
 class NotificationReceiver : BroadcastReceiver() {
     companion object {
@@ -18,10 +23,10 @@ class NotificationReceiver : BroadcastReceiver() {
         const val NOTIF_ID_BASE = 1000
     }
 
+    @SuppressLint("MissingPermission", "NotificationPermission")
     override fun onReceive(context: Context, intent: Intent) {
         val eventId = intent.getStringExtra(EXTRA_EVENT_ID)
         val title = intent.getStringExtra(EXTRA_EVENT_TITLE) ?: "Upcoming event"
-        val meetLink = intent.getStringExtra(EXTRA_MEET_LINK) ?: ""
 
         createNotificationChannel(context)
 
@@ -39,20 +44,24 @@ class NotificationReceiver : BroadcastReceiver() {
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.baseline_event_24)
-            .setContentTitle("Reminder: $title")
-            .setContentText("Starts in 30 minutes")
+            .setContentTitle("Event reminder: $title")
+            .setContentText("Your event starts in 30 minutes")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingOpen)
             .setAutoCancel(true)
 
         with(NotificationManagerCompat.from(context)) {
-            notify(NOTIF_ID_BASE + (eventId ?: "").hashCode(), builder.build())
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            ) {
+                notify(NOTIF_ID_BASE + (eventId ?: "").hashCode(), builder.build())
+            }
         }
     }
 
     private fun createNotificationChannel(context: Context) {
         val name = "Event reminders"
-        val descriptionText = "Notifications for scheduled events"
+        val descriptionText = "Alerts for upcoming scheduled events"
         val importance = NotificationManager.IMPORTANCE_HIGH
         val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
             description = descriptionText
@@ -61,4 +70,3 @@ class NotificationReceiver : BroadcastReceiver() {
         notificationManager.createNotificationChannel(channel)
     }
 }
-

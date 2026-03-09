@@ -7,6 +7,7 @@ import com.example.campusconnect.data.Senior
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.util.Constants
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -21,7 +22,10 @@ class SeniorsRepository @Inject constructor(
 ) {
     fun observeSeniors(): Flow<Resource<List<Senior>>> = callbackFlow {
         trySend(Resource.Loading)
+        var lastEmitted: List<Senior>? = null
+
         val registration = db.collection("seniors")
+            .orderBy("name", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     trySend(Resource.Error(error.message))
@@ -36,7 +40,11 @@ class SeniorsRepository @Inject constructor(
                             null
                         }
                     }
-                    trySend(Resource.Success(seniors))
+
+                    if (seniors != lastEmitted) {
+                        lastEmitted = seniors
+                        trySend(Resource.Success(seniors))
+                    }
                 }
             }
         awaitClose { registration.remove() }
