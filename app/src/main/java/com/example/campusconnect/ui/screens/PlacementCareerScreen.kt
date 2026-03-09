@@ -1,10 +1,13 @@
 ﻿package com.example.campusconnect.ui.screens
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,8 +21,6 @@ import androidx.navigation.NavController
 import com.example.campusconnect.data.models.Placement
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.ui.placement.PlacementViewModel
-import java.text.SimpleDateFormat
-import java.util.Locale
 import com.example.campusconnect.MainViewModel
 
 @Composable
@@ -29,7 +30,60 @@ fun PlacementCareerScreen(
     viewModel: PlacementViewModel = hiltViewModel()
 ) {
     val placementsState by viewModel.placements.collectAsState()
+    val deleteStatus by viewModel.deletePlacementStatus.collectAsState()
     val userProfile = mainViewModel.userProfile
+    val context = LocalContext.current
+
+    val currentRole = userProfile?.role
+    val canDeleteJobs = (userProfile?.isAdmin == true) ||
+        currentRole.equals("admin", ignoreCase = true) ||
+        currentRole.equals("super_admin", ignoreCase = true) ||
+        currentRole.equals("superadmin", ignoreCase = true)
+    val canManageJobs = canDeleteJobs
+
+    var pendingDelete by remember { mutableStateOf<Placement?>(null) }
+
+    LaunchedEffect(deleteStatus) {
+        when (val status = deleteStatus) {
+            is Resource.Success<*> -> {
+                Toast.makeText(context, "Job deleted", Toast.LENGTH_SHORT).show()
+                viewModel.resetDeletePlacementStatus()
+            }
+            is Resource.Error -> {
+                Toast.makeText(context, status.message ?: "Delete failed", Toast.LENGTH_SHORT).show()
+                viewModel.resetDeletePlacementStatus()
+            }
+            is Resource.Loading, null -> Unit
+        }
+    }
+
+    if (pendingDelete != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Delete Job") },
+            text = { Text("Are you sure you want to delete this job?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val target = pendingDelete
+                    if (target != null) {
+                        viewModel.deletePlacement(
+                            id = target.id,
+                            currentUserRole = currentRole,
+                            isAdminFlag = userProfile?.isAdmin == true
+                        )
+                    }
+                    pendingDelete = null
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Column(modifier = Modifier.padding(16.dp)) {
         Row(
@@ -39,7 +93,7 @@ fun PlacementCareerScreen(
         ) {
             Text(text = "Placements", style = MaterialTheme.typography.headlineMedium)
 
-            if (userProfile?.isAdmin == true) {
+            if (canManageJobs) {
                 Button(onClick = { navController.navigate("placement/add") }) {
                     Text("Post Job")
                 }
@@ -60,8 +114,13 @@ fun PlacementCareerScreen(
                     Text("No job postings available.", style = MaterialTheme.typography.bodyMedium)
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(state.data) { placement ->
-                            PlacementListItem(placement, onClick = { navController.navigate("placement/${placement.id}") })
+                        items(state.data, key = { it.id }) { placement ->
+                            PlacementListItem(
+                                placement = placement,
+                                onClick = { navController.navigate("placement/${placement.id}") },
+                                canDelete = canDeleteJobs,
+                                onDeleteClick = { pendingDelete = placement }
+                            )
                         }
                     }
                 }
@@ -70,7 +129,12 @@ fun PlacementCareerScreen(
     }
 }
 @Composable
-fun PlacementListItem(placement: Placement, onClick: () -> Unit) {
+fun PlacementListItem(
+    placement: Placement,
+    onClick: () -> Unit,
+    canDelete: Boolean,
+    onDeleteClick: () -> Unit
+) {
     val context = LocalContext.current
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
@@ -80,21 +144,35 @@ fun PlacementListItem(placement: Placement, onClick: () -> Unit) {
         Column(modifier = Modifier.padding(16.dp)) {
              Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                 Text(
-                     text = placement.role.ifBlank { "Role TBA" }, 
-                     style = MaterialTheme.typography.titleMedium, 
-                     fontWeight = FontWeight.Bold,
-                     color = MaterialTheme.colorScheme.onSurface
-                 )
-                 Text(
-                     text = placement.salary.ifBlank { "Salary N/A" }, 
-                     style = MaterialTheme.typography.labelMedium, 
-                     color = MaterialTheme.colorScheme.primary
-                 )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = placement.role.ifBlank { "Role TBA" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = placement.salary.ifBlank { "Salary N/A" },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                if (canDelete) {
+                    IconButton(onClick = onDeleteClick) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete Job",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(4.dp))
+             Spacer(modifier = Modifier.height(4.dp))
             Text(text = placement.companyName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
             Text(

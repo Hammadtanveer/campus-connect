@@ -43,11 +43,14 @@ class PlacementRepository @Inject constructor(
         }
     }
     suspend fun deletePlacement(placementId: String): Resource<Unit> {
+        if (placementId.isBlank()) {
+            return Resource.Error("Invalid placement ID")
+        }
         return try {
             db.collection("placements").document(placementId).delete().await()
             Resource.Success(Unit)
         } catch (e: Exception) {
-            Resource.Error(e.message)
+            Resource.Error(e.message ?: "Failed to delete placement")
         }
     }
     suspend fun getPlacement(placementId: String): Resource<Placement> {
