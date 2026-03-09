@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
@@ -61,7 +63,12 @@ class EventViewModel @Inject constructor(
         private set
 
     init {
-        refreshUserRole()
+        viewModelScope.launch {
+            sessionManager.state
+                .map { it.userId }
+                .distinctUntilChanged()
+                .collect { refreshUserRole() }
+        }
     }
 
     private fun normalizeRole(role: String?): String {
@@ -87,7 +94,7 @@ class EventViewModel @Inject constructor(
         isRoleLoading = true
         firestore.collection("users").document(uid).get()
             .addOnSuccessListener { doc ->
-                currentUserRole = doc.getString("role")
+                currentUserRole = normalizeRole(doc.getString("role")).ifBlank { null }
                 isRoleLoading = false
             }
             .addOnFailureListener {

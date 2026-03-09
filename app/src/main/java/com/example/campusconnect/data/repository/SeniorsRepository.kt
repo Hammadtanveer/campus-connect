@@ -6,6 +6,7 @@ import com.cloudinary.android.callback.UploadCallback
 import com.example.campusconnect.data.Senior
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.util.Constants
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
@@ -18,7 +19,8 @@ import javax.inject.Singleton
 @Singleton
 class SeniorsRepository @Inject constructor(
     private val db: FirebaseFirestore,
-    private val mediaManager: MediaManager
+    private val mediaManager: MediaManager,
+    private val auth: FirebaseAuth
 ) {
     fun observeSeniors(): Flow<Resource<List<Senior>>> = callbackFlow {
         trySend(Resource.Loading)
@@ -51,10 +53,41 @@ class SeniorsRepository @Inject constructor(
     }
 
     fun addSenior(senior: Senior, onResult: (Boolean, String?) -> Unit) {
-        val docRef = if (senior.id.isBlank()) db.collection("seniors").document() else db.collection("seniors").document(senior.id)
-        val seniorToSave = senior.copy(id = docRef.id)
-        docRef.set(seniorToSave)
-            .addOnSuccessListener { onResult(true, null) }
+        val uid = auth.currentUser?.uid
+        if (uid.isNullOrBlank()) {
+            onResult(false, "Not authenticated")
+            return
+        }
+
+        db.collection("users").document(uid)
+            .get()
+            .addOnSuccessListener { userDoc ->
+                val role = userDoc.getString("role")?.trim()?.lowercase()
+                val isAdmin = userDoc.getBoolean("isAdmin") == true
+                val permissions = (userDoc.get("permissions") as? List<*>)
+                    ?.filterIsInstance<String>()
+                    ?: emptyList()
+
+                val canCreateSenior = isAdmin ||
+                    role in listOf("admin", "super_admin", "superadmin") ||
+                    permissions.contains("*:*:*") ||
+                    permissions.contains("seniors:add:all")
+
+                if (!canCreateSenior) {
+                    onResult(false, "Only admin and super admin can add seniors")
+                    return@addOnSuccessListener
+                }
+
+                val docRef = if (senior.id.isBlank()) {
+                    db.collection("seniors").document()
+                } else {
+                    db.collection("seniors").document(senior.id)
+                }
+                val seniorToSave = senior.copy(id = docRef.id)
+                docRef.set(seniorToSave)
+                    .addOnSuccessListener { onResult(true, null) }
+                    .addOnFailureListener { onResult(false, it.message) }
+            }
             .addOnFailureListener { onResult(false, it.message) }
     }
 
