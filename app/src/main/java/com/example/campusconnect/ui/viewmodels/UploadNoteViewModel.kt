@@ -27,6 +27,10 @@ class UploadNoteViewModel @Inject constructor(
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
+    companion object {
+        private const val MAX_UPLOAD_FILE_BYTES = 20L * 1024L * 1024L
+    }
+
     private val _uploadProgress = MutableStateFlow<UploadProgress>(UploadProgress.Idle)
     val uploadProgress: StateFlow<UploadProgress> = _uploadProgress.asStateFlow()
 
@@ -42,15 +46,29 @@ class UploadNoteViewModel @Inject constructor(
     fun selectFile(context: Context, uri: Uri) {
         _uploadProgress.value = UploadProgress.Validating
 
-        val validation = FileUtils.validateFile(context, uri)
+        val selectedName = FileUtils.getFileName(context, uri)
+        val selectedSize = FileUtils.getFileSize(context, uri)
+        val mimeType = FileUtils.getMimeType(context, uri)
 
-        if (validation.isValid) {
-            _selectedFileUri.value = uri
-            _fileName.value = FileUtils.getFileName(context, uri)
-            _fileSize.value = FileUtils.getFileSize(context, uri)
-            _uploadProgress.value = UploadProgress.Idle
-        } else {
-            _uploadProgress.value = UploadProgress.Error(validation.message)
+        when {
+            selectedSize <= 0L -> {
+                _uploadProgress.value = UploadProgress.Error("File not found or empty")
+            }
+            selectedSize > MAX_UPLOAD_FILE_BYTES -> {
+                _uploadProgress.value = UploadProgress.Error("File size must be 20MB or less")
+            }
+            !FileUtils.isFileTypeValid(selectedName) -> {
+                _uploadProgress.value = UploadProgress.Error("Only PDF files are allowed")
+            }
+            mimeType != null && mimeType != "application/pdf" -> {
+                _uploadProgress.value = UploadProgress.Error("Invalid file format. Only PDF files are supported.")
+            }
+            else -> {
+                _selectedFileUri.value = uri
+                _fileName.value = selectedName
+                _fileSize.value = selectedSize
+                _uploadProgress.value = UploadProgress.Idle
+            }
         }
     }
 
@@ -58,12 +76,14 @@ class UploadNoteViewModel @Inject constructor(
         context: Context,
         title: String,
         description: String,
-        subject: String,
+        subjectCode: String,
+        subjectName: String,
+        branch: String,
         semester: String
     ) {
         val uri = _selectedFileUri.value
         if (uri == null) {
-            _uploadProgress.value = UploadProgress.Error("Please select a file")
+            _uploadProgress.value = UploadProgress.Error("Please select a PDF file")
             return
         }
 
@@ -73,18 +93,8 @@ class UploadNoteViewModel @Inject constructor(
             return
         }
 
-        if (title.isBlank()) {
-            _uploadProgress.value = UploadProgress.Error("Please enter a title")
-            return
-        }
-
-        if (subject.isBlank()) {
-            _uploadProgress.value = UploadProgress.Error("Please select a subject")
-            return
-        }
-
-        if (semester.isBlank()) {
-            _uploadProgress.value = UploadProgress.Error("Please select a semester")
+        if (title.isBlank() || subjectCode.isBlank() || subjectName.isBlank() || branch.isBlank() || semester.isBlank()) {
+            _uploadProgress.value = UploadProgress.Error("Please fill all required fields")
             return
         }
 
@@ -92,17 +102,18 @@ class UploadNoteViewModel @Inject constructor(
             try {
                 _uploadProgress.value = UploadProgress.Uploading(0)
 
-                val fileName = FileUtils.getFileName(context, uri)
-                val cacheFile = FileUtils.copyFileToCache(context, uri, fileName)
+                val selectedName = FileUtils.getFileName(context, uri)
+                val cacheFile = FileUtils.copyFileToCache(context, uri, selectedName)
 
                 if (cacheFile == null) {
                     _uploadProgress.value = UploadProgress.Error("Failed to process file")
                     return@launch
                 }
 
+                val subject = "${subjectCode.trim()} - ${subjectName.trim()} (${branch.trim()})"
                 val result = repository.uploadNote(
-                    title = title,
-                    description = description,
+                    title = title.trim(),
+                    description = description.trim(),
                     subject = subject,
                     semester = semester,
                     file = cacheFile,
@@ -116,15 +127,9 @@ class UploadNoteViewModel @Inject constructor(
                 cacheFile.delete()
 
                 when (result) {
-                    is Resource.Success -> {
-                        _uploadProgress.value = UploadProgress.Success(result.data ?: "")
-                    }
-                    is Resource.Error -> {
-                        _uploadProgress.value = UploadProgress.Error(result.message ?: "Upload failed")
-                    }
-                    else -> {
-                        _uploadProgress.value = UploadProgress.Error("Unknown error occurred")
-                    }
+                    is Resource.Success -> _uploadProgress.value = UploadProgress.Success(result.data ?: "")
+                    is Resource.Error -> _uploadProgress.value = UploadProgress.Error(result.message ?: "Upload failed")
+                    else -> _uploadProgress.value = UploadProgress.Error("Unknown error occurred")
                 }
             } catch (e: Exception) {
                 _uploadProgress.value = UploadProgress.Error(e.message ?: "Upload failed")
@@ -145,4 +150,3 @@ class UploadNoteViewModel @Inject constructor(
         }
     }
 }
-

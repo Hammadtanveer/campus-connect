@@ -51,64 +51,41 @@ fun NotesScreen(
 
     var selectedTab by remember { mutableStateOf(0) }
 
-    // Build tabs based on permission:
-    // - Admin / allowed: All Notes, My Uploads, Upload
-    // - Non-admin: All Notes only
     val tabs = remember(canUploadNotes) {
         if (canUploadNotes) listOf("All Notes", "My Uploads", "Upload")
         else listOf("All Notes")
     }
 
-    // Navigate to upload screen when Upload tab is selected (index 2 only exists for allowed users)
     LaunchedEffect(selectedTab, canUploadNotes) {
         if (canUploadNotes && selectedTab == 2 && navController != null) {
             navController.navigate("upload_note")
-            selectedTab = 0 // Reset to All Notes tab
+            selectedTab = 0
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Notes") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
-            // Tab Row
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = MaterialTheme.colorScheme.surface
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = { Text(title) }
-                    )
-                }
+            tabs.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { selectedTab = index },
+                    text = { Text(title) }
+                )
             }
+        }
 
-            // Tab Content mapped to filtered tabs list
-            when (selectedTab) {
-                0 -> AllNotesTab(notesViewModel)
-                1 -> if (canUploadNotes) {
-                    MyNotesTab(notesViewModel)
-                }
-                2 -> if (canUploadNotes) {
-                    // This branch only valid for admins/allowed users; when navController is null, show inline UploadTab
-                    if (navController == null) {
-                        UploadTab(uploadViewModel) {
-                            selectedTab = 1
-                        }
+        when (selectedTab) {
+            0 -> AllNotesTab(notesViewModel)
+            1 -> if (canUploadNotes) {
+                MyNotesTab(notesViewModel)
+            }
+            2 -> if (canUploadNotes) {
+                if (navController == null) {
+                    UploadTab(uploadViewModel) {
+                        selectedTab = 1
                     }
                 }
             }
@@ -119,26 +96,23 @@ fun NotesScreen(
 @Composable
 fun AllNotesTab(viewModel: NotesViewModel) {
     val state by viewModel.allNotesState.collectAsState()
-    val selectedSubject by viewModel.selectedSubject.collectAsState()
-    val selectedSemester by viewModel.selectedSemester.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val context = LocalContext.current
 
+    // Keep search behavior while removing subject/semester filter controls.
+    LaunchedEffect(Unit) {
+        viewModel.setSubjectFilter(null)
+        viewModel.setSemesterFilter(null)
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
-        // Filters
-        FilterSection(
-            selectedSubject = selectedSubject,
-            selectedSemester = selectedSemester,
+        SearchOnlySection(
             searchQuery = searchQuery,
-            onSubjectChange = { viewModel.setSubjectFilter(it) },
-            onSemesterChange = { viewModel.setSemesterFilter(it) },
-            onSearchChange = { viewModel.setSearchQuery(it) },
-            onClearFilters = { viewModel.clearFilters() }
+            onSearchChange = { viewModel.setSearchQuery(it) }
         )
 
         HorizontalDivider()
 
-        // Notes List
         NotesListContent(
             state = state,
             onDownload = { note ->
@@ -147,7 +121,44 @@ fun AllNotesTab(viewModel: NotesViewModel) {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(signedUrl))
                 context.startActivity(intent)
             },
-            onDelete = null // Can't delete others' notes
+            onDelete = null
+        )
+    }
+}
+
+@Composable
+private fun SearchOnlySection(
+    searchQuery: String?,
+    onSearchChange: (String?) -> Unit
+) {
+    var searchText by remember(searchQuery) { mutableStateOf(searchQuery ?: "") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = {
+                searchText = it
+                onSearchChange(if (it.isBlank()) null else it)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Search notes...") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+            trailingIcon = {
+                if (searchText.isNotEmpty()) {
+                    IconButton(onClick = {
+                        searchText = ""
+                        onSearchChange(null)
+                    }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                    }
+                }
+            },
+            singleLine = true
         )
     }
 }
@@ -414,105 +425,6 @@ fun InfoChip(text: String, icon: ImageVector) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSecondaryContainer
             )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun FilterSection(
-    selectedSubject: String?,
-    selectedSemester: String?,
-    searchQuery: String?,
-    onSubjectChange: (String?) -> Unit,
-    onSemesterChange: (String?) -> Unit,
-    onSearchChange: (String?) -> Unit,
-    onClearFilters: () -> Unit
-) {
-    var searchText by remember { mutableStateOf(searchQuery ?: "") }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp)
-    ) {
-        // Search bar
-        OutlinedTextField(
-            value = searchText,
-            onValueChange = {
-                searchText = it
-                onSearchChange(if (it.isBlank()) null else it)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search notes...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-            trailingIcon = {
-                if (searchText.isNotEmpty()) {
-                    IconButton(onClick = {
-                        searchText = ""
-                        onSearchChange(null)
-                    }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear")
-                    }
-                }
-            },
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Filter chips
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Filters:",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            if (selectedSubject != null || selectedSemester != null) {
-                TextButton(onClick = onClearFilters) {
-                    Text("Clear All")
-                }
-            }
-        }
-
-        // Subject filter
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            items(Constants.SUBJECTS) { subject ->
-                FilterChip(
-                    selected = selectedSubject == subject,
-                    onClick = {
-                        onSubjectChange(if (selectedSubject == subject) null else subject)
-                    },
-                    label = { Text(subject) }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Semester filter
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            items(Constants.SEMESTERS) { semester ->
-                FilterChip(
-                    selected = selectedSemester == semester,
-                    onClick = {
-                        onSemesterChange(if (selectedSemester == semester) null else semester)
-                    },
-                    label = { Text(semester) }
-                )
-            }
         }
     }
 }
@@ -791,7 +703,9 @@ fun UploadTab(
                     context = context,
                     title = title,
                     description = description,
-                    subject = selectedSubject,
+                    subjectCode = selectedSubject,
+                    subjectName = selectedSubject,
+                    branch = "GENERAL",
                     semester = selectedSemester
                 )
             },
@@ -871,4 +785,3 @@ fun EmptyState(message: String, modifier: Modifier = Modifier) {
         )
     }
 }
-

@@ -13,6 +13,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.campusconnect.security.canAddSenior
+import com.example.campusconnect.security.canUploadNotes
 import com.example.campusconnect.ui.placement.AddPlacementScreen
 import com.example.campusconnect.ui.placement.PlacementDetailScreen
 import com.example.campusconnect.ui.screens.AccountView
@@ -44,14 +45,25 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
             NotesScreen(navController = navController, mainViewModel = viewModel)
         }
         composable("upload_note") {
-            UploadNoteScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onUploadSuccess = {
-                    navController.navigate(Screen.DrawerScreen.Notes.route) {
-                        popUpTo("upload_note") { inclusive = true }
-                    }
+            val context = LocalContext.current
+            val canUpload = viewModel.userProfile?.canUploadNotes() == true
+
+            if (!canUpload) {
+                LaunchedEffect(Unit) {
+                    Toast.makeText(context, "Only admin and super admin can upload notes", Toast.LENGTH_LONG).show()
+                    navController.popBackStack()
                 }
-            )
+            } else {
+                UploadNoteScreen(
+                    mainViewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onUploadSuccess = {
+                        navController.navigate(Screen.DrawerScreen.Notes.route) {
+                            popUpTo("upload_note") { inclusive = true }
+                        }
+                    }
+                )
+            }
         }
         composable(Screen.DrawerScreen.Seniors.route) { Seniors(viewModel, navController) }
         composable(Screen.DrawerScreen.Societies.route) { Societies(navController) }

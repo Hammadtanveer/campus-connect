@@ -12,13 +12,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.campusconnect.MainViewModel
-import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.data.Senior
+import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.security.canAddSenior
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun Seniors(viewModel: MainViewModel, navController: NavController) {
@@ -51,7 +54,13 @@ fun Seniors(viewModel: MainViewModel, navController: NavController) {
             }
         }
     ) { paddingValues ->
-        LazyColumn(modifier = Modifier.padding(paddingValues)) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             items(
                 items = seniors,
                 key = { it.id }
@@ -62,7 +71,12 @@ fun Seniors(viewModel: MainViewModel, navController: NavController) {
             }
             if (seniors.isEmpty()) {
                 item {
-                    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         val emptyMessage = if (canAddSenior) {
                             "No seniors found. Add one!"
                         } else {
@@ -78,23 +92,42 @@ fun Seniors(viewModel: MainViewModel, navController: NavController) {
 
 @Composable
 fun SeniorItem(senior: Senior, onClick: () -> Unit) {
-    Column(modifier = Modifier.clickable(onClick = onClick)) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp, horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.Filled.Person,
                     contentDescription = senior.name,
-                    modifier = Modifier.padding(end = 16.dp),
+                    modifier = Modifier.padding(end = 12.dp),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
-                Column {
-                    Text(text = senior.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                    Text(text = "${senior.branch} - ${senior.year}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = senior.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "${senior.branch} - ${senior.year}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
             Icon(
@@ -103,6 +136,5 @@ fun SeniorItem(senior: Senior, onClick: () -> Unit) {
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
     }
 }
