@@ -61,6 +61,7 @@ fun MainView(viewModel: MainViewModel) {
 
     // Identify standalone screens that should not show the main drawer/toolbar structure
     val isStandaloneScreen = currentRoute in listOf(
+        "upload_note",
         "senior_add",
         "senior_detail/{seniorId}",
         "senior_edit/{seniorId}"

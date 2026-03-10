@@ -151,17 +151,18 @@ fun UploadNoteScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // Subject Name first (title removed from UI)
             OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                label = { Text("Note Title *") },
-                placeholder = { Text("DevOps Important Questions") },
+                value = subjectName,
+                onValueChange = { subjectName = it },
+                label = { Text("Subject Name *") },
+                placeholder = { Text("DevOps and Automation") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                isError = showValidationErrors && title.isBlank(),
+                isError = showValidationErrors && subjectName.isBlank(),
                 enabled = !isUploading
             )
 
@@ -173,17 +174,6 @@ fun UploadNoteScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 isError = showValidationErrors && subjectCode.isBlank(),
-                enabled = !isUploading
-            )
-
-            OutlinedTextField(
-                value = subjectName,
-                onValueChange = { subjectName = it },
-                label = { Text("Subject Name *") },
-                placeholder = { Text("DevOps and Automation") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                isError = showValidationErrors && subjectName.isBlank(),
                 enabled = !isUploading
             )
 
@@ -281,7 +271,6 @@ fun UploadNoteScreen(
                 onClick = {
                     showValidationErrors = true
                     val hasRequired =
-                        title.isNotBlank() &&
                         subjectCode.isNotBlank() &&
                         subjectName.isNotBlank() &&
                         branch.isNotBlank() &&
@@ -289,6 +278,7 @@ fun UploadNoteScreen(
                         selectedFileUri != null
 
                     if (hasRequired) {
+                        title = "${subjectCode.trim()} - ${subjectName.trim()}"
                         viewModel.uploadNote(
                             context = context,
                             title = title,
