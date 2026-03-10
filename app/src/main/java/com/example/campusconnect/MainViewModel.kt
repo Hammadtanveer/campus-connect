@@ -22,6 +22,7 @@ import com.google.firebase.auth.GetTokenResult
 import com.example.campusconnect.security.canUploadNotes
 import com.example.campusconnect.security.canUpdateSenior
 import com.example.campusconnect.security.canManageSociety
+import com.example.campusconnect.security.canAddSenior
 import androidx.lifecycle.viewModelScope
 import com.example.campusconnect.data.models.Note
 import kotlinx.coroutines.launch
@@ -35,6 +36,7 @@ import com.example.campusconnect.data.repository.ActivityLogRepository
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.functions.ktx.functions
 import com.example.campusconnect.data.Senior
+import com.google.firebase.firestore.SetOptions
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -140,17 +142,46 @@ class MainViewModel @Inject constructor(
     // All your existing methods with State updates
     private fun normalizeRbac(profile: UserProfile): UserProfile {
         var p = profile
+        val normalizedRole = p.role.trim().lowercase().let { role ->
+            when (role) {
+                "superadmin" -> "super_admin"
+                else -> role
+            }
+        }
+        if (normalizedRole != p.role) {
+            p = p.copy(role = normalizedRole)
+        }
+
         val hasWildcard = p.permissions.any { it == "*:*:*" }
-        val isSuper = p.role == "super_admin" || hasWildcard
+        val isSuper = p.role in listOf("super_admin", "superadmin") || hasWildcard
         if (isSuper) {
             val defaultLegacy = listOf("admin", "event:create", "notes:upload")
             val mergedRoles = (p.roles + defaultLegacy).distinct()
+            val mergedPermissions = (p.permissions + "*:*:*").distinct()
             p = p.copy(
+                role = "super_admin",
                 isAdmin = true,
-                roles = mergedRoles
+                roles = mergedRoles,
+                permissions = mergedPermissions
             )
         }
+
+        if (!p.isAdmin && p.role == "admin") {
+            p = p.copy(isAdmin = true)
+        }
         return p
+    }
+
+    private fun parseClaimStringList(raw: Any?): List<String> = when (raw) {
+        is List<*> -> raw.filterIsInstance<String>()
+        is String -> raw.split(',').map { it.trim() }.filter { it.isNotBlank() }
+        else -> emptyList()
+    }
+
+    private fun parseClaimRole(claims: Map<String, Any>): String? {
+        val role = (claims["role"] as? String)?.trim()?.lowercase()
+        if (role.isNullOrBlank()) return null
+        return if (role == "superadmin") "super_admin" else role
     }
 
     private fun loadUserProfile(userId: String) {
@@ -161,7 +192,7 @@ class MainViewModel @Inject constructor(
                     val profile = doc.toObject(UserProfile::class.java)
                     val normalized = profile?.let { normalizeRbac(it) }
                     _userProfile.value = normalized
-                    sessionManager.updateProfile(profile)
+                    sessionManager.updateProfile(normalized)
                     loadUserActivities()
                     // Navigate into the app after successful profile load
                     _currentScreen.value = Screen.DrawerScreen.Profile
@@ -182,6 +213,7 @@ class MainViewModel @Inject constructor(
                         )
                         // set locally so AuthGate treats the user as authenticated
                         _userProfile.value = fallback
+                        sessionManager.updateProfile(fallback)
                         _currentScreen.value = Screen.DrawerScreen.Profile
                         // write the fallback profile to Firestore (best-effort)
                         firestore.collection("users").document(firebaseUser.uid)
@@ -207,16 +239,29 @@ class MainViewModel @Inject constructor(
     private fun applyClaimsToProfile(token: GetTokenResult) {
         val claims = token.claims
         val claimsAdmin = (claims["admin"] as? Boolean) == true
-        val claimRoles = when (val raw = claims["roles"]) {
-            is List<*> -> raw.filterIsInstance<String>()
-            is String -> raw.split(',').map { it.trim() }.filter { it.isNotBlank() }
-            else -> emptyList()
-        }
+        val claimsSuperAdmin = (claims["superAdmin"] as? Boolean) == true
+        val claimRoles = parseClaimStringList(claims["roles"])
+        val claimPermissions = parseClaimStringList(claims["permissions"])
+        val claimRole = parseClaimRole(claims)
+
         val current = _userProfile.value
         if (current != null) {
             val mergedRoles = (current.roles + claimRoles).distinct()
-            val mergedAdmin = current.isAdmin || claimsAdmin
-            val updated = current.copy(isAdmin = mergedAdmin, roles = mergedRoles)
+            val mergedPermissions = (current.permissions + claimPermissions).distinct()
+            val resolvedRole = when {
+                claimsSuperAdmin -> "super_admin"
+                !claimRole.isNullOrBlank() -> claimRole
+                else -> current.role
+            }
+            val mergedAdmin = current.isAdmin || claimsAdmin || claimsSuperAdmin || resolvedRole == "admin" || resolvedRole == "super_admin"
+            val updated = normalizeRbac(
+                current.copy(
+                    isAdmin = mergedAdmin,
+                    role = resolvedRole,
+                    roles = mergedRoles,
+                    permissions = mergedPermissions
+                )
+            )
             _userProfile.value = updated
             sessionManager.updateProfile(updated)
         }
@@ -428,6 +473,8 @@ class MainViewModel @Inject constructor(
     fun signOut() {
         auth.signOut()
         _userProfile.value = null
+        sessionManager.updateAuth(null, null)
+        sessionManager.updateProfile(null)
         _currentScreen.value = Screen.DrawerScreen.Profile
         // cleanup listeners
         // stopPendingRequestsListener() - Mentorship removed
@@ -465,10 +512,31 @@ class MainViewModel @Inject constructor(
     @Suppress("unused")
     fun updateUserProfile(updatedProfile: UserProfile, onResult: (Boolean, String?) -> Unit) {
         val db = FirebaseFirestore.getInstance()
+        val safeUpdates = mapOf(
+            "displayName" to updatedProfile.displayName,
+            "email" to updatedProfile.email,
+            "course" to updatedProfile.course,
+            "branch" to updatedProfile.branch,
+            "year" to updatedProfile.year,
+            "bio" to updatedProfile.bio,
+            "profilePictureUrl" to updatedProfile.profilePictureUrl
+        )
+
         db.collection("users").document(updatedProfile.id)
-            .set(updatedProfile)
+            .set(safeUpdates, SetOptions.merge())
             .addOnSuccessListener {
-                _userProfile.value = updatedProfile
+                val current = _userProfile.value
+                val mergedProfile = (current ?: updatedProfile).copy(
+                    displayName = updatedProfile.displayName,
+                    email = updatedProfile.email,
+                    course = updatedProfile.course,
+                    branch = updatedProfile.branch,
+                    year = updatedProfile.year,
+                    bio = updatedProfile.bio,
+                    profilePictureUrl = updatedProfile.profilePictureUrl
+                )
+                _userProfile.value = mergedProfile
+                sessionManager.updateProfile(mergedProfile)
                 addActivity(
                     UserActivity(
                         id = UUID.randomUUID().toString(),
@@ -591,6 +659,16 @@ class MainViewModel @Inject constructor(
     // Seniors management methods
     @Suppress("unused")
     fun addSenior(senior: Senior, onResult: (Boolean, String?) -> Unit) {
+        val profile = _userProfile.value
+        if (profile == null) {
+            onResult(false, "Not authenticated")
+            return
+        }
+        if (!profile.canAddSenior()) {
+            onResult(false, "Only admin and super admin can add seniors")
+            return
+        }
+
         seniorsRepo.addSenior(senior) { success, error ->
             if (!success) {
                 Log.e("MainViewModel", "Failed to add senior: $error")
