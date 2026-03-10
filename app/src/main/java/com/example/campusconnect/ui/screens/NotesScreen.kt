@@ -791,7 +791,9 @@ fun UploadTab(
                     context = context,
                     title = title,
                     description = description,
-                    subject = selectedSubject,
+                    subjectCode = selectedSubject,
+                    subjectName = selectedSubject,
+                    branch = "GENERAL",
                     semester = selectedSemester
                 )
             },
@@ -871,4 +873,3 @@ fun EmptyState(message: String, modifier: Modifier = Modifier) {
         )
     }
 }
-
