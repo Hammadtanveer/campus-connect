@@ -5,12 +5,14 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.campusconnect.security.canAddSenior
 import com.example.campusconnect.ui.placement.AddPlacementScreen
 import com.example.campusconnect.ui.placement.PlacementDetailScreen
 import com.example.campusconnect.ui.screens.AccountView
@@ -189,19 +191,28 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         }
         composable("senior_add") {
             val context = LocalContext.current
-            SeniorAddScreen(
-                viewModel = viewModel,
-                onBackClick = { navController.popBackStack() },
-                onAddClick = { newSenior ->
-                    viewModel.addSenior(newSenior) { success, error ->
-                        if (success) {
-                            navController.popBackStack()
-                        } else {
-                            Toast.makeText(context, "Failed to add senior: $error", Toast.LENGTH_LONG).show()
+            val canAddSenior = viewModel.userProfile?.canAddSenior() == true
+
+            if (!canAddSenior) {
+                LaunchedEffect(Unit) {
+                    Toast.makeText(context, "Only admin and super admin can add seniors", Toast.LENGTH_LONG).show()
+                    navController.popBackStack()
+                }
+            } else {
+                SeniorAddScreen(
+                    viewModel = viewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onAddClick = { newSenior ->
+                        viewModel.addSenior(newSenior) { success, error ->
+                            if (success) {
+                                navController.popBackStack()
+                            } else {
+                                Toast.makeText(context, "Failed to add senior: $error", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
-                }
-            )
+                )
+            }
         }
     }
 }

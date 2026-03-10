@@ -155,7 +155,7 @@ service cloud.firestore {
     // ========== SENIORS COLLECTION ==========
     match /seniors/{seniorId} {
       allow read: if isAuthenticated();
-      allow create: if hasPermission('seniors:add:all') || isAdminFromDoc();
+      allow create: if isActiveAdmin();
       allow update: if hasPermission('seniors:edit:all') ||
                        hasPermission('seniors:verify:all') || isAdminFromDoc();
       allow delete: if hasPermission('seniors:delete:all') || isAdminFromDoc();

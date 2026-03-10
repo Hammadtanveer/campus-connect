@@ -18,11 +18,13 @@ import androidx.navigation.NavController
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.data.Senior
+import com.example.campusconnect.security.canAddSenior
 
 @Composable
 fun Seniors(viewModel: MainViewModel, navController: NavController) {
     val seniors = viewModel.seniorsList
     val deleteStatus = viewModel.deleteSeniorStatus
+    val canAddSenior = viewModel.userProfile?.canAddSenior() == true
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(deleteStatus) {
@@ -42,8 +44,10 @@ fun Seniors(viewModel: MainViewModel, navController: NavController) {
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate("senior_add") }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Senior")
+            if (canAddSenior) {
+                FloatingActionButton(onClick = { navController.navigate("senior_add") }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Senior")
+                }
             }
         }
     ) { paddingValues ->
@@ -59,7 +63,12 @@ fun Seniors(viewModel: MainViewModel, navController: NavController) {
             if (seniors.isEmpty()) {
                 item {
                     Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                        Text("No seniors found. Add one!")
+                        val emptyMessage = if (canAddSenior) {
+                            "No seniors found. Add one!"
+                        } else {
+                            "No seniors found yet."
+                        }
+                        Text(emptyMessage)
                     }
                 }
             }
