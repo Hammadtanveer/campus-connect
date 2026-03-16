@@ -108,3 +108,4 @@ exports.generateSignedPdfUrl = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('internal', 'Failed to generate URL');
     }
 });
+
