@@ -37,6 +37,9 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.functions.ktx.functions
 import com.example.campusconnect.data.Senior
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -99,8 +102,8 @@ class MainViewModel @Inject constructor(
     val myNotes: List<Note> get() = _myNotes.value
 
     // Seniors
-    private val _seniorsList = mutableStateOf<List<Senior>>(emptyList())
-    val seniorsList: List<Senior> get() = _seniorsList.value
+    private val _seniorsList = MutableStateFlow<List<Senior>>(emptyList())
+    val seniorsList: StateFlow<List<Senior>> = _seniorsList.asStateFlow()
     private var seniorsObserverJob: Job? = null
     private val _deleteSeniorStatus = mutableStateOf<Resource<Unit>?>(null)
     val deleteSeniorStatus: Resource<Unit>? get() = _deleteSeniorStatus.value
@@ -124,16 +127,21 @@ class MainViewModel @Inject constructor(
 
     private fun observeSeniors() {
         seniorsObserverJob?.cancel()
+        Log.d("MainViewModel", "observeSeniors: starting seniors collection")
         seniorsObserverJob = viewModelScope.launch {
             seniorsRepo.observeSeniors().collect { res ->
                 when (res) {
                     is Resource.Success -> {
+                        Log.d("MainViewModel", "observeSeniors: success count=${res.data.size}")
                         if (res.data != _seniorsList.value) {
                             _seniorsList.value = res.data
+                            Log.d("MainViewModel", "observeSeniors: state updated count=${_seniorsList.value.size}")
+                        } else {
+                            Log.d("MainViewModel", "observeSeniors: same list, state unchanged")
                         }
                     }
-                    is Resource.Error -> Log.e("MainViewModel", "Error loading seniors: ${res.message}")
-                    is Resource.Loading -> Unit
+                    is Resource.Error -> Log.e("MainViewModel", "observeSeniors: error=${res.message}")
+                    is Resource.Loading -> Log.d("MainViewModel", "observeSeniors: loading")
                 }
             }
         }

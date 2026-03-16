@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".CampusConnectApp"
@@ -36,6 +37,14 @@
 
         <!-- Receiver for scheduled event reminders -->
         <receiver android:name=".NotificationReceiver" android:exported="false" />
+
+        <service
+            android:name=".notifications.AppFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
     </application>
 

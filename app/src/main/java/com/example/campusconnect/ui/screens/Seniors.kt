@@ -1,5 +1,6 @@
 package com.example.campusconnect.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +12,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,10 +28,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun Seniors(viewModel: MainViewModel, navController: NavController) {
-    val seniors = viewModel.seniorsList
+    val seniors by viewModel.seniorsList.collectAsState()
     val deleteStatus = viewModel.deleteSeniorStatus
     val canAddSenior = viewModel.userProfile?.canAddSenior() == true
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(seniors.size) {
+        Log.d("SeniorsScreen", "UI seniors size = ${seniors.size}")
+    }
 
     LaunchedEffect(deleteStatus) {
         when (deleteStatus) {
@@ -82,7 +89,10 @@ fun Seniors(viewModel: MainViewModel, navController: NavController) {
                         } else {
                             "No seniors found yet."
                         }
-                        Text(emptyMessage)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(emptyMessage)
+                            Text("Debug: seniors list size = ${seniors.size}")
+                        }
                     }
                 }
             }

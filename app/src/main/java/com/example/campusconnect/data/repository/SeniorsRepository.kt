@@ -1,5 +1,6 @@
 package com.example.campusconnect.data.repository
 
+import android.util.Log
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
@@ -8,7 +9,6 @@ import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.util.Constants
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -22,31 +22,56 @@ class SeniorsRepository @Inject constructor(
     private val mediaManager: MediaManager,
     private val auth: FirebaseAuth
 ) {
+    companion object {
+        private const val TAG = "SeniorsRepository"
+    }
+
     fun observeSeniors(): Flow<Resource<List<Senior>>> = callbackFlow {
         trySend(Resource.Loading)
         var lastEmitted: List<Senior>? = null
 
-        val registration = db.collection("seniors")
-            .orderBy("name", Query.Direction.ASCENDING)
+        val seniorsCollection = db.collection("seniors")
+        Log.d(TAG, "observeSeniors: executing query on collection=seniors; filters=none")
+
+        val registration = seniorsCollection
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
+                    Log.e(TAG, "observeSeniors: snapshot error", error)
                     trySend(Resource.Error(error.message))
                     return@addSnapshotListener
                 }
-                if (snapshot != null) {
-                    val seniors = snapshot.documents.mapNotNull { doc ->
-                        try {
-                            val s = doc.toObject(Senior::class.java)
-                            s?.copy(id = doc.id)
-                        } catch (_: Exception) {
-                            null
-                        }
-                    }
 
-                    if (seniors != lastEmitted) {
-                        lastEmitted = seniors
-                        trySend(Resource.Success(seniors))
+                if (snapshot == null) {
+                    Log.w(TAG, "observeSeniors: snapshot is null")
+                    return@addSnapshotListener
+                }
+
+                Log.d(TAG, "observeSeniors: documents returned count=${snapshot.size()}")
+
+                val seniors = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        Log.d(TAG, "observeSeniors: mapping docId=${doc.id}, keys=${doc.data?.keys}")
+                        val mapped = doc.toObject(Senior::class.java)
+                        if (mapped == null) {
+                            Log.w(TAG, "observeSeniors: mapping returned null for docId=${doc.id}")
+                            null
+                        } else {
+                            mapped.copy(id = doc.id)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "observeSeniors: mapping failed for docId=${doc.id}", e)
+                        null
                     }
+                }.sortedBy { it.name.lowercase() }
+
+                Log.d(TAG, "observeSeniors: mapped seniors count=${seniors.size}")
+
+                if (seniors != lastEmitted) {
+                    lastEmitted = seniors
+                    Log.d(TAG, "observeSeniors: emitting seniors count=${seniors.size}")
+                    trySend(Resource.Success(seniors))
+                } else {
+                    Log.d(TAG, "observeSeniors: no state change, skip emit")
                 }
             }
         awaitClose { registration.remove() }
