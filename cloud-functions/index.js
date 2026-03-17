@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
@@ -70,12 +72,11 @@ exports.bootstrapSuperAdmin = bootstrapSuperAdmin;
 
 const cloudinary = require('cloudinary').v2;
 
-// Configure Cloudinary (Best practice: use functions.config().cloudinary)
-// For now, using provided credentials for immediate fix
+// Configure Cloudinary from environment variables.
 cloudinary.config({
-  cloud_name: 'dkxunmucg',
-  api_key: '492784632542267',
-  api_secret: '3CSXo-IjIxXX6qy-CTo-9bBSunU'
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 /**

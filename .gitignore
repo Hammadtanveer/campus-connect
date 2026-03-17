@@ -95,6 +95,7 @@ firebase-adminsdk-*.json
 # Cloudinary credentials (if stored in separate files)
 cloudinary-config.json
 .env
+cloud-functions/.env
 .env.local
 .env.production
 
