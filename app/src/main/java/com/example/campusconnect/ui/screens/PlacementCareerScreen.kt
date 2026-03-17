@@ -136,6 +136,14 @@ fun PlacementListItem(
     onDeleteClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val normalizedSalary = placement.salary.trim().let { rawSalary ->
+        when {
+            rawSalary.isBlank() -> "Salary N/A"
+            rawSalary.contains("lpa", ignoreCase = true) -> rawSalary
+            else -> "$rawSalary LPA"
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -156,7 +164,7 @@ fun PlacementListItem(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = placement.salary.ifBlank { "Salary N/A" },
+                        text = normalizedSalary,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
                     )

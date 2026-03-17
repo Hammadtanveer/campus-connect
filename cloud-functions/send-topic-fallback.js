@@ -85,6 +85,26 @@ async function main() {
     },
     android: {
       priority: 'high',
+      notification: {
+        title,
+        body,
+        channelId: 'events',
+      },
+    },
+    apns: {
+      headers: {
+        'apns-priority': '10',
+      },
+      payload: {
+        aps: {
+          alert: {
+            title,
+            body,
+          },
+          sound: 'default',
+          contentAvailable: true,
+        },
+      },
     },
   };
 
