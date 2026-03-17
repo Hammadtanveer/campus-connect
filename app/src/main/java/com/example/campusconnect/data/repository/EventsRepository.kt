@@ -59,6 +59,7 @@ class EventsRepository @Inject constructor(
         durationMinutes: Long,
         organizerId: String,
         organizerName: String,
+        organizerRole: String,
         category: EventCategory,
         eventType: EventType,
         venue: String,
@@ -82,11 +83,40 @@ class EventsRepository @Inject constructor(
             eventType = eventType,
             maxParticipants = maxParticipants,
             createdAt = Timestamp(Date()),
-            organizerName = organizerName
+            organizerName = organizerName,
+            createdBy = organizerId,
+            createdByRole = organizerRole
         )
 
         db.collection("events").document(id)
             .set(event)
+            .addOnSuccessListener { onResult(true, null) }
+            .addOnFailureListener { e -> onResult(false, e.message) }
+    }
+
+    fun updateEvent(
+        eventId: String,
+        title: String,
+        description: String,
+        durationMinutes: Long,
+        eventType: EventType,
+        venue: String,
+        maxParticipants: Int,
+        meetLink: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        val updates = mapOf(
+            "title" to title,
+            "description" to description,
+            "durationMinutes" to durationMinutes,
+            "eventType" to eventType.name,
+            "venue" to venue,
+            "maxParticipants" to maxParticipants,
+            "meetLink" to meetLink
+        )
+
+        db.collection("events").document(eventId)
+            .update(updates)
             .addOnSuccessListener { onResult(true, null) }
             .addOnFailureListener { e -> onResult(false, e.message) }
     }

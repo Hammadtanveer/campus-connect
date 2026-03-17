@@ -23,6 +23,9 @@ class PlacementViewModel @Inject constructor(
     private val _deletePlacementStatus = MutableStateFlow<Resource<Unit>?>(null)
     val deletePlacementStatus = _deletePlacementStatus.asStateFlow()
 
+    private val _savePlacementStatus = MutableStateFlow<Resource<Unit>?>(null)
+    val savePlacementStatus = _savePlacementStatus.asStateFlow()
+
     init {
         loadPlacements()
     }
@@ -37,7 +40,22 @@ class PlacementViewModel @Inject constructor(
 
     fun addPlacement(placement: Placement) {
         viewModelScope.launch {
-            repository.addPlacement(placement)
+            _savePlacementStatus.value = Resource.Loading
+            when (val result = repository.addPlacement(placement)) {
+                is Resource.Success -> _savePlacementStatus.value = Resource.Success(Unit)
+                is Resource.Error -> _savePlacementStatus.value = Resource.Error(result.message ?: "Failed to post placement")
+                is Resource.Loading -> Unit
+            }
+        }
+    }
+
+    fun updatePlacement(
+        placementId: String,
+        placement: Placement
+    ) {
+        viewModelScope.launch {
+            _savePlacementStatus.value = Resource.Loading
+            _savePlacementStatus.value = repository.updatePlacement(placementId, placement)
         }
     }
 
@@ -78,6 +96,10 @@ class PlacementViewModel @Inject constructor(
 
     fun resetDeletePlacementStatus() {
         _deletePlacementStatus.value = null
+    }
+
+    fun resetSavePlacementStatus() {
+        _savePlacementStatus.value = null
     }
 
     suspend fun getPlacement(id: String): Resource<Placement> {

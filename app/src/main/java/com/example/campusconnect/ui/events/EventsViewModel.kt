@@ -66,7 +66,7 @@ class EventsViewModel @Inject constructor(
         // Super/Admin rule from profile
         if (p.isAdmin) return true
         // Owner rule
-        return event.organizerId == p.id
+        return event.organizerId == p.id || event.createdBy == p.id
     }
 
     fun canDeleteEvent(event: OnlineEvent): Boolean {
@@ -92,6 +92,7 @@ class EventsViewModel @Inject constructor(
         val currentUser = sessionManager.state.value.profile
         val organizerId = currentUser?.id ?: return onResult(false, "Not authenticated")
         val organizerName = currentUser.displayName
+        val organizerRole = currentUser.role.ifBlank { "user" }
 
         // Auto-generate meet link if not provided, ONLY for ONLINE events
         val finalMeetLink = if (eventType == EventType.ONLINE && meetLink.isBlank()) {
@@ -112,6 +113,7 @@ class EventsViewModel @Inject constructor(
             durationMinutes = durationMinutes,
             organizerId = organizerId,
             organizerName = organizerName,
+            organizerRole = organizerRole,
             category = defaultCategory,
             eventType = eventType,
             venue = venue,
@@ -119,6 +121,63 @@ class EventsViewModel @Inject constructor(
             meetLink = finalMeetLink
         ) { ok, err ->
             onResult(ok, err)
+        }
+    }
+
+    fun updateEvent(
+        eventId: String,
+        title: String,
+        description: String,
+        durationMinutes: Long,
+        eventType: EventType,
+        venue: String,
+        maxParticipants: Int = 0,
+        meetLink: String = "",
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        eventsRepo.updateEvent(
+            eventId = eventId,
+            title = title,
+            description = description,
+            durationMinutes = durationMinutes,
+            eventType = eventType,
+            venue = venue,
+            maxParticipants = maxParticipants,
+            meetLink = meetLink,
+            onResult = onResult
+        )
+    }
+
+    suspend fun updateEventAwait(
+        eventId: String,
+        title: String,
+        description: String,
+        durationMinutes: Long,
+        eventType: EventType,
+        venue: String,
+        maxParticipants: Int = 0,
+        meetLink: String = ""
+    ) {
+        return withTimeout(EVENT_CREATION_TIMEOUT_MS) {
+            suspendCancellableCoroutine { cont ->
+                updateEvent(
+                    eventId = eventId,
+                    title = title,
+                    description = description,
+                    durationMinutes = durationMinutes,
+                    eventType = eventType,
+                    venue = venue,
+                    maxParticipants = maxParticipants,
+                    meetLink = meetLink
+                ) { ok, err ->
+                    if (!cont.isActive) return@updateEvent
+                    if (ok) {
+                        cont.resume(Unit)
+                    } else {
+                        cont.resumeWithException(IllegalStateException(err ?: "Failed to update event"))
+                    }
+                }
+            }
         }
     }
 

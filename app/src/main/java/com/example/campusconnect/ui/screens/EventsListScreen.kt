@@ -32,7 +32,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.models.OnlineEvent
 import com.example.campusconnect.data.models.Resource
 
@@ -43,8 +42,6 @@ import com.example.campusconnect.ui.events.EventsViewModel
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 
 @Composable
 fun EventsListScreen(
@@ -119,7 +116,7 @@ fun EventsListScreen(
                     onClick = { navController.navigate("event/${event.id}") },
                     canEdit = viewModel.canEditEvent(event),
                     canDelete = viewModel.canDeleteEvent(event),
-                    onEdit = { /* TODO: Navigate to Edit Event */ },
+                    onEdit = { navController.navigate("events/edit/${event.id}") },
                     onDelete = {
                         viewModel.deleteEvent(event.id) { success, _ ->
                             if (!success) {

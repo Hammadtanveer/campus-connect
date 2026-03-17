@@ -20,6 +20,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -32,20 +33,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.ui.events.EventsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateEventScreen(
     navController: NavController,
+    eventId: String? = null,
     viewModel: EventsViewModel = hiltViewModel()
 ) {
-    if (!viewModel.canCreateEvent()) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            Text("You don't have permission to create events.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
-        }
-        return
-    }
+    val isEditMode = !eventId.isNullOrBlank()
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -59,12 +57,71 @@ fun CreateEventScreen(
     var venue by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var isSubmitting by remember { mutableStateOf(false) }
+    var isLoadingEvent by remember { mutableStateOf(isEditMode) }
+    var hasEditPermission by remember { mutableStateOf(!isEditMode) }
+
+    LaunchedEffect(eventId) {
+        if (!isEditMode || eventId == null) return@LaunchedEffect
+        isLoadingEvent = true
+        when (val result = viewModel.getEvent(eventId)) {
+            is Resource.Success -> {
+                val event = result.data
+                title = event.title
+                description = event.description
+                duration = event.durationMinutes.toString()
+                maxParticipants = event.maxParticipants.toString()
+                eventType = event.eventType
+                meetLink = event.meetLink
+                venue = event.venue
+                hasEditPermission = viewModel.canEditEvent(event)
+                if (!hasEditPermission) {
+                    error = "You don't have permission to edit this event."
+                }
+            }
+            is Resource.Error -> {
+                error = result.message ?: "Failed to load event"
+                hasEditPermission = false
+            }
+            is Resource.Loading -> Unit
+        }
+        isLoadingEvent = false
+    }
+
+    if (!isEditMode && !viewModel.canCreateEvent()) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text("You don't have permission to create events.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+        }
+        return
+    }
+
+    if (isEditMode && isLoadingEvent) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    if (isEditMode && !hasEditPermission) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text(
+                error ?: "You don't have permission to edit this event.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        return
+    }
 
     Column(modifier = Modifier
         .padding(16.dp)
         .verticalScroll(rememberScrollState())
     ) {
-        Text(text = "Create Event", style = MaterialTheme.typography.headlineMedium)
+        Text(text = if (isEditMode) "Edit Event" else "Create Event", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(12.dp))
 
         // Event Type Selection
@@ -192,9 +249,20 @@ fun CreateEventScreen(
                                 return@launch
                             }
 
-                            val ts = Timestamp(Date())
-
-                            val creationDeferred = async {
+                            if (isEditMode) {
+                                viewModel.updateEventAwait(
+                                    eventId = eventId ?: return@launch,
+                                    title = title,
+                                    description = description,
+                                    durationMinutes = dur,
+                                    eventType = eventType,
+                                    venue = venue,
+                                    maxParticipants = maxP,
+                                    meetLink = meetLink
+                                )
+                                Toast.makeText(context, "Event updated successfully!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                val ts = Timestamp(Date())
                                 viewModel.createEventAwait(
                                     title = title,
                                     description = description,
@@ -205,27 +273,24 @@ fun CreateEventScreen(
                                     maxParticipants = maxP,
                                     meetLink = meetLink
                                 )
+                                Toast.makeText(context, "Event created successfully!", Toast.LENGTH_SHORT).show()
                             }
 
-                            creationDeferred.await()
-
-                            Toast.makeText(context, "Event created successfully!", Toast.LENGTH_SHORT).show()
-
-                            title = ""
-                            description = ""
-                            duration = "60"
-                            maxParticipants = "0"
-                            meetLink = ""
-                            venue = ""
-                            // Category reset removed
-                            isSubmitting = false
+                            if (!isEditMode) {
+                                title = ""
+                                description = ""
+                                duration = "60"
+                                maxParticipants = "0"
+                                meetLink = ""
+                                venue = ""
+                            }
 
                             navController.popBackStack()
                         } catch (_: TimeoutCancellationException) {
                             error = "Request timed out. Please try again if the event doesn't appear."
-                            Toast.makeText(context, "Event creation timed out", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, if (isEditMode) "Event update timed out" else "Event creation timed out", Toast.LENGTH_LONG).show()
                         } catch (e: Exception) {
-                            val msg = e.message ?: "Failed to create event"
+                            val msg = e.message ?: if (isEditMode) "Failed to update event" else "Failed to create event"
                             error = msg
                             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                         } finally {
@@ -237,10 +302,10 @@ fun CreateEventScreen(
                 if (isSubmitting) {
                     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
-                        Text("Creating event…")
+                        Text(if (isEditMode) "Saving changes..." else "Creating event...")
                     }
                 } else {
-                    Text("Create")
+                    Text(if (isEditMode) "Save" else "Create")
                 }
             }
         }

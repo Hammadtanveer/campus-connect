@@ -134,6 +134,14 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         composable("placement/add") {
             AddPlacementScreen(navController = navController)
         }
+        composable("placement/edit/{placementId}") { backStack ->
+            val id = backStack.arguments?.getString("placementId")
+            if (id.isNullOrBlank()) {
+                navController.popBackStack()
+            } else {
+                AddPlacementScreen(navController = navController, placementId = id)
+            }
+        }
         composable("placement/{placementId}") { backStack ->
             val id = backStack.arguments?.getString("placementId")
             if (id != null) {
@@ -151,6 +159,14 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         }
         composable("events/create") {
             CreateEventScreen(navController = navController)
+        }
+        composable("events/edit/{eventId}") { backStack ->
+            val eventId = backStack.arguments?.getString("eventId")
+            if (eventId.isNullOrBlank()) {
+                navController.popBackStack()
+            } else {
+                CreateEventScreen(navController = navController, eventId = eventId)
+            }
         }
 
         // Admin Panel

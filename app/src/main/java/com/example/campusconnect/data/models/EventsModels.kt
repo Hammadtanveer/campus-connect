@@ -28,6 +28,8 @@ data class OnlineEvent(
     val maxParticipants: Int = 0,
     val createdAt: Timestamp? = null,
     val organizerName: String = "",
+    val createdBy: String = "",
+    val createdByRole: String = "user",
     val participantCount: Int = 0
 )
 

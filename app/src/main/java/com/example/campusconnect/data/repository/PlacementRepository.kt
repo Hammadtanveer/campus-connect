@@ -53,6 +53,22 @@ class PlacementRepository @Inject constructor(
             Resource.Error(e.message ?: "Failed to delete placement")
         }
     }
+
+    suspend fun updatePlacement(placementId: String, placement: Placement): Resource<Unit> {
+        if (placementId.isBlank()) {
+            return Resource.Error("Invalid placement ID")
+        }
+        return try {
+            db.collection("placements")
+                .document(placementId)
+                .set(placement.copy(id = placementId))
+                .await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Failed to update placement")
+        }
+    }
+
     suspend fun getPlacement(placementId: String): Resource<Placement> {
         return try {
             val doc = db.collection("placements").document(placementId).get().await()

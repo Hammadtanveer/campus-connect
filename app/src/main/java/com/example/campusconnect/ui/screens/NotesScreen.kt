@@ -209,7 +209,7 @@ fun NotesListContent(
             is com.example.campusconnect.ui.state.UiState.Success -> {
                 if (state.data.isEmpty()) {
                     EmptyState(
-                        message = "No notes available",
+                        message = "No notes available yet",
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
@@ -775,12 +775,12 @@ fun EmptyState(message: String, modifier: Modifier = Modifier) {
             imageVector = Icons.Default.Info,
             contentDescription = "Empty",
             modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            tint = MaterialTheme.colorScheme.secondary
         )
         Text(
             text = message,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.secondary,
             textAlign = TextAlign.Center
         )
     }

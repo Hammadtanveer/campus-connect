@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -111,14 +113,33 @@ fun PlacementCareerScreen(
             }
             is Resource.Success -> {
                  if (state.data.isEmpty()) {
-                    Text("No job postings available.", style = MaterialTheme.typography.bodyMedium)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "No placements",
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Text(
+                                text = "No placements posted yet",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(state.data, key = { it.id }) { placement ->
                             PlacementListItem(
                                 placement = placement,
                                 onClick = { navController.navigate("placement/${placement.id}") },
+                                canEdit = canManageJobs,
                                 canDelete = canDeleteJobs,
+                                onEditClick = { navController.navigate("placement/edit/${placement.id}") },
                                 onDeleteClick = { pendingDelete = placement }
                             )
                         }
@@ -132,7 +153,9 @@ fun PlacementCareerScreen(
 fun PlacementListItem(
     placement: Placement,
     onClick: () -> Unit,
+    canEdit: Boolean,
     canDelete: Boolean,
+    onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -170,13 +193,24 @@ fun PlacementListItem(
                     )
                 }
 
-                if (canDelete) {
-                    IconButton(onClick = onDeleteClick) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete Job",
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                Row {
+                    if (canEdit) {
+                        IconButton(onClick = onEditClick) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Job",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    if (canDelete) {
+                        IconButton(onClick = onDeleteClick) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Job",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             }

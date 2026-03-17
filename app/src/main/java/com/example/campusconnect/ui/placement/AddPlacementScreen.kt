@@ -23,8 +23,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun AddPlacementScreen(
     navController: NavController,
+    placementId: String? = null,
     viewModel: PlacementViewModel = hiltViewModel()
 ) {
+    val isEditMode = !placementId.isNullOrBlank()
     var companyName by remember { mutableStateOf("") }
     var role by remember { mutableStateOf("") }
     var salary by remember { mutableStateOf("") }
@@ -32,15 +34,57 @@ fun AddPlacementScreen(
     var eligibility by remember { mutableStateOf("") }
     var applyLink by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
+    var postedDate by remember { mutableStateOf(java.util.Date()) }
 
-    var isSubmitting by remember { mutableStateOf(false) }
+    var isLoadingPlacement by remember { mutableStateOf(isEditMode) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val saveStatus by viewModel.savePlacementStatus.collectAsState()
+
+    LaunchedEffect(placementId) {
+        if (!isEditMode || placementId == null) return@LaunchedEffect
+        isLoadingPlacement = true
+        when (val result = viewModel.getPlacement(placementId)) {
+            is Resource.Success -> {
+                val placement = result.data
+                companyName = placement.companyName
+                role = placement.role
+                salary = placement.salary
+                description = placement.description
+                eligibility = placement.eligibilityCriteria
+                applyLink = placement.applyLink
+                location = placement.location
+                postedDate = placement.postedDate
+            }
+            is Resource.Error -> {
+                snackbarHostState.showSnackbar(result.message ?: "Failed to load placement")
+            }
+            is Resource.Loading -> Unit
+        }
+        isLoadingPlacement = false
+    }
+
+    LaunchedEffect(saveStatus) {
+        when (val status = saveStatus) {
+            is Resource.Success -> {
+                snackbarHostState.showSnackbar(if (isEditMode) "Placement updated" else "Placement posted")
+                viewModel.resetSavePlacementStatus()
+                navController.popBackStack()
+            }
+            is Resource.Error -> {
+                snackbarHostState.showSnackbar(status.message ?: "Save failed")
+                viewModel.resetSavePlacementStatus()
+            }
+            is Resource.Loading, null -> Unit
+        }
+    }
+
+    val isSubmitting = saveStatus is Resource.Loading
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Post New Job") },
+                title = { Text(if (isEditMode) "Edit Job" else "Post New Job") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -50,6 +94,18 @@ fun AddPlacementScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
+        if (isLoadingPlacement) {
+            Box(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize(),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
+
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -124,28 +180,22 @@ fun AddPlacementScreen(
                         return@Button
                     }
 
-                    isSubmitting = true
                     val placement = Placement(
+                        id = placementId.orEmpty(),
                         companyName = companyName,
                         role = role,
                         salary = salary,
                         description = description,
                         eligibilityCriteria = eligibility,
                         applyLink = applyLink,
-                        location = location
-                        // postedDate is auto-set in model
+                        location = location,
+                        postedDate = postedDate
                     )
 
-                    viewModel.addPlacement(placement)
-
-                    // Optimistic navigation or listen to side effects
-                    // Ideally we'd wait for success, but for MVP popping back is okay
-                    // A better way is to pass a callback to VM or observe state
-                    // We'll just assume success for now or close closely
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Posting Job...")
-                        // Simulate delay or wait for VM (requires exposing a status flow)
-                        navController.popBackStack()
+                    if (isEditMode) {
+                        viewModel.updatePlacement(placementId = placementId.orEmpty(), placement = placement)
+                    } else {
+                        viewModel.addPlacement(placement)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -154,7 +204,7 @@ fun AddPlacementScreen(
                 if (isSubmitting) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                 } else {
-                    Text("Post Placement Notice")
+                    Text(if (isEditMode) "Save Changes" else "Post Placement Notice")
                 }
             }
         }
