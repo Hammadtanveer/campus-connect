@@ -11,7 +11,7 @@ object AppNotificationChannels {
     const val JOBS = "jobs"
     const val SOCIETY = "society"
 
-    fun create(context: Context) {
+    fun createAll(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 
         val notificationManager =
@@ -45,6 +45,10 @@ object AppNotificationChannels {
         notificationManager.createNotificationChannel(notesChannel)
         notificationManager.createNotificationChannel(jobsChannel)
         notificationManager.createNotificationChannel(societyChannel)
+    }
+
+    fun create(context: Context) {
+        createAll(context)
     }
 }
 

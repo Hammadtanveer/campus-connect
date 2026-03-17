@@ -40,6 +40,7 @@ import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.example.campusconnect.notifications.NotificationSubscriptionManager
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -107,6 +108,15 @@ class MainViewModel @Inject constructor(
     private var seniorsObserverJob: Job? = null
     private val _deleteSeniorStatus = mutableStateOf<Resource<Unit>?>(null)
     val deleteSeniorStatus: Resource<Unit>? get() = _deleteSeniorStatus.value
+
+    // Prevent multiple subscriptions
+    private var hasSubscribedTopicsThisSession = false
+
+    private fun subscribeTopicsOncePerSession() {
+        if (hasSubscribedTopicsThisSession) return
+        NotificationSubscriptionManager.subscribeAllTopics()
+        hasSubscribedTopicsThisSession = true
+    }
 
     init {
         // Sync with SessionManager to keep profile updated across ViewModels
@@ -317,6 +327,7 @@ class MainViewModel @Inject constructor(
 
                         // Then attempt to load the full profile from Firestore (best-effort)
                         loadUserProfile(uid)
+                        subscribeTopicsOncePerSession()
                         // claims refresh will happen in loadUserProfile
                         onResult(true, null)
                     } else {

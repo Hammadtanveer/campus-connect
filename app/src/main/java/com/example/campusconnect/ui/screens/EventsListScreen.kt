@@ -81,9 +81,17 @@ fun EventsListScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "Events", style = MaterialTheme.typography.headlineMedium)
+            Text(
+                text = "Meetings & Announcements",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
             if (viewModel.canCreateEvent()) {
-                Button(onClick = { navController.navigate("events/create") }) { Text("Create Event") }
+                Button(onClick = { navController.navigate("events/create") }) { Text("Create") }
             } else {
                 AssistChip(onClick = {}, label = { Text("View only") })
             }

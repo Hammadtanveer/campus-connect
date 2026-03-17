@@ -13,7 +13,9 @@ import com.example.campusconnect.MainViewModel
 @Composable
 fun AuthGate(
     viewModel: MainViewModel = hiltViewModel(),
-    darkTheme: Boolean
+    darkTheme: Boolean,
+    notificationRoute: String? = null,
+    onNotificationRouteConsumed: () -> Unit = {}
 ) {
     val initializing = viewModel.initializing
     val userProfile = viewModel.userProfile
@@ -28,7 +30,11 @@ fun AuthGate(
             // prevented successful sign-in from navigating into the app. We keep
             // showing the welcome host only when not authenticated so login works.
             !isAuthenticated -> WelcomeHost(viewModel, darkTheme = darkTheme)
-            else -> MainView(viewModel)
+            else -> MainView(
+                viewModel = viewModel,
+                notificationRoute = notificationRoute,
+                onNotificationRouteConsumed = onNotificationRouteConsumed
+            )
         }
     }
 }

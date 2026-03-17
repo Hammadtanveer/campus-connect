@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import android.util.Log
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -53,7 +54,11 @@ private const val DRAWER_BLUR_ANIM_MS = 260 // animation duration in ms
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainView(viewModel: MainViewModel) {
+fun MainView(
+    viewModel: MainViewModel,
+    notificationRoute: String? = null,
+    onNotificationRouteConsumed: () -> Unit = {}
+) {
     val scope = rememberCoroutineScope()
     val controller: NavController = rememberNavController()
     val navBackStackEntry by controller.currentBackStackEntryAsState()
@@ -74,6 +79,19 @@ fun MainView(viewModel: MainViewModel) {
     // Update ViewModel's current screen based on navigation route changes
     LaunchedEffect(currentRoute) {
         currentRoute?.let { viewModel.setCurrentScreenByRoute(it) }
+    }
+
+    LaunchedEffect(notificationRoute) {
+        if (notificationRoute != null) {
+            Log.d("NAV_DEBUG", "LaunchedEffect triggered with route: $notificationRoute")
+            if (currentRoute != notificationRoute) {
+                controller.navigate(notificationRoute) {
+                    popUpTo(controller.graph.startDestinationId)
+                    launchSingleTop = true
+                }
+            }
+            onNotificationRouteConsumed()
+        }
     }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)

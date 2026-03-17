@@ -109,3 +109,33 @@ exports.generateSignedPdfUrl = functions.https.onCall(async (data, context) => {
     }
 });
 
+// Notify students when new notes are uploaded
+exports.notifyStudentsOnNewNote = functions.firestore
+  .document('notes/{noteId}')
+  .onCreate(async (snapshot) => {
+    const noteData = snapshot.data() || {};
+    const noteTitle = noteData.title ? String(noteData.title) : '';
+    const uploaderName = noteData.uploaderName ? String(noteData.uploaderName) : '';
+
+    // uploaderName is read for future personalization/debug while keeping payload minimal.
+    console.log('notifyStudentsOnNewNote', {
+      noteId: snapshot.id,
+      title: noteTitle,
+      uploaderName,
+    });
+
+    const message = {
+      topic: 'all_students',
+      data: {
+        title: 'New Notes Uploaded',
+        body: noteTitle,
+        type: 'notes',
+      },
+      android: {
+        priority: 'high',
+      },
+    };
+
+    return admin.messaging().send(message);
+  });
+

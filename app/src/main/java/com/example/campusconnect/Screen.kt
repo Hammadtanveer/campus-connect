@@ -40,7 +40,7 @@ sealed class Screen(val title: String, val route: String) {
             R.drawable.outline_work_24
         )
         object Events : DrawerScreen(
-            "Events",
+            "Meetings & Announcements",
             "events",
             R.drawable.baseline_event_24
         )
