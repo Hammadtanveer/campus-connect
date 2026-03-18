@@ -18,6 +18,12 @@ import com.example.campusconnect.ui.placement.AddPlacementScreen
 import com.example.campusconnect.ui.placement.PlacementDetailScreen
 import com.example.campusconnect.ui.screens.AccountView
 import com.example.campusconnect.ui.screens.AdminPanelScreen
+import com.example.campusconnect.ui.screens.AdminAnalyticsScreen
+import com.example.campusconnect.ui.screens.AdminContentModerationScreen
+import com.example.campusconnect.ui.screens.AdminSendNotificationScreen
+import com.example.campusconnect.ui.screens.AdminActivityLogScreen
+import com.example.campusconnect.ui.screens.AdminUsersScreen
+import com.example.campusconnect.ui.screens.AdminUserPermissionDetailScreen
 import com.example.campusconnect.ui.screens.CreateEventScreen
 import com.example.campusconnect.ui.screens.CreateSocietyEventScreen
 import com.example.campusconnect.ui.screens.DownloadView
@@ -61,7 +67,8 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
                         navController.navigate(Screen.DrawerScreen.Notes.route) {
                             popUpTo("upload_note") { inclusive = true }
                         }
-                    }
+                    },
+                    onOpenAdminPanel = { navController.navigate("admin/panel") }
                 )
             }
         }
@@ -173,6 +180,30 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         composable("admin/panel") {
             AdminPanelScreen(viewModel = viewModel, navController = navController)
         }
+        composable("admin/analytics") {
+            AdminAnalyticsScreen(navController = navController)
+        }
+        composable("admin/content-moderation") {
+            AdminContentModerationScreen(navController = navController)
+        }
+        composable("admin/send-notification") {
+            AdminSendNotificationScreen(navController = navController)
+        }
+        composable("admin/activity-log") {
+            AdminActivityLogScreen(navController = navController)
+        }
+        composable("admin/users") {
+            AdminUsersScreen(navController = navController)
+        }
+        composable("admin/users/{userId}") { backStack ->
+            val encodedUserId = backStack.arguments?.getString("userId")
+            val userId = if (encodedUserId.isNullOrBlank()) null else Uri.decode(encodedUserId)
+            if (userId.isNullOrBlank()) {
+                navController.popBackStack()
+            } else {
+                AdminUserPermissionDetailScreen(navController = navController, userId = userId)
+            }
+        }
 
         // Senior screens
         composable("senior_detail/{seniorId}") { backStackEntry ->
@@ -181,6 +212,7 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
             if (senior != null) {
                 SeniorDetailScreen(
                     senior = senior,
+                    viewModel = viewModel,
                     onBackClick = { navController.popBackStack() },
                     onEditClick = { navController.navigate("senior_edit/${senior.id}") },
                     onDeleteClick = {
@@ -192,7 +224,8 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
                                 Toast.makeText(context, "Delete failed: $error", Toast.LENGTH_SHORT).show()
                             }
                         }
-                    }
+                    },
+                    onOpenAdminPanel = { navController.navigate("admin/panel") }
                 )
             }
         }
@@ -213,7 +246,8 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
                                 Toast.makeText(context, "Update failed: $error", Toast.LENGTH_SHORT).show()
                             }
                         }
-                    }
+                    },
+                    onOpenAdminPanel = { navController.navigate("admin/panel") }
                 )
             }
         }
@@ -238,7 +272,8 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
                                 Toast.makeText(context, "Failed to add senior: $error", Toast.LENGTH_LONG).show()
                             }
                         }
-                    }
+                    },
+                    onOpenAdminPanel = { navController.navigate("admin/panel") }
                 )
             }
         }

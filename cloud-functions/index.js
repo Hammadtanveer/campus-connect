@@ -140,3 +140,214 @@ exports.notifyStudentsOnNewNote = functions.firestore
     return admin.messaging().send(message);
   });
 
+function pickFirstString(data, keys, fallback = '') {
+  for (const key of keys) {
+    const value = data && data[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return fallback;
+}
+
+async function sendTopicDataMessage({ topic, title, body, type, targetId = '' }) {
+  const payload = {
+    topic,
+    data: {
+      title: title || 'CampusConnect',
+      body: body || '',
+      type: type || 'general',
+      targetId,
+    },
+    android: { priority: 'high' },
+  };
+  return admin.messaging().send(payload);
+}
+
+exports.notifyOnNewEvent = functions.firestore
+  .document('events/{eventId}')
+  .onCreate(async (snapshot) => {
+    const data = snapshot.data() || {};
+    const title = pickFirstString(data, ['title', 'name'], 'New Event Created');
+    const body = pickFirstString(data, ['description', 'details'], 'Tap to open Meetings & Announcements');
+
+    return sendTopicDataMessage({
+      topic: 'events',
+      title,
+      body,
+      type: 'events',
+      targetId: snapshot.id,
+    });
+  });
+
+exports.notifyOnNewMeeting = functions.firestore
+  .document('meetings/{meetingId}')
+  .onCreate(async (snapshot) => {
+    const data = snapshot.data() || {};
+    const title = pickFirstString(data, ['title', 'name'], 'New Meeting Created');
+    const body = pickFirstString(data, ['description', 'details'], 'Tap to open Meetings & Announcements');
+
+    return sendTopicDataMessage({
+      topic: 'events',
+      title,
+      body,
+      type: 'meetings',
+      targetId: snapshot.id,
+    });
+  });
+
+exports.notifyOnNewAnnouncement = functions.firestore
+  .document('announcements/{announcementId}')
+  .onCreate(async (snapshot) => {
+    const data = snapshot.data() || {};
+    const title = pickFirstString(data, ['title', 'name'], 'New Announcement');
+    const body = pickFirstString(data, ['description', 'details'], 'Tap to open Meetings & Announcements');
+
+    return sendTopicDataMessage({
+      topic: 'events',
+      title,
+      body,
+      type: 'announcements',
+      targetId: snapshot.id,
+    });
+  });
+
+exports.notifyOnNewPlacement = functions.firestore
+  .document('placements/{placementId}')
+  .onCreate(async (snapshot) => {
+    const data = snapshot.data() || {};
+    const role = pickFirstString(data, ['role', 'jobTitle', 'title'], 'New Placement Added');
+    const company = pickFirstString(data, ['companyName', 'company', 'organization'], 'Campus Placement Cell');
+
+    return sendTopicDataMessage({
+      topic: 'placements',
+      title: role,
+      body: company,
+      type: 'placements',
+      targetId: snapshot.id,
+    });
+  });
+
+exports.notifyOnNewSocietyEvent = functions.firestore
+  .document('societies/{societyId}/events/{eventId}')
+  .onCreate(async (snapshot, context) => {
+    const data = snapshot.data() || {};
+    const title = pickFirstString(data, ['name', 'eventTitle', 'title'], 'New Society Event');
+    const body = 'Tap to open society updates';
+
+    const payload = {
+      topic: 'society_updates',
+      data: {
+        title,
+        body,
+        type: 'society',
+        targetId: context.params.eventId,
+        parentId: context.params.societyId,
+      },
+      android: { priority: 'high' },
+    };
+
+    return admin.messaging().send(payload);
+  });
+
+exports.processNotificationQueue = functions.firestore
+  .document('notification_queue/{queueId}')
+  .onCreate(async (snapshot, context) => {
+    const data = snapshot.data() || {};
+    const topic = typeof data.topic === 'string' ? data.topic.trim() : '';
+    const title = typeof data.title === 'string' ? data.title.trim() : '';
+    const body = typeof data.body === 'string' ? data.body.trim() : '';
+    const type = typeof data.type === 'string' ? data.type.trim() : 'general';
+    const targetId = typeof data.targetId === 'string' ? data.targetId.trim() : '';
+
+    const allowedTopics = ['all_students', 'events', 'placements', 'society_updates', 'notes'];
+    if (!allowedTopics.includes(topic) || !title || !body) {
+      console.error('processNotificationQueue invalid payload', { queueId: context.params.queueId, topic, titlePresent: Boolean(title), bodyPresent: Boolean(body) });
+      await snapshot.ref.set(
+        {
+          status: 'failed',
+          error: 'Invalid topic/title/body payload',
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      return null;
+    }
+
+    try {
+      const messageId = await admin.messaging().send({
+        topic,
+        data: {
+          title,
+          body,
+          type,
+          targetId,
+        },
+        android: { priority: 'high' },
+      });
+
+      await snapshot.ref.set(
+        {
+          status: 'sent',
+          messageId,
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (error) {
+      console.error('processNotificationQueue send failed', error);
+      await snapshot.ref.set(
+        {
+          status: 'failed',
+          error: error && error.message ? error.message : 'Unknown send error',
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    return null;
+  });
+
+// Send custom topic notification from admin panel
+exports.sendTopicNotification = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required.');
+  }
+
+  const token = context.auth.token || {};
+  const role = String(token.role || '').toLowerCase();
+  const isSuperAdmin = token.superAdmin === true || role === 'super_admin' || role === 'superadmin';
+  if (!isSuperAdmin) {
+    throw new functions.https.HttpsError('permission-denied', 'Only super admin can send notifications.');
+  }
+
+  const topic = data && data.topic ? String(data.topic).trim() : '';
+  const title = data && data.title ? String(data.title).trim() : '';
+  const body = data && data.body ? String(data.body).trim() : '';
+  const type = data && data.type ? String(data.type).trim() : 'general';
+
+  const allowedTopics = ['all_students', 'events', 'placements', 'society_updates', 'notes'];
+  if (!allowedTopics.includes(topic)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid topic.');
+  }
+  if (!title || !body) {
+    throw new functions.https.HttpsError('invalid-argument', 'Title and body are required.');
+  }
+
+  const message = {
+    topic,
+    data: {
+      title,
+      body,
+      type,
+    },
+    android: {
+      priority: 'high',
+    },
+  };
+
+  await admin.messaging().send(message);
+  return { success: true };
+});
+

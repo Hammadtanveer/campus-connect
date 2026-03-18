@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.campusconnect.data.models.Placement
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.data.repository.PlacementRepository
+import com.example.campusconnect.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PlacementViewModel @Inject constructor(
-    private val repository: PlacementRepository
+    private val repository: PlacementRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _placements = MutableStateFlow<Resource<List<Placement>>>(Resource.Loading)
@@ -39,9 +41,24 @@ class PlacementViewModel @Inject constructor(
     }
 
     fun addPlacement(placement: Placement) {
+        val profile = sessionManager.state.value.profile
+        val actorUserId = profile?.id.orEmpty()
+        val actorUserName = profile?.displayName.orEmpty()
+
+        if (actorUserId.isBlank()) {
+            _savePlacementStatus.value = Resource.Error("Not authenticated")
+            return
+        }
+
         viewModelScope.launch {
             _savePlacementStatus.value = Resource.Loading
-            when (val result = repository.addPlacement(placement)) {
+            when (
+                val result = repository.addPlacement(
+                    placement = placement,
+                    actorUserId = actorUserId,
+                    actorUserName = actorUserName
+                )
+            ) {
                 is Resource.Success -> _savePlacementStatus.value = Resource.Success(Unit)
                 is Resource.Error -> _savePlacementStatus.value = Resource.Error(result.message ?: "Failed to post placement")
                 is Resource.Loading -> Unit

@@ -24,7 +24,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class EventsRepository @Inject constructor(
-    private val db: FirebaseFirestore
+    private val db: FirebaseFirestore,
+    private val adminActivityLogRepository: AdminActivityLogRepository
 ) {
 
     fun observeEvents(): Flow<Resource<List<OnlineEvent>>> = callbackFlow {
@@ -90,7 +91,15 @@ class EventsRepository @Inject constructor(
 
         db.collection("events").document(id)
             .set(event)
-            .addOnSuccessListener { onResult(true, null) }
+            .addOnSuccessListener {
+                adminActivityLogRepository.logActionAsync(
+                    action = "Event created: $title",
+                    userName = organizerName,
+                    type = "event_created",
+                    userId = organizerId
+                )
+                onResult(true, null)
+            }
             .addOnFailureListener { e -> onResult(false, e.message) }
     }
 

@@ -47,10 +47,12 @@ class CampusConnectApp : Application() {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Log.e("CampusConnectApp", "Failed to fetch FCM token", task.exception)
+                Log.e("FCM", "Token fetch failed", task.exception)
                 return@addOnCompleteListener
             }
 
             Log.d("CampusConnectApp", "FCM token=${task.result}")
+            Log.d("FCM", "Current token: ${task.result}")
             NotificationSubscriptionManager.subscribeAllTopics()
         }
     }

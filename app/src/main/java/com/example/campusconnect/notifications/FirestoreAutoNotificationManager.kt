@@ -57,6 +57,20 @@ object FirestoreAutoNotificationManager {
                 bodyFields = listOf("description", "details")
             ),
             Source(
+                collection = "meetings",
+                type = "events",
+                defaultTitle = "New Meeting",
+                titleFields = listOf("title", "name"),
+                bodyFields = listOf("description", "details")
+            ),
+            Source(
+                collection = "announcements",
+                type = "events",
+                defaultTitle = "New Announcement",
+                titleFields = listOf("title", "name"),
+                bodyFields = listOf("description", "details")
+            ),
+            Source(
                 collection = "placements",
                 type = "placements",
                 defaultTitle = "New Placement Update",
@@ -73,6 +87,7 @@ object FirestoreAutoNotificationManager {
         )
 
         sources.forEach { source ->
+            Log.d(TAG, "Starting listener for collection=${source.collection} type=${source.type}")
             registrations += firestore.collection(source.collection)
                 .addSnapshotListener { snapshot, error ->
                     try {
@@ -92,7 +107,10 @@ object FirestoreAutoNotificationManager {
 
         observeSocietyPosts(appContext, firestore)
 
-        Log.d("FirestoreAutoNotif", "Started listeners for [events, placements, notes, societies]")
+        Log.d(
+            "FirestoreAutoNotif",
+            "Started listeners for [events, meetings, announcements, placements, notes, societies]"
+        )
     }
 
     private fun observeSocietyPosts(context: Context, firestore: FirebaseFirestore) {

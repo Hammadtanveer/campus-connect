@@ -38,7 +38,8 @@ import kotlin.coroutines.suspendCoroutine
 class NotesRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val mediaManager: MediaManager,
-    private val notesDao: NotesDao
+    private val notesDao: NotesDao,
+    private val adminActivityLogRepository: AdminActivityLogRepository
 ) {
 
     private val notesCollection = firestore.collection("notes")
@@ -139,12 +140,19 @@ class NotesRepository @Inject constructor(
                             "uploaderName" to userName,
                             "uploadedAt" to Timestamp.now(),
                             "downloads" to 0,
-                            "views" to 0
+                            "views" to 0,
+                            "moderationStatus" to "pending"
                         )
 
                         notesCollection.add(noteMetadata)
                             .addOnSuccessListener { documentReference ->
                                 Log.d("NotesRepository", "Metadata saved: ${documentReference.id}")
+                                adminActivityLogRepository.logActionAsync(
+                                    action = "Note uploaded: $title",
+                                    userName = userName,
+                                    type = "note_uploaded",
+                                    userId = userId
+                                )
                                 continuation.resume(Resource.Success(documentReference.id))
                             }
                             .addOnFailureListener { e ->
@@ -243,6 +251,60 @@ class NotesRepository @Inject constructor(
      */
     fun observeMyNotes(uploaderId: String): Flow<Resource<List<Note>>> {
         return observeNotes(uploaderId = uploaderId)
+    }
+
+    fun observeNotesForModeration(): Flow<Resource<List<Note>>> = callbackFlow {
+        trySend(Resource.Loading)
+
+        val registration = notesCollection
+            .orderBy("uploadedAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(Resource.Error(error.message ?: "Failed to load notes for moderation"))
+                    return@addSnapshotListener
+                }
+
+                val notes = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        doc.toObject(Note::class.java)?.copy(id = doc.id)
+                    } catch (_: Exception) {
+                        null
+                    }
+                } ?: emptyList()
+
+                trySend(Resource.Success(notes))
+            }
+
+        awaitClose { registration.remove() }
+    }
+
+    suspend fun updateModerationStatus(
+        noteId: String,
+        status: String,
+        reviewerId: String,
+        reviewerName: String
+    ): Resource<Unit> {
+        if (noteId.isBlank()) return Resource.Error("Invalid note id")
+        if (status != "approved" && status != "rejected") {
+            return Resource.Error("Invalid moderation status")
+        }
+
+        return try {
+            notesCollection.document(noteId)
+                .update(
+                    mapOf(
+                        "moderationStatus" to status,
+                        "moderatedAt" to Timestamp.now(),
+                        "moderatedBy" to reviewerId,
+                        "moderatedByName" to reviewerName
+                    )
+                )
+                .await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Log.e("NotesRepository", "Failed to update moderation status", e)
+            Resource.Error(e.message ?: "Failed to update moderation status")
+        }
     }
 
     /**

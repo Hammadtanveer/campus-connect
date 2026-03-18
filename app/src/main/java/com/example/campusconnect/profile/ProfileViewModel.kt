@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 import com.example.campusconnect.util.Constants
+import com.example.campusconnect.util.UserProfileMapper
 
 /**
  * Enhanced ProfileViewModel for comprehensive profile management.
@@ -143,7 +144,7 @@ class ProfileViewModel @Inject constructor(
             firestore.collection("users").document(userId)
                 .get()
                 .addOnSuccessListener { snap ->
-                    val profile = snap.toObject(UserProfile::class.java)
+                    val profile = UserProfileMapper.fromDocument(snap)
                     if (profile != null) {
                         _profileState.value = UiState.Success(
                             if (profile.id.isBlank()) profile.copy(id = snap.id) else profile
@@ -165,7 +166,7 @@ class ProfileViewModel @Inject constructor(
         firestore.collection("users").document(userId)
             .get()
             .addOnSuccessListener { snap ->
-                snap.toObject(UserProfile::class.java)?.let { profile ->
+                UserProfileMapper.fromDocument(snap)?.let { profile ->
                     sessionManager.updateProfile(
                         if (profile.id.isBlank()) profile.copy(id = snap.id) else profile
                     )
@@ -245,7 +246,7 @@ class ProfileViewModel @Inject constructor(
                 snapshot?.let {
                     val mentors = it.documents.mapNotNull { doc ->
                         try {
-                            doc.toObject(UserProfile::class.java)?.let { profile ->
+                            UserProfileMapper.fromDocument(doc)?.let { profile ->
                                 if (profile.id.isBlank()) profile.copy(id = doc.id) else profile
                             }
                         } catch (_: Exception) {

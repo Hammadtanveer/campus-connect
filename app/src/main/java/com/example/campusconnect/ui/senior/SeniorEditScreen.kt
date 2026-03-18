@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.Senior
+import com.example.campusconnect.ui.components.AppOverflowMenu
 import com.example.campusconnect.util.FileUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,7 +31,8 @@ fun SeniorEditScreen(
     viewModel: MainViewModel,
     senior: Senior,
     onBackClick: () -> Unit,
-    onSaveClick: (Senior) -> Unit
+    onSaveClick: (Senior) -> Unit,
+    onOpenAdminPanel: () -> Unit
 ) {
     var name by remember { mutableStateOf(senior.name) }
     var branch by remember { mutableStateOf(senior.branch) }
@@ -70,6 +72,13 @@ fun SeniorEditScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    AppOverflowMenu(
+                        userProfile = viewModel.userProfile,
+                        onOpenAdminPanel = onOpenAdminPanel,
+                        onLogout = { viewModel.signOut() }
+                    )
                 }
             )
         }

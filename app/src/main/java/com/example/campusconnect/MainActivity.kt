@@ -91,11 +91,11 @@ class MainActivity : ComponentActivity() {
         FirebaseMessaging.getInstance().token
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    Log.d("FCM_DEBUG", "Token: ${task.result}")
+                    Log.d("FCM_DEBUG", "Current token: ${task.result}")
                 }
 
                 if (!task.isSuccessful) {
-                    Log.d(TAG, "FCM token fetch failed: ${task.exception?.message}")
+                    Log.e(TAG, "FCM token fetch failed: ${task.exception?.message}", task.exception)
                     return@addOnCompleteListener
                 }
                 Log.d(TAG, "FCM token=${task.result}")
@@ -116,7 +116,10 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.POST_NOTIFICATIONS
         ) == PackageManager.PERMISSION_GRANTED
         if (!granted) {
+            Log.d(TAG, "Requesting POST_NOTIFICATIONS runtime permission")
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            Log.d(TAG, "POST_NOTIFICATIONS already granted")
         }
     }
 }

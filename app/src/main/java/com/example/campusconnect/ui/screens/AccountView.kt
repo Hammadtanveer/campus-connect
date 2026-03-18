@@ -285,15 +285,6 @@ fun AccountView(viewModel: MainViewModel) {
 
         item {
             Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = { viewModel.signOut() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp)
-            ) {
-                Text("Sign Out")
-            }
         }
     }
 }

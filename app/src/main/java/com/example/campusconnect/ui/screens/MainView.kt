@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -39,6 +38,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.campusconnect.ui.components.DrawerItem
+import com.example.campusconnect.ui.components.AppOverflowMenu
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.Navigation
 import com.example.campusconnect.Screen
@@ -152,9 +152,15 @@ fun MainView(
                             TopAppBar(
                                 title = { Text(title) },
                                 actions = {
-                                    IconButton(onClick = { /* placeholder for future actions */ }) {
-                                        Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "More options")
-                                    }
+                                    AppOverflowMenu(
+                                        userProfile = viewModel.userProfile,
+                                        onOpenAdminPanel = {
+                                            controller.navigate("admin/panel") {
+                                                launchSingleTop = true
+                                            }
+                                        },
+                                        onLogout = { viewModel.signOut() }
+                                    )
                                 },
                                 navigationIcon = {
                                     IconButton(onClick = { scope.launch { drawerState.open() } }) {

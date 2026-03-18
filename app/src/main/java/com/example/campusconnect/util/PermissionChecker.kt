@@ -24,6 +24,21 @@ import com.example.campusconnect.data.models.UserProfile
  */
 object PermissionChecker {
 
+    private fun hasFlagPermission(user: UserProfile, permission: String): Boolean {
+        if (user.permissions[permission] == true) return true
+
+        return when {
+            permission.startsWith("events:") -> user.permissions["can_manage_events"] == true
+            permission.startsWith("notes:") -> user.permissions["can_manage_notes"] == true
+            permission.startsWith("placements:") -> user.permissions["can_manage_placements"] == true
+            permission.startsWith("society:") -> {
+                user.permissions["can_manage_society"] == true ||
+                    user.permissions.keys.any { it.startsWith("can_manage_society_") && user.permissions[it] == true }
+            }
+            else -> false
+        }
+    }
+
     /**
      * Checks if a user has a specific permission.
      *
@@ -51,7 +66,7 @@ object PermissionChecker {
         val requiredPerm = Permission.fromString(permission)
 
         // Check each permission the user has
-        for (userPermString in user.permissions) {
+        for (userPermString in user.permissionsList) {
             val userPerm = Permission.fromString(userPermString)
 
             // Exact match
@@ -62,11 +77,11 @@ object PermissionChecker {
         }
 
         // Check legacy roles field for backward compatibility
-        if (user.roles.contains(permission)) return true
+        if (hasFlagPermission(user, permission) || user.roles.contains(permission)) return true
 
         // Check if user has wildcard for this resource
         val resourceWildcard = "${requiredPerm.resource}:*:*"
-        if (user.permissions.contains(resourceWildcard) || user.roles.contains(resourceWildcard)) {
+        if (user.permissionsList.contains(resourceWildcard) || user.permissions[resourceWildcard] == true || user.roles.contains(resourceWildcard)) {
             return true
         }
 
@@ -206,7 +221,8 @@ object PermissionChecker {
         val effectivePerms = mutableSetOf<String>()
 
         // Add explicit permissions
-        effectivePerms.addAll(user.permissions)
+        effectivePerms.addAll(user.permissionsList)
+        effectivePerms.addAll(user.permissions.filterValues { it }.keys)
 
         // Add legacy roles
         effectivePerms.addAll(user.roles)

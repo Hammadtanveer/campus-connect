@@ -17,15 +17,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.Senior
+import com.example.campusconnect.ui.components.AppOverflowMenu
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeniorDetailScreen(
     senior: Senior,
+    viewModel: MainViewModel,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onOpenAdminPanel: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -68,6 +72,11 @@ fun SeniorDetailScreen(
                     IconButton(onClick = { showDeleteDialog = true }) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete Senior", tint = MaterialTheme.colorScheme.error)
                     }
+                    AppOverflowMenu(
+                        userProfile = viewModel.userProfile,
+                        onOpenAdminPanel = onOpenAdminPanel,
+                        onLogout = { viewModel.signOut() }
+                    )
                 }
             )
         }

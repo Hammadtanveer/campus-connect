@@ -40,6 +40,7 @@ object NotificationHelper {
             "notes" -> AppNotificationChannels.NOTES
             "placements" -> AppNotificationChannels.JOBS
             "society", "society_updates" -> AppNotificationChannels.SOCIETY
+            "meetings", "announcements" -> AppNotificationChannels.EVENTS
             else -> AppNotificationChannels.EVENTS
         }
 

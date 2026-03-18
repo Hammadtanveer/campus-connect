@@ -15,8 +15,10 @@ object Permissions {
 }
 
 private fun UserProfile.hasAnyPermission(vararg keys: String): Boolean {
-    if (permissions.contains("*:*:*")) return true
-    return keys.any { key -> permissions.contains(key) || roles.contains(key) }
+    if (permissions["*:*:*"] == true || permissionsList.contains("*:*:*")) return true
+    return keys.any { key ->
+        permissions[key] == true || permissionsList.contains(key) || roles.contains(key)
+    }
 }
 
 private fun UserProfile.hasAdminRole(): Boolean {
@@ -25,12 +27,14 @@ private fun UserProfile.hasAdminRole(): Boolean {
 }
 
 fun UserProfile.canCreateEvent(): Boolean = hasAdminRole() || hasAnyPermission(
+    "can_manage_events",
     Permissions.EVENT_CREATE,
     "events:create:own",
     "events:create:all"
 )
 
 fun UserProfile.canUploadNotes(): Boolean = hasAdminRole() || hasAnyPermission(
+    "can_manage_notes",
     Permissions.NOTES_UPLOAD,
     "notes:upload:own",
     "notes:upload:all"
@@ -41,18 +45,21 @@ fun UserProfile.canAddSenior(): Boolean {
     if (normalizedRole == "admin" || normalizedRole == "super_admin" || normalizedRole == "superadmin") {
         return true
     }
-    return permissions.contains("*:*:*") ||
-        permissions.contains("seniors:add:all") ||
+    return permissions["*:*:*"] == true ||
+        permissions["is_admin"] == true ||
+        permissionsList.contains("seniors:add:all") ||
         roles.contains("seniors:add:all")
 }
 
 fun UserProfile.canUpdateSenior(): Boolean = hasAdminRole() || hasAnyPermission(
+    "is_admin",
     Permissions.SENIOR_UPDATE,
     "seniors:edit:all",
     "seniors:verify:all"
 )
 
 fun UserProfile.canManageSociety(): Boolean = hasAdminRole() || hasAnyPermission(
+    "can_manage_society",
     Permissions.SOCIETY_MANAGE,
     "society:manage"
-)
+) || permissions.keys.any { it.startsWith("can_manage_society_") && permissions[it] == true }

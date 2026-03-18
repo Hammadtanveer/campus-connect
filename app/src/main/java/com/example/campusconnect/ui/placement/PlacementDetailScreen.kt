@@ -59,6 +59,11 @@ fun PlacementDetailScreen(
                 }
                 is Resource.Success -> {
                     val placement = state.data
+                    val normalizedSalary = when {
+                        placement.salary.isBlank() -> "Salary N/A"
+                        placement.salary.contains("lpa", ignoreCase = true) -> placement.salary
+                        else -> "${placement.salary} LPA"
+                    }
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -79,7 +84,7 @@ fun PlacementDetailScreen(
                         HorizontalDivider()
 
                         DetailRow("Location", placement.location.ifBlank { "Not specified" })
-                        DetailRow("Salary / Package", placement.salary.ifBlank { "Not specified" })
+                        DetailRow("Salary / Package", normalizedSalary)
 
                         if (placement.eligibilityCriteria.isNotBlank()) {
                             Text("Eligibility Criteria", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

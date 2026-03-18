@@ -54,6 +54,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.models.UploadProgress
 import com.example.campusconnect.security.canUploadNotes
+import com.example.campusconnect.ui.components.AppOverflowMenu
 import com.example.campusconnect.ui.viewmodels.UploadNoteViewModel
 import com.example.campusconnect.util.Constants
 import com.example.campusconnect.util.FileUtils
@@ -63,7 +64,8 @@ import com.example.campusconnect.util.FileUtils
 fun UploadNoteScreen(
     mainViewModel: MainViewModel,
     onNavigateBack: () -> Unit,
-    onUploadSuccess: () -> Unit
+    onUploadSuccess: () -> Unit,
+    onOpenAdminPanel: () -> Unit
 ) {
     val viewModel: UploadNoteViewModel = hiltViewModel()
     val uploadProgress by viewModel.uploadProgress.collectAsState()
@@ -112,6 +114,13 @@ fun UploadNoteScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    AppOverflowMenu(
+                        userProfile = mainViewModel.userProfile,
+                        onOpenAdminPanel = onOpenAdminPanel,
+                        onLogout = { mainViewModel.signOut() }
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,

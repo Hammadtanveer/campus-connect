@@ -33,6 +33,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.example.campusconnect.session.SessionManager
 import com.example.campusconnect.data.repository.ActivityLogRepository
+import com.example.campusconnect.data.repository.AdminActivityLogRepository
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.functions.ktx.functions
 import com.example.campusconnect.data.Senior
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.example.campusconnect.notifications.NotificationSubscriptionManager
+import com.example.campusconnect.util.UserProfileMapper
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -51,7 +53,8 @@ class MainViewModel @Inject constructor(
     private val seniorsRepo: SeniorsRepository,
     private val firestore: FirebaseFirestore,
     private val sessionManager: SessionManager,
-    private val activityLogRepository: ActivityLogRepository
+    private val activityLogRepository: ActivityLogRepository,
+    private val adminActivityLogRepository: AdminActivityLogRepository
 ) : AndroidViewModel(application) {
     companion object {
     }
@@ -170,17 +173,25 @@ class MainViewModel @Inject constructor(
             p = p.copy(role = normalizedRole)
         }
 
-        val hasWildcard = p.permissions.any { it == "*:*:*" }
+        val hasWildcard = p.permissions["*:*:*"] == true || p.permissionsList.any { it == "*:*:*" }
         val isSuper = p.role in listOf("super_admin", "superadmin") || hasWildcard
         if (isSuper) {
             val defaultLegacy = listOf("admin", "event:create", "notes:upload")
             val mergedRoles = (p.roles + defaultLegacy).distinct()
-            val mergedPermissions = (p.permissions + "*:*:*").distinct()
+            val mergedPermissions = p.permissions + mapOf(
+                "*:*:*" to true,
+                "is_admin" to true,
+                "can_manage_events" to true,
+                "can_manage_notes" to true,
+                "can_manage_placements" to true
+            )
+            val mergedPermissionList = (p.permissionsList + "*:*:*").distinct()
             p = p.copy(
                 role = "super_admin",
                 isAdmin = true,
                 roles = mergedRoles,
-                permissions = mergedPermissions
+                permissions = mergedPermissions,
+                permissionsList = mergedPermissionList
             )
         }
 
@@ -207,7 +218,7 @@ class MainViewModel @Inject constructor(
             .get()
             .addOnSuccessListener { doc ->
                 if (doc.exists()) {
-                    val profile = doc.toObject(UserProfile::class.java)
+                    val profile = UserProfileMapper.fromDocument(doc)
                     val normalized = profile?.let { normalizeRbac(it) }
                     _userProfile.value = normalized
                     sessionManager.updateProfile(normalized)
@@ -265,7 +276,8 @@ class MainViewModel @Inject constructor(
         val current = _userProfile.value
         if (current != null) {
             val mergedRoles = (current.roles + claimRoles).distinct()
-            val mergedPermissions = (current.permissions + claimPermissions).distinct()
+            val mergedPermissions = current.permissions + claimPermissions.associateWith { true }
+            val mergedPermissionList = (current.permissionsList + claimPermissions).distinct()
             val resolvedRole = when {
                 claimsSuperAdmin -> "super_admin"
                 !claimRole.isNullOrBlank() -> claimRole
@@ -277,7 +289,8 @@ class MainViewModel @Inject constructor(
                     isAdmin = mergedAdmin,
                     role = resolvedRole,
                     roles = mergedRoles,
-                    permissions = mergedPermissions
+                    permissions = mergedPermissions,
+                    permissionsList = mergedPermissionList
                 )
             )
             _userProfile.value = updated
@@ -463,11 +476,24 @@ class MainViewModel @Inject constructor(
             year = year,
             bio = bio,
             isAdmin = isAdmin,
-            roles = if (isAdmin) listOf("admin", "event:create", "notes:upload") else emptyList()
+            roles = if (isAdmin) listOf("admin", "event:create", "notes:upload") else emptyList(),
+            role = if (isAdmin) "admin" else "user",
+            permissions = mapOf(
+                "is_admin" to isAdmin,
+                "can_manage_events" to isAdmin,
+                "can_manage_notes" to isAdmin,
+                "can_manage_placements" to isAdmin
+            )
         )
         firestore.collection("users").document(userId)
             .set(profile)
             .addOnSuccessListener {
+                adminActivityLogRepository.logActionAsync(
+                    action = "User registered: $displayName",
+                    userName = displayName,
+                    type = "user_registered",
+                    userId = userId
+                )
                 // Update local state and session so UI recognizes admin immediately
                 _userProfile.value = profile
                 try {

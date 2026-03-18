@@ -20,7 +20,8 @@ data class UserProfile(
 
     // Enhanced RBAC fields for hierarchical admin system
     val role: String = "user", // "super_admin" | "admin" | "user"
-    val permissions: List<String> = emptyList(), // granular permissions e.g. ["events:create:own", "notes:upload:own"]
+    val permissions: Map<String, Boolean> = emptyMap(), // coarse admin flags e.g. {"can_manage_events": true}
+    val permissionsList: List<String> = emptyList(), // legacy granular permissions e.g. ["events:create:own", "notes:upload:own"]
     val department: String? = null, // department/organization (e.g., "Computer Science", "IEEE")
     val status: String = "active", // "active" | "suspended" | "expired" | "revoked"
 

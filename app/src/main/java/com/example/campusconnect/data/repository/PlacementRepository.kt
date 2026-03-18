@@ -10,7 +10,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 @Singleton
 class PlacementRepository @Inject constructor(
-    private val db: FirebaseFirestore
+    private val db: FirebaseFirestore,
+    private val adminActivityLogRepository: AdminActivityLogRepository
 ) {
     fun observePlacements(): Flow<Resource<List<Placement>>> = callbackFlow {
         trySend(Resource.Loading)
@@ -34,9 +35,22 @@ class PlacementRepository @Inject constructor(
             }
         awaitClose { registration.remove() }
     }
-    suspend fun addPlacement(placement: Placement): Resource<String> {
+    suspend fun addPlacement(
+        placement: Placement,
+        actorUserId: String,
+        actorUserName: String
+    ): Resource<String> {
+        if (actorUserId.isBlank()) {
+            return Resource.Error("Missing authenticated user")
+        }
         return try {
             val docRef = db.collection("placements").add(placement).await()
+            adminActivityLogRepository.logActionAsync(
+                action = "Job posted: ${placement.role.ifBlank { placement.companyName }}",
+                userName = actorUserName.ifBlank { "Unknown" },
+                type = "job_posted",
+                userId = actorUserId
+            )
             Resource.Success(docRef.id)
         } catch (e: Exception) {
             Resource.Error(e.message)

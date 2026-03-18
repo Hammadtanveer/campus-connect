@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.Senior
+import com.example.campusconnect.ui.components.AppOverflowMenu
 import com.example.campusconnect.util.FileUtils
 import java.util.UUID
 
@@ -30,7 +31,8 @@ import java.util.UUID
 fun SeniorAddScreen(
     viewModel: MainViewModel,
     onBackClick: () -> Unit,
-    onAddClick: (Senior) -> Unit
+    onAddClick: (Senior) -> Unit,
+    onOpenAdminPanel: () -> Unit
 ) {
     // 1. State variables start empty for a new entry
     var name by remember { mutableStateOf("") }
@@ -71,6 +73,13 @@ fun SeniorAddScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    AppOverflowMenu(
+                        userProfile = viewModel.userProfile,
+                        onOpenAdminPanel = onOpenAdminPanel,
+                        onLogout = { viewModel.signOut() }
+                    )
                 }
             )
         }

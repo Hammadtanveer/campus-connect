@@ -5,30 +5,39 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.campusconnect.MainViewModel
-import com.example.campusconnect.security.canCreateEvent
-import com.example.campusconnect.security.canUploadNotes
-import com.example.campusconnect.security.canUpdateSenior
-import com.example.campusconnect.security.canManageSociety
+import com.example.campusconnect.data.models.UserProfile
+import com.example.campusconnect.ui.viewmodels.AdminPanelViewModel
+import com.example.campusconnect.util.PermissionChecker
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminPanelScreen(viewModel: MainViewModel, navController: NavController) {
+fun AdminPanelScreen(
+    viewModel: MainViewModel,
+    navController: NavController,
+    adminPanelViewModel: AdminPanelViewModel = hiltViewModel()
+) {
     val profile = viewModel.userProfile
-    val isAdmin = profile?.isAdmin == true
-    val roles = profile?.roles ?: emptyList()
+
+    val isSuperAdmin = PermissionChecker.isSuperAdmin(profile)
+    val isAdmin = PermissionChecker.isAdminAccessValid(profile)
+    val featureVisibility = adminPanelViewModel.getFeatureVisibility(profile)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Admin Panel") },
+                title = { Text(if (isSuperAdmin) "Admin Panel (Super Admin)" else "Admin Panel") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -49,272 +58,166 @@ fun AdminPanelScreen(viewModel: MainViewModel, navController: NavController) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Admin Status Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isAdmin) MaterialTheme.colorScheme.primaryContainer
-                                     else MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            if (isAdmin) Icons.Default.CheckCircle else Icons.Default.Info,
-                            contentDescription = null,
-                            tint = if (isAdmin) MaterialTheme.colorScheme.primary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = if (isAdmin) "Admin Access Granted" else "Limited Access",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+            AdminIdentityCard(profile = profile, isAdmin = isAdmin, isSuperAdmin = isSuperAdmin)
 
-                    Text(
-                        text = "User: ${profile?.displayName ?: "Unknown"}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-
-                    Text(
-                        text = "Email: ${profile?.email ?: "Unknown"}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            if (!isAdmin && !featureVisibility.contentModeration) {
+                AccessDeniedCard()
+                return@Column
             }
 
-            // Permissions Card
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "Your Permissions",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-
-                    if (roles.isEmpty() && !isAdmin) {
-                        Text(
-                            text = "No special permissions assigned",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        if (isAdmin) {
-                            PermissionItem(
-                                icon = Icons.Default.Settings,
-                                title = "Full Admin Access",
-                                description = "All permissions granted"
-                            )
-                        }
-
-                        if (profile?.canCreateEvent() == true) {
-                            PermissionItem(
-                                icon = Icons.Default.DateRange,
-                                title = "Event Management",
-                                description = "Create and manage events"
-                            )
-                        }
-
-                        if (profile?.canUploadNotes() == true) {
-                            PermissionItem(
-                                icon = Icons.Default.Star,
-                                title = "Notes Upload",
-                                description = "Upload and manage study notes"
-                            )
-                        }
-
-                        if (profile?.canUpdateSenior() == true) {
-                            PermissionItem(
-                                icon = Icons.Default.Person,
-                                title = "Senior Management",
-                                description = "Update senior profiles"
-                            )
-                        }
-
-                        if (profile?.canManageSociety() == true) {
-                            PermissionItem(
-                                icon = Icons.Default.AccountCircle,
-                                title = "Society Management",
-                                description = "Manage society pages"
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Quick Actions Card
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "Quick Actions",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-
-                    if (profile?.canCreateEvent() == true) {
-                        AdminActionButton(
-                            icon = Icons.Default.Add,
-                            title = "Create Event",
-                            onClick = { navController.navigate("events/create") }
-                        )
-                    }
-
-                    if (profile?.canUploadNotes() == true) {
-                        AdminActionButton(
-                            icon = Icons.Default.Add,
-                            title = "Upload Notes",
-                            onClick = {
-                                navController.navigate("notes")
-                            }
-                        )
-                    }
-
-                    AdminActionButton(
-                        icon = Icons.Default.Refresh,
-                        title = "Refresh Permissions",
-                        onClick = {
-                            viewModel.refreshClaims {
-                                // Permissions refreshed
-                            }
-                        }
-                    )
-                }
-            }
-
-            // Instructions Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Info,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                        Text(
-                            text = "How to get admin access?",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                    }
-
-                    Text(
-                        text = "Contact your system administrator to assign admin roles. After roles are assigned, sign out and sign back in, or use the 'Refresh Permissions' button above.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                }
-            }
-
-            // Role Details (for debugging/info)
-            if (roles.isNotEmpty() || isAdmin) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "Technical Details",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-
-                        Text(
-                            text = "Admin Flag: $isAdmin",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        if (roles.isNotEmpty()) {
-                            Text(
-                                text = "Roles: ${roles.joinToString(", ")}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
+            FeatureCardsSection(
+                featureVisibility = featureVisibility,
+                onOpenUserManagement = { navController.navigate("admin/users") },
+                onOpenAnalytics = { navController.navigate("admin/analytics") },
+                onOpenContentModeration = { navController.navigate("admin/content-moderation") },
+                onOpenSendNotification = { navController.navigate("admin/send-notification") },
+                onOpenActivityLog = { navController.navigate("admin/activity-log") }
+            )
         }
     }
 }
 
 @Composable
-private fun PermissionItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    description: String
-) {
-    Row(
+private fun AdminIdentityCard(profile: UserProfile?, isAdmin: Boolean, isSuperAdmin: Boolean) {
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = if (isAdmin) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         )
-        Column(modifier = Modifier.weight(1f)) {
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(
+                    imageVector = if (isAdmin) Icons.Default.Settings else Icons.Default.Info,
+                    contentDescription = null,
+                    tint = if (isAdmin) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = when {
+                        isSuperAdmin -> "Super Admin Access"
+                        isAdmin -> "Admin Access"
+                        else -> "Student Access"
+                    },
+                    style = MaterialTheme.typography.titleSmall
+                )
+            }
+
+            Text("User: ${profile?.displayName ?: "Unknown"}", style = MaterialTheme.typography.bodySmall)
             Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                "Email: ${profile?.email ?: "Unknown"}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun FeatureCardsSection(
+    featureVisibility: AdminPanelViewModel.AdminFeatureVisibility,
+    onOpenUserManagement: () -> Unit,
+    onOpenAnalytics: () -> Unit,
+    onOpenContentModeration: () -> Unit,
+    onOpenSendNotification: () -> Unit,
+    onOpenActivityLog: () -> Unit
+) {
+    if (featureVisibility.analytics) {
+        AdminFeatureCard(
+            title = "Analytics",
+            description = "Track usage trends and admin insights.",
+            actionLabel = "Open",
+            onClick = onOpenAnalytics
+        )
+    }
+
+    if (featureVisibility.userManagement) {
+        AdminFeatureCard(
+            title = "User Management + Permission Assignment",
+            description = "Search users and manage role permissions.",
+            actionLabel = "Open",
+            onClick = onOpenUserManagement
+        )
+    }
+
+    if (featureVisibility.contentModeration) {
+        AdminFeatureCard(
+            title = "Content Moderation",
+            description = "Review and manage notes/events content.",
+            actionLabel = "Open",
+            onClick = onOpenContentModeration
+        )
+    }
+
+    if (featureVisibility.sendNotification) {
+        AdminFeatureCard(
+            title = "Send Notification",
+            description = "Broadcast announcements to users.",
+            actionLabel = "Open",
+            onClick = onOpenSendNotification
+        )
+    }
+
+
+    if (featureVisibility.activityLog) {
+        AdminFeatureCard(
+            title = "Activity Log",
+            description = "View admin actions and audit history.",
+            actionLabel = "Open",
+            onClick = onOpenActivityLog
+        )
+    }
+}
+
+@Composable
+private fun AdminFeatureCard(
+    title: String,
+    description: String,
+    actionLabel: String,
+    onClick: (() -> Unit)? = null
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = { onClick?.invoke() }
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            AssistChip(onClick = { onClick?.invoke() }, label = { Text(actionLabel) })
         }
-        Icon(
-            Icons.Default.CheckCircle,
-            contentDescription = "Enabled",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
-        )
     }
 }
 
+
 @Composable
-private fun AdminActionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    onClick: () -> Unit
-) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+private fun AccessDeniedCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(icon, contentDescription = null)
-            Text(title)
+            Text(
+                "No admin permissions assigned",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Text(
+                "Contact super admin to assign management permissions.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
         }
     }
 }

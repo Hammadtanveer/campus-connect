@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.example.campusconnect.data.models.UserProfile
 import com.example.campusconnect.session.SessionManager
 import com.example.campusconnect.util.Constants
+import com.example.campusconnect.util.UserProfileMapper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.UserProfileChangeRequest
@@ -97,7 +98,14 @@ class AuthViewModel @Inject constructor(
             year = year,
             bio = bio,
             isAdmin = isAdmin,
-            roles = if (isAdmin) Constants.DEFAULT_ADMIN_ROLES else emptyList()
+            roles = if (isAdmin) Constants.DEFAULT_ADMIN_ROLES else emptyList(),
+            role = if (isAdmin) "admin" else "user",
+            permissions = mapOf(
+                "is_admin" to isAdmin,
+                "can_manage_events" to isAdmin,
+                "can_manage_notes" to isAdmin,
+                "can_manage_placements" to isAdmin
+            )
         )
         firestore.collection("users").document(userId)
             .set(profile)
@@ -113,7 +121,7 @@ class AuthViewModel @Inject constructor(
         firestore.collection("users").document(userId)
             .get()
             .addOnSuccessListener { snap ->
-                val profile = snap.toObject(UserProfile::class.java)
+                val profile = UserProfileMapper.fromDocument(snap)
                 if (profile != null) {
                     sessionManager.updateProfile(profile)
                 }

@@ -5,12 +5,14 @@ object NotificationTopics {
 	const val EVENTS = "events"
 	const val SOCIETY_UPDATES = "society_updates"
 	const val PLACEMENTS = "placements"
+	const val NOTES = "notes"
 
 	val ALL = listOf(
 		ALL_STUDENTS,
 		EVENTS,
 		SOCIETY_UPDATES,
-		PLACEMENTS
+		PLACEMENTS,
+		NOTES
 	)
 }
 

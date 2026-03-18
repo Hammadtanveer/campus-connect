@@ -76,6 +76,7 @@ object NotificationIntentRouter {
 		parentId: String? = null
 	): String? = when (type?.trim()?.lowercase()) {
 		"events" -> if (targetId.isNullOrBlank()) Screen.DrawerScreen.Events.route else "event/$targetId"
+		"meetings", "announcements" -> Screen.DrawerScreen.Events.route
 		"placements" -> if (targetId.isNullOrBlank()) Screen.DrawerScreen.PlacementCareer.route else "placement/$targetId"
 		"society", "society_updates" -> {
 			if (!parentId.isNullOrBlank() && !targetId.isNullOrBlank()) {

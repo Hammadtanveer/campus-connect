@@ -27,5 +27,8 @@ data class Note(
 
     // Engagement metrics
     val downloads: Int = 0,
-    val views: Int = 0
+    val views: Int = 0,
+
+    // Moderation metadata
+    val moderationStatus: String = "pending"
 )

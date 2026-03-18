@@ -56,8 +56,18 @@ service cloud.firestore {
     function hasPermissionFromDoc(permission) {
       return isAuthenticated() && (
         isSuperAdminFromDoc() ||
-        ('*:*:*' in getUserDoc(request.auth.uid).data.permissions) ||
-        (getUserDoc(request.auth.uid).data.permissions is list && permission in getUserDoc(request.auth.uid).data.permissions)
+        (
+          getUserDoc(request.auth.uid).data.permissions is map &&
+          getUserDoc(request.auth.uid).data.permissions['*:*:*'] == true
+        ) ||
+        (
+          getUserDoc(request.auth.uid).data.permissions is map &&
+          getUserDoc(request.auth.uid).data.permissions[permission] == true
+        ) ||
+        (
+          getUserDoc(request.auth.uid).data.permissions is list &&
+          ('*:*:*' in getUserDoc(request.auth.uid).data.permissions || permission in getUserDoc(request.auth.uid).data.permissions)
+        )
       );
     }
     // Unified permission check: token OR document
@@ -231,6 +241,20 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
       allow delete: if isAuthenticated() && request.auth.uid in resource.data.participants;
+    }
+
+    // ========== ACTIVITY LOGS ==========
+    match /activity_logs/{logId} {
+      allow read: if isSuperAdminFromToken() || isSuperAdminFromDoc();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ========== NOTIFICATION QUEUE ==========
+    match /notification_queue/{itemId} {
+      allow create: if isSuperAdminFromToken() || isSuperAdminFromDoc();
+      allow read: if isSuperAdminFromToken() || isSuperAdminFromDoc();
+      allow update, delete: if false;
     }
   }
 }
