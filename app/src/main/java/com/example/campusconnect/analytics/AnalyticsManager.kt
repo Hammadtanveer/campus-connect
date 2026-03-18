@@ -1,7 +1,6 @@
 package com.example.campusconnect.analytics
 
 import android.content.Context
-import android.util.Log
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -12,12 +11,11 @@ import javax.inject.Singleton
  * Note: Firebase Analytics integration pending - currently logs events.
  */
 @Singleton
+@Suppress("UNUSED_PARAMETER")
 class AnalyticsManager @Inject constructor(
     @Suppress("UNUSED_PARAMETER") private val context: Context
 ) {
     companion object {
-        private const val TAG = "Analytics"
-
         // Screen names
         const val SCREEN_HOME = "home"
         const val SCREEN_NOTES = "notes"
@@ -67,106 +65,76 @@ class AnalyticsManager @Inject constructor(
     /**
      * Log screen view.
      */
-    fun logScreenView(screenName: String, screenClass: String? = null) {
-        Log.d(TAG, "Screen: $screenName ${screenClass?.let { "($it)" } ?: ""}")
-    }
+    fun logScreenView(screenName: String, screenClass: String? = null) = Unit
 
     /**
      * Log note upload.
      */
-    fun logNoteUpload(noteId: String, subject: String, semester: String, fileSize: Long, fileType: String) {
-        Log.d(TAG, "Note Uploaded: $subject ($semester) - $fileType, ${fileSize}B")
-    }
+    fun logNoteUpload(noteId: String, subject: String, semester: String, fileSize: Long, fileType: String) = Unit
 
     /**
      * Log note download.
      */
-    fun logNoteDownload(noteId: String, subject: String) {
-        Log.d(TAG, "Note Downloaded: $subject (ID: $noteId)")
-    }
+    fun logNoteDownload(noteId: String, subject: String) = Unit
 
     /**
      * Log note view.
      */
-    fun logNoteView(noteId: String, subject: String) {
-        Log.d(TAG, "Note Viewed: $subject (ID: $noteId)")
-    }
+    fun logNoteView(noteId: String, subject: String) = Unit
 
     /**
      * Log event creation.
      */
-    fun logEventCreation(eventId: String, category: String) {
-        Log.d(TAG, "Event Created: $category (ID: $eventId)")
-    }
+    fun logEventCreation(eventId: String, category: String) = Unit
 
     /**
      * Log event join.
      */
-    fun logEventJoin(eventId: String, category: String) {
-        Log.d(TAG, "Event Joined: $category (ID: $eventId)")
-    }
+    fun logEventJoin(eventId: String, category: String) = Unit
 
     /**
      * Log mentorship request.
      */
-    fun logMentorshipRequest(requestType: String) {
-        Log.d(TAG, "Mentorship Request: $requestType")
-    }
+    fun logMentorshipRequest(requestType: String) = Unit
 
     /**
      * Log sign up.
      */
-    fun logSignUp(method: String) {
-        Log.d(TAG, "Sign Up: $method")
-    }
+    fun logSignUp(method: String) = Unit
 
     /**
      * Log login.
      */
-    fun logLogin(method: String) {
-        Log.d(TAG, "Login: $method")
-    }
+    fun logLogin(method: String) = Unit
 
     /**
      * Log search.
      */
-    fun logSearch(query: String, category: String? = null) {
-        Log.d(TAG, "Search: $query ${category?.let { "in $it" } ?: ""}")
-    }
+    fun logSearch(query: String, category: String? = null) = Unit
 
     /**
      * Log filter application.
      */
-    fun logFilterApplied(filterType: String, filterValue: String) {
-        Log.d(TAG, "Filter Applied: $filterType = $filterValue")
-    }
+    fun logFilterApplied(filterType: String, filterValue: String) = Unit
 
     /**
      * Log error.
      */
-    fun logError(errorType: String, errorMessage: String) {
-        Log.e(TAG, "Error: $errorType - $errorMessage")
-    }
+    fun logError(errorType: String, errorMessage: String) = Unit
 
     /**
      * Set user ID.
      */
-    fun setUserId(userId: String?) {
-        Log.d(TAG, "User ID set: $userId")
-    }
+    fun setUserId(userId: String?) = Unit
 
     /**
      * Set user property.
      */
-    fun setUserProperty(name: String, value: String?) {
-        Log.d(TAG, "User Property: $name = $value")
-    }
+    fun setUserProperty(name: String, value: String?) = Unit
 
     /**
      * Log custom event.
      */
-    fun logCustomEvent(eventName: String, params: Map<String, Any>? = null) {
-        Log.d(TAG, "Custom Event: $eventName ${params?.let { "with params: $it" } ?: ""}")
-    }
+    fun logCustomEvent(eventName: String, params: Map<String, Any>? = null) = Unit
 }
 

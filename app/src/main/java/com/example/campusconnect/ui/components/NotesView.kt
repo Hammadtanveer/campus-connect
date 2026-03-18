@@ -52,7 +52,6 @@ fun Notes(viewModel: MainViewModel? = null){
         "1st Sem" to listOf("BAS-101","BAS-103","BEC-101","BAS-105")
     )
 
-    val showUploadResult = remember { mutableStateOf<String?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val uploadState = remember { mutableStateOf<String?>(null) }
     val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -70,7 +69,7 @@ fun Notes(viewModel: MainViewModel? = null){
         item {
             if (viewModel?.userProfile?.canUploadNotes() == true) {
                 Button(onClick = { pdfPicker.launch("application/pdf") }) { Text("Select PDF & Upload") }
-                uploadState.value?.let { msg -> Text(msg ?: "", color = MaterialTheme.colorScheme.primary) }
+                uploadState.value?.let { msg -> Text(msg, color = MaterialTheme.colorScheme.primary) }
             }
         }
         // Show list of uploaded notes

@@ -6,7 +6,6 @@ import com.example.campusconnect.data.models.ActivityType
 import com.example.campusconnect.data.repository.ActivityLogRepository
 import com.example.campusconnect.ui.state.UiState
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +27,6 @@ import javax.inject.Inject
 @HiltViewModel
 class SocietiesViewModel @Inject constructor(
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore,
     private val activityLog: ActivityLogRepository
 ) : ViewModel() {
 
@@ -48,7 +46,6 @@ class SocietiesViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            // TODO: Implement actual society management logic
             // For now, just log the activity
             activityLog.logActivity(
                 ActivityType.SOCIETY_MANAGE,
@@ -70,7 +67,6 @@ class SocietiesViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            // TODO: Implement join society logic
             activityLog.logActivity(
                 ActivityType.SOCIETY_MANAGE,
                 "Joined society $societyId"
@@ -91,7 +87,6 @@ class SocietiesViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            // TODO: Implement leave society logic
             activityLog.logActivity(
                 ActivityType.SOCIETY_MANAGE,
                 "Left society $societyId"

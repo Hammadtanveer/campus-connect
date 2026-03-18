@@ -1,6 +1,5 @@
 package com.example.campusconnect.data.repository
 
-import android.util.Log
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
@@ -71,7 +70,6 @@ class NotesRepository @Inject constructor(
             // Sanitize filename to avoid URL encoding issues
             // Replace ALL non-alphanumeric characters with underscore to ensure clean URLs
             val sanitizedFileName = file.nameWithoutExtension.replace(Regex("[^a-zA-Z0-9]"), "_")
-            Log.d("NotesRepository", "Sanitized filename: $sanitizedFileName")
 
             // Configure upload options for Cloudinary - PDF ONLY
             val folder = "${Constants.CLOUDINARY_BASE_FOLDER}/${semester.replace(" ", "_")}/${subject.replace(" ", "_")}"
@@ -86,8 +84,6 @@ class NotesRepository @Inject constructor(
                 "overwrite" to false
             )
 
-            Log.d("NotesRepository", "Starting upload to Cloudinary: ${file.name}")
-
             // Upload to Cloudinary using injected MediaManager
             mediaManager
                 .upload(file.absolutePath)
@@ -95,19 +91,15 @@ class NotesRepository @Inject constructor(
                 .callback(object : UploadCallback {
 
                     override fun onStart(requestId: String) {
-                        Log.d("NotesRepository", "Upload started: $requestId")
                         onProgress(0)
                     }
 
                     override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {
                         val progress = ((bytes * 100) / totalBytes).toInt()
-                        Log.d("NotesRepository", "Upload progress: $progress%")
                         onProgress(progress)
                     }
 
                     override fun onSuccess(requestId: String, resultData: Map<*, *>) {
-                        Log.d("NotesRepository", "Upload successful: $resultData")
-
                         val publicId = resultData["public_id"] as? String ?: ""
                         val resourceType = resultData["resource_type"] as? String ?: "raw"
                         val version = resultData["version"]
@@ -120,8 +112,7 @@ class NotesRepository @Inject constructor(
                                 .signed(true)
                                 .version(version)
                                 .generate(publicId)
-                        } catch (e: Exception) {
-                            Log.e("NotesRepository", "Failed to generate signed URL", e)
+                        } catch (_: Exception) {
                             resultData["secure_url"] as? String ?: ""
                         }
 
@@ -146,7 +137,6 @@ class NotesRepository @Inject constructor(
 
                         notesCollection.add(noteMetadata)
                             .addOnSuccessListener { documentReference ->
-                                Log.d("NotesRepository", "Metadata saved: ${documentReference.id}")
                                 adminActivityLogRepository.logActionAsync(
                                     action = "Note uploaded: $title",
                                     userName = userName,
@@ -156,25 +146,21 @@ class NotesRepository @Inject constructor(
                                 continuation.resume(Resource.Success(documentReference.id))
                             }
                             .addOnFailureListener { e ->
-                                Log.e("NotesRepository", "Failed to save metadata", e)
                                 continuation.resume(Resource.Error(e.message ?: "Failed to save metadata"))
                             }
                     }
 
                     override fun onError(requestId: String, error: ErrorInfo) {
-                        Log.e("NotesRepository", "Upload error: ${error.description}")
                         continuation.resume(Resource.Error(error.description ?: "Upload failed"))
                     }
 
                     override fun onReschedule(requestId: String, error: ErrorInfo) {
-                        Log.w("NotesRepository", "Upload rescheduled: ${error.description}")
                         continuation.resume(Resource.Error("Upload rescheduled: ${error.description}"))
                     }
                 })
                 .dispatch()
 
         } catch (e: Exception) {
-            Log.e("NotesRepository", "Exception during upload", e)
             continuation.resume(Resource.Error(e.message ?: "Upload failed"))
         }
     }
@@ -210,7 +196,6 @@ class NotesRepository @Inject constructor(
 
         val registration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                Log.e("NotesRepository", "Error observing notes", error)
                 val raw = error.message ?: "Failed to load notes"
                 val idx = extractFirestoreIndexUrl(raw)
                 val message = if (!idx.isNullOrBlank()) "$raw\n\nCreate required index here:\n$idx" else raw
@@ -222,8 +207,7 @@ class NotesRepository @Inject constructor(
                 val notes = snapshot.documents.mapNotNull { doc ->
                     try {
                         doc.toObject(Note::class.java)?.copy(id = doc.id)
-                    } catch (e: Exception) {
-                        Log.e("NotesRepository", "Error parsing note", e)
+                    } catch (_: Exception) {
                         null
                     }
                 }
@@ -302,7 +286,6 @@ class NotesRepository @Inject constructor(
                 .await()
             Resource.Success(Unit)
         } catch (e: Exception) {
-            Log.e("NotesRepository", "Failed to update moderation status", e)
             Resource.Error(e.message ?: "Failed to update moderation status")
         }
     }
@@ -318,19 +301,15 @@ class NotesRepository @Inject constructor(
                     .cloudinary
                     .uploader()
                     .destroy(cloudinaryPublicId, mapOf("resource_type" to "auto"))
-                Log.d("NotesRepository", "Deleted from Cloudinary: $cloudinaryPublicId")
-            } catch (e: Exception) {
-                Log.e("NotesRepository", "Failed to delete from Cloudinary", e)
+            } catch (_: Exception) {
                 // Continue even if Cloudinary deletion fails
             }
 
             // Delete metadata from Firestore
             notesCollection.document(noteId).delete().await()
-            Log.d("NotesRepository", "Deleted from Firestore: $noteId")
 
             Resource.Success(Unit)
         } catch (e: Exception) {
-            Log.e("NotesRepository", "Failed to delete note", e)
             Resource.Error(e.message ?: "Failed to delete note")
         }
     }
@@ -343,9 +322,7 @@ class NotesRepository @Inject constructor(
             notesCollection.document(noteId)
                 .update("downloads", FieldValue.increment(1))
                 .await()
-            Log.d("NotesRepository", "Download count incremented for: $noteId")
-        } catch (e: Exception) {
-            Log.e("NotesRepository", "Failed to increment downloads", e)
+        } catch (_: Exception) {
             // Silently fail - not critical
         }
     }
@@ -358,8 +335,7 @@ class NotesRepository @Inject constructor(
             notesCollection.document(noteId)
                 .update("views", FieldValue.increment(1))
                 .await()
-        } catch (e: Exception) {
-            Log.e("NotesRepository", "Failed to increment views", e)
+        } catch (_: Exception) {
             // Silently fail - not critical
         }
     }
@@ -378,7 +354,6 @@ class NotesRepository @Inject constructor(
                 Resource.Error("Note not found")
             }
         } catch (e: Exception) {
-            Log.e("NotesRepository", "Failed to get note", e)
             Resource.Error(e.message ?: "Failed to load note")
         }
     }
@@ -439,9 +414,7 @@ class NotesRepository @Inject constructor(
                     doc.toObject(Note::class.java)?.copy(id = doc.id)?.toEntity()
                 }
                 notesDao.insertNotes(entities)
-            } catch (e: Exception) {
-                Log.e("NotesRepository", "syncNotes failed", e)
-            }
+            } catch (_: Exception) { }
         }
     }
 }

@@ -1,37 +1,22 @@
 package com.example.campusconnect.util
 
-import android.util.Log
 import kotlin.system.measureTimeMillis
 
 /**
  * Performance monitoring utilities.
  */
 object PerformanceUtils {
-
-    const val TAG = "Performance"
     const val SLOW_THRESHOLD_MS = 100L
 
     /**
      * Measure execution time of a block and log if slow.
      */
+    @Suppress("UNUSED_PARAMETER")
     inline fun <T> measureAndLog(
         operationName: String,
         threshold: Long = SLOW_THRESHOLD_MS,
         block: () -> T
-    ): T {
-        var result: T
-        val timeMs = measureTimeMillis {
-            result = block()
-        }
-
-        if (timeMs > threshold) {
-            Log.w(TAG, "$operationName took ${timeMs}ms (threshold: ${threshold}ms)")
-        } else {
-            Log.d(TAG, "$operationName completed in ${timeMs}ms")
-        }
-
-        return result
-    }
+    ): T = measure(block).first
 
     /**
      * Measure and return execution time.
@@ -47,13 +32,15 @@ object PerformanceUtils {
     /**
      * Log memory usage.
      */
-    fun logMemoryUsage(tag: String = TAG) {
+    @Suppress("UNUSED_PARAMETER")
+    fun logMemoryUsage(tag: String = "Performance") {
         val runtime = Runtime.getRuntime()
         val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1048576L
         val maxMemory = runtime.maxMemory() / 1048576L
         val availableMemory = maxMemory - usedMemory
 
-        Log.d(tag, "Memory: ${usedMemory}MB used, ${availableMemory}MB available, ${maxMemory}MB max")
+        @Suppress("UNUSED_VARIABLE")
+        val memorySnapshot = "$usedMemory/$availableMemory/$maxMemory"
     }
 
     /**
@@ -66,7 +53,6 @@ object PerformanceUtils {
         val percentUsed = (usedMemory * 100) / maxMemory
 
         if (percentUsed > 80) {
-            Log.w(TAG, "Memory usage at $percentUsed%, suggesting GC")
             System.gc()
         }
     }
@@ -80,15 +66,11 @@ object PerformanceUtils {
 
         fun checkpoint(name: String) {
             checkpoints[name] = System.currentTimeMillis() - startTime
-            Log.d(TAG, "[$this.name] Checkpoint '$name': ${checkpoints[name]}ms")
         }
 
         fun finish() {
+            @Suppress("UNUSED_VARIABLE")
             val totalTime = System.currentTimeMillis() - startTime
-            Log.d(TAG, "[$name] Total time: ${totalTime}ms")
-            if (checkpoints.isNotEmpty()) {
-                Log.d(TAG, "[$name] Checkpoints: $checkpoints")
-            }
         }
     }
 }

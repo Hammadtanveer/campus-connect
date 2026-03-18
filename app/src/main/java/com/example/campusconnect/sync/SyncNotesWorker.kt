@@ -1,7 +1,6 @@
 package com.example.campusconnect.sync
 
 import android.content.Context
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -29,22 +28,17 @@ class SyncNotesWorker @AssistedInject constructor(
     }
 
     override suspend fun doWork(): Result {
-        Log.d(TAG, "Starting notes sync...")
-
         return try {
             // Check network connectivity
             if (!connectivityManager.isNetworkAvailable()) {
-                Log.w(TAG, "No network available, will retry later")
                 return Result.retry()
             }
 
             // Perform sync (syncNotes catches its own exceptions and returns Unit)
             notesRepo.syncNotes()
 
-            Log.d(TAG, "Notes sync completed successfully")
             Result.success()
-        } catch (e: Exception) {
-            Log.e(TAG, "Exception during notes sync", e)
+        } catch (_: Exception) {
 
             if (runAttemptCount < 3) {
                 Result.retry()

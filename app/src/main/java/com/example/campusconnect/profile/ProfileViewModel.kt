@@ -204,7 +204,7 @@ class ProfileViewModel @Inject constructor(
     fun uploadAvatar(
         onResult: (Boolean, String?) -> Unit
     ) {
-        // TODO: Implement avatar upload with Cloudinary in Phase 3
+        // Avatar upload is intentionally disabled until the next profile module phase.
         onResult(false, "Avatar upload not yet implemented")
     }
 

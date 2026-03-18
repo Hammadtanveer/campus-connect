@@ -1,14 +1,11 @@
 package com.example.campusconnect.util
 
 import android.content.Context
-import android.util.Log
 import com.cloudinary.android.MediaManager
 
 object CloudinaryConfig {
 
-    // TODO: Replace these with your actual Cloudinary credentials
-    // Get them from: https://console.cloudinary.com/
-    // For security, consider storing these in local.properties or Firebase Remote Config
+    // For security, move credentials to secure config before production distribution.
     private const val CLOUD_NAME = "dkxunmucg"
     private const val API_KEY = "492784632542267"
     private const val API_SECRET = "3CSXo-IjIxXX6qy-CTo-9bBSunU"
@@ -17,7 +14,6 @@ object CloudinaryConfig {
 
     fun initialize(context: Context) {
         if (isInitialized) {
-            Log.d("CloudinaryConfig", "Cloudinary already initialized")
             return
         }
 
@@ -31,10 +27,7 @@ object CloudinaryConfig {
 
             MediaManager.init(context, config)
             isInitialized = true
-            Log.d("CloudinaryConfig", "Cloudinary initialized successfully")
-        } catch (e: Exception) {
-            Log.e("CloudinaryConfig", "Failed to initialize Cloudinary", e)
-        }
+        } catch (_: Exception) { }
     }
 
     fun isConfigured(): Boolean {
@@ -71,10 +64,7 @@ object CloudinaryConfig {
             val digest = java.security.MessageDigest.getInstance("SHA-1")
             val bytes = digest.digest(toSign.toByteArray(Charsets.UTF_8))
             bytes.joinToString("") { "%02x".format(it) }
-        } catch (e: Exception) {
-            Log.e("CloudinaryConfig", "Error generating signature", e)
-            ""
-        }
+        } catch (_: Exception) { "" }
 
         // Construct final URL
         // https://api.cloudinary.com/v1_1/<cloud_name>/image/download?...

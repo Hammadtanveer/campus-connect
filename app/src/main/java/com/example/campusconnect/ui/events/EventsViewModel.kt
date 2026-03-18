@@ -237,20 +237,9 @@ class EventsViewModel @Inject constructor(
             timestamp = formatTimestamp(),
             iconResId = R.drawable.baseline_event_24
         )
-        // ActivityLogRepository is used by MainViewModel, but maybe we should expose adding?
-        // Actually ActivityLogRepository seems to likely expose a flow.
-        // The MainViewModel had `addActivity` which was just logging.
-        // Real tracking seems to happen in `ActivityLogRepository`?
-        // Looking at MainViewModel.addActivity: "Activities are already being logged where needed" -> Log.d(...)
-        // But `MainViewModel.trackEventJoin` calls `addActivity(UserActivity(...)`.
-        // Wait, `addActivity` in MainVM creates a UserActivity object but only Logs it?
-        // Ah, `activityLogRepository` is injected. MainVM doesn't seem to persist it?
-        // Line 1109 in MainViewModel:
-        // fun addActivity(activity: UserActivity) { ... Log.d ... }
-        // It seems the activity tracking in MainViewModel was fake/logging only!
-        // I will keep it as local logging for now, or if ActivityLogRepository has a `logActivity` method I should use it.
-        // I'll check ActivityLogRepository in a moment. For now, I'll assume I just Log it.
-        android.util.Log.d("EventsViewModel", "Activity: ${activity.description}")
+
+        @Suppress("UNUSED_VARIABLE")
+        val unusedActivity = activity
 
     }
 

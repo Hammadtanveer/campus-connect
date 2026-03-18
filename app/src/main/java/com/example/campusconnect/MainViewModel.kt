@@ -140,21 +140,16 @@ class MainViewModel @Inject constructor(
 
     private fun observeSeniors() {
         seniorsObserverJob?.cancel()
-        Log.d("MainViewModel", "observeSeniors: starting seniors collection")
         seniorsObserverJob = viewModelScope.launch {
             seniorsRepo.observeSeniors().collect { res ->
                 when (res) {
                     is Resource.Success -> {
-                        Log.d("MainViewModel", "observeSeniors: success count=${res.data.size}")
                         if (res.data != _seniorsList.value) {
                             _seniorsList.value = res.data
-                            Log.d("MainViewModel", "observeSeniors: state updated count=${_seniorsList.value.size}")
-                        } else {
-                            Log.d("MainViewModel", "observeSeniors: same list, state unchanged")
                         }
                     }
-                    is Resource.Error -> Log.e("MainViewModel", "observeSeniors: error=${res.message}")
-                    is Resource.Loading -> Log.d("MainViewModel", "observeSeniors: loading")
+                    is Resource.Error -> Unit
+                    is Resource.Loading -> Unit
                 }
             }
         }
@@ -228,7 +223,6 @@ class MainViewModel @Inject constructor(
                     Log.i("MainViewModel", "loadUserProfile: profile loaded, navigating to Profile for $userId")
                 } else {
                     // Firestore document missing — attempt to build a fallback profile from FirebaseAuth user
-                    Log.w("MainViewModel", "loadUserProfile: no document found for $userId, creating fallback profile from auth user")
                     val firebaseUser = auth.currentUser
                     if (firebaseUser != null) {
                         val fallback = UserProfile(
@@ -250,8 +244,8 @@ class MainViewModel @Inject constructor(
                             .addOnSuccessListener {
                                 Log.i("MainViewModel", "loadUserProfile: wrote fallback profile for ${firebaseUser.uid}")
                             }
-                            .addOnFailureListener { e ->
-                                Log.e("MainViewModel", "loadUserProfile: failed to write fallback profile", e)
+                            .addOnFailureListener { _ ->
+                                Unit
                             }
                     }
                 }
@@ -259,8 +253,7 @@ class MainViewModel @Inject constructor(
                 refreshClaims()
                 _initializing.value = false
             }
-            .addOnFailureListener { e ->
-                Log.e("MainViewModel", "loadUserProfile failed", e)
+            .addOnFailureListener { _ ->
                 _initializing.value = false
             }
     }
@@ -348,7 +341,6 @@ class MainViewModel @Inject constructor(
                     }
                 } else {
                     val ex = task.exception
-                    Log.e("MainViewModel", "signIn failed", ex)
                     val lower = ex?.localizedMessage?.lowercase() ?: ""
                     val message = when (ex) {
                         is FirebaseAuthException -> {
@@ -407,9 +399,7 @@ class MainViewModel @Inject constructor(
                         .build()
                     user.updateProfile(profileUpdates)
                         .addOnCompleteListener { updateTask ->
-                            if (!updateTask.isSuccessful) {
-                                Log.w("MainViewModel", "updateProfile failed", updateTask.exception)
-                            }
+                            if (!updateTask.isSuccessful) Unit
                             createUserProfile(
                                 userId = user.uid,
                                 displayName = displayName,
@@ -424,14 +414,12 @@ class MainViewModel @Inject constructor(
                                     Log.i("MainViewModel", "createUserProfile succeeded for ${user.uid}")
                                     onResult(true, null)
                                 } else {
-                                    Log.e("MainViewModel", "createUserProfile failed: $err")
                                     onResult(false, err ?: "Failed to save user profile.")
                                 }
                             }
                         }
                 } else {
                     val ex = task.exception
-                    Log.e("MainViewModel", "registerWithEmailPassword failed", ex)
                     val lower = ex?.localizedMessage?.lowercase() ?: ""
                     val message = when (ex) {
                         is FirebaseAuthException -> {
@@ -500,7 +488,7 @@ class MainViewModel @Inject constructor(
                     sessionManager.updateAuth(profile.id, profile.email)
                     sessionManager.updateProfile(profile)
                 } catch (ex: Exception) {
-                    Log.w("MainViewModel", "createUserProfile: failed to update session manager", ex)
+                    Unit
                 }
                 _initializing.value = false
                 _currentScreen.value = Screen.DrawerScreen.Profile
@@ -509,7 +497,6 @@ class MainViewModel @Inject constructor(
                 onResult(true, null)
             }
             .addOnFailureListener { e ->
-                Log.e("MainViewModel", "createUserProfile failed", e)
                 _initializing.value = false
                 onResult(false, e.message)
             }
@@ -600,10 +587,10 @@ class MainViewModel @Inject constructor(
     }
 
 
-    private fun addActivity(activity: UserActivity) {
+    private fun addActivity(@Suppress("UNUSED_PARAMETER") activity: UserActivity) {
         // ActivityLogRepository uses logActivity internally
         // Activities are already being logged where needed
-        Log.d("MainViewModel", "Activity: ${activity.description}")
+        Unit
     }
 
     fun loadUserActivities() {
@@ -715,9 +702,7 @@ class MainViewModel @Inject constructor(
         }
 
         seniorsRepo.addSenior(senior) { success, error ->
-            if (!success) {
-                Log.e("MainViewModel", "Failed to add senior: $error")
-            } else {
+            if (success) {
                 // Optimistic local update so UI reflects a newly added senior instantly.
                 val current = _seniorsList.value
                 if (current.none { it.id == senior.id }) {
@@ -731,9 +716,6 @@ class MainViewModel @Inject constructor(
     @Suppress("unused")
     fun updateSenior(senior: Senior, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         seniorsRepo.updateSenior(senior) { success, error ->
-            if (!success) {
-                Log.e("MainViewModel", "Failed to update senior: $error")
-            }
             onResult(success, error)
         }
     }
@@ -752,7 +734,6 @@ class MainViewModel @Inject constructor(
         _deleteSeniorStatus.value = Resource.Loading
         seniorsRepo.deleteSenior(seniorId) { success, error ->
             if (!success) {
-                Log.e("MainViewModel", "Failed to delete senior: $error")
                 _deleteSeniorStatus.value = Resource.Error(error ?: "Failed to delete senior")
             } else {
                 // Immediate UI update; listener remains source of truth for sync.
@@ -859,7 +840,7 @@ class MainViewModel @Inject constructor(
                             // also update session manager so other viewmodels/screens see the change immediately
                             sessionManager.updateProfile(updated)
                         } catch (ex: Exception) {
-                            Log.w("MainViewModel", "upgradeToAdmin: failed to update session manager", ex)
+                            Unit
                         }
                         // refresh claims so any token-based roles are merged into the profile
                         refreshClaims { onResult(true, null) }
@@ -902,11 +883,9 @@ class MainViewModel @Inject constructor(
                         }
                 }
                 .addOnFailureListener { e ->
-                    Log.e("MainViewModel", "requestAdminAccessServer failed", e)
                     onResult(false, e.localizedMessage ?: e.message)
                 }
         } catch (ex: Exception) {
-            Log.e("MainViewModel", "requestAdminAccessServer error", ex)
             onResult(false, ex.localizedMessage)
         }
     }

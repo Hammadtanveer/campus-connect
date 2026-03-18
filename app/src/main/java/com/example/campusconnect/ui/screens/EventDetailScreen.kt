@@ -21,7 +21,6 @@ import androidx.navigation.NavController
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.models.OnlineEvent
 import com.example.campusconnect.util.NetworkUtils
-import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -102,7 +101,6 @@ fun EventDetailScreen(
                     if (canJoin) {
                         // open meet link
                         if (!NetworkUtils.isNetworkAvailable(context)) {
-                            Log.w("EventDetail", "Network unavailable, cannot open meet link")
                             return@Button
                         }
                         try {
@@ -110,30 +108,24 @@ fun EventDetailScreen(
                             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             context.startActivity(intent)
                         } catch (_: Exception) {
-                            Log.w("EventDetail", "Failed to open meet link directly, attempting browser")
                             try {
                                 val browser = Intent(Intent.ACTION_VIEW, event.meetLink.toUri())
                                 browser.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                 context.startActivity(browser)
-                            } catch (e: Exception) {
-                                Log.e("EventDetail", "Failed to open meet link in browser", e)
-                            }
+                            } catch (_: Exception) { }
                         }
                     } else {
                         // register for event
                         if (!NetworkUtils.isNetworkAvailable(context)) {
-                            Log.w("EventDetail", "Network unavailable, cannot register for event")
                             return@Button
                         }
                         val effectiveEventId = event.id.ifBlank { eventId ?: "" }
 
-                        eventsViewModel.registerForEvent(effectiveEventId) { ok, err ->
+                        eventsViewModel.registerForEvent(effectiveEventId) { ok, _ ->
                             if (ok) {
                                 // schedule reminder 30 minutes before
                                 NotificationHelper.scheduleEventReminder(context, event)
                                 navController.popBackStack()
-                            } else {
-                                Log.w("EventDetail", "registerForEvent failed: $err")
                             }
                         }
                     }

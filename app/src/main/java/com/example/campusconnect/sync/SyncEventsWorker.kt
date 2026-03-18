@@ -1,7 +1,6 @@
 package com.example.campusconnect.sync
 
 import android.content.Context
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -30,12 +29,9 @@ class SyncEventsWorker @AssistedInject constructor(
     }
 
     override suspend fun doWork(): Result {
-        Log.d(TAG, "Starting events sync...")
-
         return try {
             // Check network connectivity
             if (!connectivityManager.isNetworkAvailable()) {
-                Log.w(TAG, "No network available, will retry later")
                 return Result.retry()
             }
 
@@ -43,19 +39,15 @@ class SyncEventsWorker @AssistedInject constructor(
             val result = eventsRepo.observeEvents().first()
 
             if (result is com.example.campusconnect.data.models.Resource.Success) {
-                Log.d(TAG, "Events sync completed successfully")
                 Result.success()
             } else {
-                Log.e(TAG, "Events sync failed")
-
                 if (runAttemptCount < 3) {
                     Result.retry()
                 } else {
                     Result.failure()
                 }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Exception during events sync", e)
+        } catch (_: Exception) {
 
             if (runAttemptCount < 3) {
                 Result.retry()

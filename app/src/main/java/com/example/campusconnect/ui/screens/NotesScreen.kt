@@ -191,7 +191,6 @@ fun NotesListContent(
     onDelete: ((Note) -> Unit)? = null,
     deleteInProgress: String? = null
 ) {
-    val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         when (state) {

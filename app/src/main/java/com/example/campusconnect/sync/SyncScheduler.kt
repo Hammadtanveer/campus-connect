@@ -1,7 +1,6 @@
 package com.example.campusconnect.sync
 
 import android.content.Context
-import android.util.Log
 import androidx.work.*
 import java.util.concurrent.TimeUnit
 
@@ -12,15 +11,12 @@ import java.util.concurrent.TimeUnit
  */
 object SyncScheduler {
 
-    private const val TAG = "SyncScheduler"
-
     /**
      * Schedule periodic sync for all data.
      */
     fun schedulePeriodicSync(context: Context) {
         scheduleNotesSync(context)
         scheduleEventsSync(context)
-        Log.d(TAG, "Periodic sync scheduled")
     }
 
     /**
@@ -52,8 +48,6 @@ object SyncScheduler {
                 ExistingPeriodicWorkPolicy.KEEP,
                 syncRequest
             )
-
-        Log.d(TAG, "Notes sync scheduled")
     }
 
     /**
@@ -85,8 +79,6 @@ object SyncScheduler {
                 ExistingPeriodicWorkPolicy.KEEP,
                 syncRequest
             )
-
-        Log.d(TAG, "Events sync scheduled")
     }
 
     /**
@@ -95,7 +87,6 @@ object SyncScheduler {
     fun cancelAllSync(context: Context) {
         WorkManager.getInstance(context)
             .cancelAllWorkByTag("sync")
-        Log.d(TAG, "All sync work cancelled")
     }
 
     /**
@@ -117,8 +108,6 @@ object SyncScheduler {
         WorkManager.getInstance(context)
             .beginWith(listOf(notesSyncRequest, eventsSyncRequest))
             .enqueue()
-
-        Log.d(TAG, "Immediate sync triggered")
     }
 }
 

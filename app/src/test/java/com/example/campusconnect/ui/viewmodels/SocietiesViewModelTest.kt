@@ -3,7 +3,6 @@ package com.example.campusconnect.ui.viewmodels
 import com.example.campusconnect.data.repository.ActivityLogRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -19,7 +18,6 @@ class SocietiesViewModelTest {
 
     private lateinit var viewModel: SocietiesViewModel
     private lateinit var mockAuth: FirebaseAuth
-    private lateinit var mockFirestore: FirebaseFirestore
     private lateinit var mockActivityLog: ActivityLogRepository
     private lateinit var mockUser: FirebaseUser
 
@@ -30,7 +28,6 @@ class SocietiesViewModelTest {
         Dispatchers.setMain(testDispatcher)
 
         mockAuth = mock()
-        mockFirestore = mock()
         mockActivityLog = mock()
         mockUser = mock()
 
@@ -42,7 +39,7 @@ class SocietiesViewModelTest {
     fun `manageSociety when not authenticated returns error`() = runTest {
         // Given
         whenever(mockAuth.currentUser).thenReturn(null)
-        viewModel = SocietiesViewModel(mockAuth, mockFirestore, mockActivityLog)
+        viewModel = SocietiesViewModel(mockAuth, mockActivityLog)
 
         var resultSuccess = true
         var resultError: String? = null
@@ -61,7 +58,7 @@ class SocietiesViewModelTest {
     @Test
     fun `joinSociety when authenticated logs activity`() = runTest {
         // Given
-        viewModel = SocietiesViewModel(mockAuth, mockFirestore, mockActivityLog)
+        viewModel = SocietiesViewModel(mockAuth, mockActivityLog)
 
         var resultSuccess = false
 
@@ -78,7 +75,7 @@ class SocietiesViewModelTest {
     fun `leaveSociety when not authenticated returns error`() = runTest {
         // Given
         whenever(mockAuth.currentUser).thenReturn(null)
-        viewModel = SocietiesViewModel(mockAuth, mockFirestore, mockActivityLog)
+        viewModel = SocietiesViewModel(mockAuth, mockActivityLog)
 
         var resultSuccess = true
         var resultError: String? = null

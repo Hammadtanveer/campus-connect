@@ -12,7 +12,6 @@ import com.example.campusconnect.data.models.Resource
 // import com.example.campusconnect.data.paging.NotesPagingSource
 import com.example.campusconnect.data.repository.NotesRepository
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -22,7 +21,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.example.campusconnect.ui.state.UiState
-import android.util.Log
 
 /**
  * ViewModel for notes list and filtering functionality.
@@ -32,8 +30,7 @@ import android.util.Log
 @HiltViewModel
 class NotesViewModel @Inject constructor(
     private val repository: NotesRepository,
-    private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val auth: FirebaseAuth
 ) : ViewModel() {
 
     private val _allNotesState = MutableStateFlow<UiState<List<Note>>>(UiState.Loading)
@@ -89,7 +86,6 @@ class NotesViewModel @Inject constructor(
                     is Resource.Success -> _allNotesState.value = UiState.Success(resource.data)
                     is Resource.Error -> {
                         _allNotesState.value = UiState.Error(resource.message ?: "Error loading notes")
-                        Log.e("NotesViewModel", "loadAllNotes error: ${resource.message}")
                     }
                 }
             }
@@ -108,8 +104,6 @@ class NotesViewModel @Inject constructor(
                     is Resource.Success -> _myNotesState.value = UiState.Success(resource.data)
                     is Resource.Error -> {
                         _myNotesState.value = UiState.Error(resource.message ?: "Error loading my notes")
-                        // Log full error so it appears in Logcat (helps copy the Firebase Console URL)
-                        Log.e("NotesViewModel", "loadMyNotes error: ${resource.message}")
                     }
                 }
             }

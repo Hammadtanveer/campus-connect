@@ -233,6 +233,3 @@ fun EventListItem(
     }
 }
 
-fun cleanUpImports() {
-    // This is a dummy edit to force re-evaluation of the file by the compiler/IDE state
-}

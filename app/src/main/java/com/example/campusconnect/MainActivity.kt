@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
@@ -28,14 +27,11 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     companion object {
-        private const val TAG = "MainActivity"
         private var isFcmInitializedThisSession = false
     }
 
     private val notificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            Log.d(TAG, "POST_NOTIFICATIONS permission granted=$isGranted")
-        }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }
 
     private var pendingNotificationRoute by mutableStateOf<String?>(null)
 
@@ -76,35 +72,25 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
 
         NotificationIntentRouter.consumeRoute(intent)?.let { route ->
-            Log.d(TAG, "Received notification deep link route=$route")
             pendingNotificationRoute = route
         }
     }
 
     private fun initFcmOncePerSession() {
         if (isFcmInitializedThisSession) {
-            Log.d(TAG, "FCM already initialized for this app session")
             return
         }
         isFcmInitializedThisSession = true
 
         FirebaseMessaging.getInstance().token
             .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    Log.d("FCM_DEBUG", "Current token: ${task.result}")
-                }
-
                 if (!task.isSuccessful) {
-                    Log.e(TAG, "FCM token fetch failed: ${task.exception?.message}", task.exception)
                     return@addOnCompleteListener
                 }
-                Log.d(TAG, "FCM token=${task.result}")
             }
 
         FirebaseMessaging.getInstance().subscribeToTopic("all_students")
-            .addOnCompleteListener { task ->
-                Log.d("FCM_DEBUG", "Subscribed all_students: ${task.isSuccessful}")
-            }
+            .addOnCompleteListener { _ -> }
 
         NotificationSubscriptionManager.subscribeAllTopics()
     }
@@ -116,10 +102,7 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.POST_NOTIFICATIONS
         ) == PackageManager.PERMISSION_GRANTED
         if (!granted) {
-            Log.d(TAG, "Requesting POST_NOTIFICATIONS runtime permission")
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            Log.d(TAG, "POST_NOTIFICATIONS already granted")
         }
     }
 }

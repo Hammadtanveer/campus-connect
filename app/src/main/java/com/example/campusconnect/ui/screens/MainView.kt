@@ -30,10 +30,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import android.util.Log
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -72,8 +70,6 @@ fun MainView(
         "senior_edit/{seniorId}"
     )
 
-    val context = LocalContext.current
-
     // Mentorship listener logic removed
 
     // Update ViewModel's current screen based on navigation route changes
@@ -83,7 +79,6 @@ fun MainView(
 
     LaunchedEffect(notificationRoute) {
         if (notificationRoute != null) {
-            Log.d("NAV_DEBUG", "LaunchedEffect triggered with route: $notificationRoute")
             if (currentRoute != notificationRoute) {
                 controller.navigate(notificationRoute) {
                     popUpTo(controller.graph.startDestinationId)

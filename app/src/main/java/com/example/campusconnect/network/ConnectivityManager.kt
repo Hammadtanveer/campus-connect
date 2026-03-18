@@ -5,7 +5,6 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,10 +21,6 @@ import javax.inject.Singleton
 class ConnectivityManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    companion object {
-        private const val TAG = "ConnectivityManager"
-    }
-
     private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
     private val _isConnected = MutableStateFlow(isNetworkAvailable())
@@ -36,13 +31,11 @@ class ConnectivityManager @Inject constructor(
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            Log.d(TAG, "Network available")
             _isConnected.value = true
             updateConnectionType()
         }
 
         override fun onLost(network: Network) {
-            Log.d(TAG, "Network lost")
             _isConnected.value = false
             _connectionType.value = ConnectionType.NONE
         }
@@ -51,7 +44,6 @@ class ConnectivityManager @Inject constructor(
             network: Network,
             networkCapabilities: NetworkCapabilities
         ) {
-            Log.d(TAG, "Network capabilities changed")
             updateConnectionType()
         }
     }
@@ -109,10 +101,7 @@ class ConnectivityManager @Inject constructor(
                 .build()
 
             connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
-            Log.d(TAG, "Network callback registered")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to register network callback", e)
-        }
+        } catch (_: Exception) { }
     }
 
     private fun updateConnectionType() {
@@ -122,10 +111,7 @@ class ConnectivityManager @Inject constructor(
     fun unregister() {
         try {
             connectivityManager.unregisterNetworkCallback(networkCallback)
-            Log.d(TAG, "Network callback unregistered")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to unregister network callback", e)
-        }
+        } catch (_: Exception) { }
     }
 
     enum class ConnectionType {

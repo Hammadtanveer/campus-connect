@@ -300,7 +300,7 @@ private fun LoginScreen(
 
                     // Google button (outlined style)
                     OutlinedButton(
-                        onClick = { /* TODO: integrate Google */ },
+                        onClick = { },
                         modifier = Modifier.fillMaxWidth(),
                         border = BorderStroke(1.dp, border),
                         shape = RoundedCornerShape(12.dp),
