@@ -11,14 +11,21 @@ plugins {
 
 android {
     namespace = "com.example.campusconnect"
-    compileSdk = 36
+    compileSdk = 35
+
+    signingConfigs {
+        create("release") {
+            // Keystore values will be added after keystore generation.
+        }
+    }
 
     defaultConfig {
-        applicationId = "com.example.campusconnect"
-        minSdk = 29 // Changed from 34 to 29
-        targetSdk = 36
+        applicationId = "com.hammadtanveer.campusconnect"
+        minSdk = 25
+
+        targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -36,6 +43,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // signingConfig = signingConfigs.getByName("release")
             buildConfigField("boolean", "FORCE_WELCOME", "false")
         }
         debug {
@@ -96,7 +104,6 @@ dependencies {
     implementation("com.google.firebase:firebase-crashlytics-ktx")
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
-    implementation(libs.firebase.auth)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
@@ -114,9 +121,8 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.9.3")
 
     // Your existing dependencies
-    implementation(libs.androidx.compose.material3)
+    implementation("androidx.compose.material3:material3")
     implementation(libs.ads.mobile.sdk)
-    implementation(libs.material3)
     implementation(libs.androidx.camera.core)
     val nav_version = "2.7.5"
 
@@ -135,9 +141,6 @@ dependencies {
 
     // Material 2 (for BottomNavigation, etc.) and Material 3
     implementation("androidx.compose.material:material")
-    implementation(libs.androidx.material3)
-    // Check for your Material 3 dependency
-    implementation("androidx.compose.material3:material3:1.2.1")
 
     // AndroidX + tests
     implementation(libs.androidx.core.ktx)
@@ -169,8 +172,6 @@ dependencies {
     implementation("androidx.hilt:hilt-work:1.1.0")
     kapt("androidx.hilt:hilt-compiler:1.1.0")
 
-    // Coil for image optimization (already added but updating)
-    implementation("io.coil-kt:coil-compose:2.5.0")
 
     // Coroutine Flow testing
     testImplementation("app.cash.turbine:turbine:1.0.0")

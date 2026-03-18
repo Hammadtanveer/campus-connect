@@ -116,9 +116,9 @@ class EventsViewModelTest {
 
         whenever(
             mockEventsRepo.createEvent(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         ).thenAnswer { invocation ->
-            val callback = invocation.getArgument<(Boolean, String?) -> Unit>(11)
+            val callback = invocation.getArgument<(Boolean, String?) -> Unit>(12)
             callback(true, null)
         }
 

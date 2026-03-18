@@ -24,14 +24,21 @@ class NotesRepositoryTest {
     private lateinit var mockFirestore: FirebaseFirestore
     private lateinit var mockMediaManager: MediaManager
     private lateinit var mockNotesDao: NotesDao
+    private lateinit var mockAdminActivityLogRepository: AdminActivityLogRepository
 
     @Before
     fun setup() {
         mockFirestore = mock()
         mockMediaManager = mock()
         mockNotesDao = mock()
+        mockAdminActivityLogRepository = mock()
 
-        repository = NotesRepository(mockFirestore, mockMediaManager, mockNotesDao)
+        repository = NotesRepository(
+            mockFirestore,
+            mockMediaManager,
+            mockNotesDao,
+            mockAdminActivityLogRepository
+        )
     }
 
     @Test
@@ -68,7 +75,12 @@ class NotesRepositoryTest {
     @Test
     fun `repository is instantiated correctly`() {
         // When repository is created
-        val repo = NotesRepository(mockFirestore, mockMediaManager, mockNotesDao)
+        val repo = NotesRepository(
+            mockFirestore,
+            mockMediaManager,
+            mockNotesDao,
+            mockAdminActivityLogRepository
+        )
 
         // Then it should not be null
         assertNotNull(repo)
