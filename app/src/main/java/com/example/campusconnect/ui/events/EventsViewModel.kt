@@ -5,19 +5,20 @@ import androidx.lifecycle.viewModelScope
 import com.example.campusconnect.data.models.EventCategory
 import com.example.campusconnect.data.models.OnlineEvent
 import com.example.campusconnect.data.models.Resource
+import com.example.campusconnect.data.models.UserProfile
 import com.example.campusconnect.data.models.UserActivity
 import com.example.campusconnect.data.models.ActivityType
 import com.example.campusconnect.data.repository.ActivityLogRepository
 import com.example.campusconnect.data.repository.EventsRepository
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.session.SessionManager
 import com.example.campusconnect.util.formatTimestamp
-import com.example.campusconnect.security.canCreateEvent
 import com.google.firebase.Timestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
 import java.util.Random
@@ -47,30 +48,29 @@ class EventsViewModel @Inject constructor(
             initialValue = Resource.Loading
         )
 
-    // Expose current user profile for UI reactivity
-    val currentUser = sessionManager.state
-        .map { it.profile }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = sessionManager.state.value.profile
-        )
+    // Expose current user profile as direct Flow (no stateIn caching).
+    val currentUserProfileFlow: Flow<UserProfile?> = sessionManager.state.map { it.profile }
 
-    fun canCreateEvent(): Boolean {
-        val p = sessionManager.state.value.profile ?: return false
-        return p.canCreateEvent()
+    fun canCreateEvent(profile: UserProfile?): Boolean {
+        return PermissionManager.canCreateEvents(profile)
     }
 
-    fun canEditEvent(event: OnlineEvent): Boolean {
-        val p = currentUser.value ?: return false
-        // Super/Admin rule from profile
-        if (p.isAdmin) return true
-        // Owner rule
-        return event.organizerId == p.id || event.createdBy == p.id
+    fun canEditEvent(event: OnlineEvent, profile: UserProfile?): Boolean {
+        val p = profile ?: return false
+        val perms = PermissionManager.effectivePermissions(p)
+        val ownsEvent = event.organizerId == p.id || event.createdBy == p.id
+        return perms.contains("*:*:*") ||
+            perms.contains("events:edit:all") ||
+            (ownsEvent && perms.contains("events:edit:own"))
     }
 
-    fun canDeleteEvent(event: OnlineEvent): Boolean {
-        return canEditEvent(event) // Similar logic for now: owner or admin can delete
+    fun canDeleteEvent(event: OnlineEvent, profile: UserProfile?): Boolean {
+        val p = profile ?: return false
+        val perms = PermissionManager.effectivePermissions(p)
+        val ownsEvent = event.organizerId == p.id || event.createdBy == p.id
+        return perms.contains("*:*:*") ||
+            perms.contains("events:delete:all") ||
+            (ownsEvent && perms.contains("events:delete:own"))
     }
 
     // Proxy the repository flow if raw flow is needed
@@ -87,12 +87,13 @@ class EventsViewModel @Inject constructor(
         venue: String,
         maxParticipants: Int = 0,
         meetLink: String = "",
+        profile: UserProfile?,
         onResult: (Boolean, String?) -> Unit
     ) {
-        val currentUser = sessionManager.state.value.profile
-        val organizerId = currentUser?.id ?: return onResult(false, "Not authenticated")
-        val organizerName = currentUser.displayName
-        val organizerRole = currentUser.role.ifBlank { "user" }
+        val organizerId = profile?.id ?: return onResult(false, "Not authenticated")
+        if (!canCreateEvent(profile)) return onResult(false, "No permission to create event")
+        val organizerName = profile.displayName
+        val organizerRole = profile.role.ifBlank { "user" }
 
         // Auto-generate meet link if not provided, ONLY for ONLINE events
         val finalMeetLink = if (eventType == EventType.ONLINE && meetLink.isBlank()) {
@@ -189,7 +190,8 @@ class EventsViewModel @Inject constructor(
         eventType: EventType,
         venue: String,
         maxParticipants: Int = 0,
-        meetLink: String = ""
+        meetLink: String = "",
+        profile: UserProfile?
     ) {
         return withTimeout(EVENT_CREATION_TIMEOUT_MS) {
             suspendCancellableCoroutine { cont ->
@@ -201,7 +203,8 @@ class EventsViewModel @Inject constructor(
                     eventType = eventType,
                     venue = venue,
                     maxParticipants = maxParticipants,
-                    meetLink = meetLink
+                    meetLink = meetLink,
+                    profile = profile
                 ) { ok, err ->
                     if (!cont.isActive) return@createEvent
                     if (ok) {
@@ -214,8 +217,8 @@ class EventsViewModel @Inject constructor(
         }
     }
 
-    fun registerForEvent(eventId: String, onResult: (Boolean, String?) -> Unit) {
-        val uid = sessionManager.state.value.profile?.id ?: return onResult(false, "Not authenticated")
+    fun registerForEvent(eventId: String, profile: UserProfile?, onResult: (Boolean, String?) -> Unit) {
+        val uid = profile?.id ?: return onResult(false, "Not authenticated")
         eventsRepo.registerForEvent(userId = uid, eventId = eventId, onResult = { ok, err ->
             if (ok) {
                 // If we have the event list loaded, try to find title

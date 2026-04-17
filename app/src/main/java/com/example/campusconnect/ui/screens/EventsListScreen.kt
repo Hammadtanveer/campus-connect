@@ -38,6 +38,8 @@ import com.example.campusconnect.data.models.Resource
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.ui.events.EventsViewModel
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -48,7 +50,8 @@ fun EventsListScreen(
     navController: NavController,
     viewModel: EventsViewModel = hiltViewModel()
 ) {
-    val resource by viewModel.eventsState.collectAsState()
+    val resource by viewModel.eventsState.collectAsStateWithLifecycle()
+    val profile by viewModel.currentUserProfileFlow.collectAsStateWithLifecycle(null)
 
     val eventsList = remember { mutableStateOf<List<OnlineEvent>>(emptyList()) }
     val isLoading = remember { mutableStateOf(false) }
@@ -87,7 +90,7 @@ fun EventsListScreen(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            if (viewModel.canCreateEvent()) {
+            if (PermissionManager.canCreateEvents(profile)) {
                 Button(onClick = { navController.navigate("events/create") }) { Text("Create") }
             } else {
                 AssistChip(onClick = {}, label = { Text("View only") })
@@ -114,8 +117,8 @@ fun EventsListScreen(
                 EventListItem(
                     event = event,
                     onClick = { navController.navigate("event/${event.id}") },
-                    canEdit = viewModel.canEditEvent(event),
-                    canDelete = viewModel.canDeleteEvent(event),
+                    canEdit = viewModel.canEditEvent(event, profile),
+                    canDelete = viewModel.canDeleteEvent(event, profile),
                     onEdit = { navController.navigate("events/edit/${event.id}") },
                     onDelete = {
                         viewModel.deleteEvent(event.id) { success, _ ->

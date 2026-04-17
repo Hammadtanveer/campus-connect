@@ -19,9 +19,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.campusconnect.data.models.Placement
 import com.example.campusconnect.data.models.Resource
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.ui.placement.PlacementViewModel
 import com.example.campusconnect.MainViewModel
 
@@ -32,16 +34,21 @@ fun PlacementCareerScreen(
     viewModel: PlacementViewModel = hiltViewModel()
 ) {
     val placementsState by viewModel.placements.collectAsState()
+    val profile by viewModel.currentUserProfile.collectAsStateWithLifecycle(null)
     val deleteStatus by viewModel.deletePlacementStatus.collectAsState()
-    val userProfile = mainViewModel.userProfile
     val context = LocalContext.current
 
-    val currentRole = userProfile?.role
-    val canDeleteJobs = (userProfile?.isAdmin == true) ||
-        currentRole.equals("admin", ignoreCase = true) ||
-        currentRole.equals("super_admin", ignoreCase = true) ||
-        currentRole.equals("superadmin", ignoreCase = true)
-    val canManageJobs = canDeleteJobs
+    val canManageJobs = PermissionManager.canManagePlacements(profile)
+    val canDeleteJobs = canManageJobs
+
+    LaunchedEffect(profile, canManageJobs) {
+        val perms = PermissionManager.effectivePermissions(profile).sorted()
+        android.util.Log.d(
+            "PERM_DEBUG",
+            "UI PlacementCareerScreen -> role=${profile?.role ?: ""}, perms=$perms, canManageJobs=$canManageJobs"
+        )
+        android.util.Log.d("PERM_DEBUG_UI", "profile perms=${profile?.permissions}")
+    }
 
     var pendingDelete by remember { mutableStateOf<Placement?>(null) }
 
@@ -68,11 +75,7 @@ fun PlacementCareerScreen(
                 TextButton(onClick = {
                     val target = pendingDelete
                     if (target != null) {
-                        viewModel.deletePlacement(
-                            id = target.id,
-                            currentUserRole = currentRole,
-                            isAdminFlag = userProfile?.isAdmin == true
-                        )
+                        viewModel.deletePlacement(id = target.id)
                     }
                     pendingDelete = null
                 }) {

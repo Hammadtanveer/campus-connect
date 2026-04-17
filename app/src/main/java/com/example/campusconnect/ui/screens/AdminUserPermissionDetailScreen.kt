@@ -1,5 +1,6 @@
 package com.example.campusconnect.ui.screens
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,8 +27,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -38,8 +39,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.campusconnect.data.models.Resource
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.ui.viewmodels.AdminPanelViewModel
 
 private val PermissionLabels = mapOf(
@@ -58,27 +61,41 @@ fun AdminUserPermissionDetailScreen(
     userId: String,
     viewModel: AdminPanelViewModel = hiltViewModel()
 ) {
-    val selectedUserState by viewModel.selectedUserState.collectAsState()
-    val updateStatus by viewModel.permissionUpdateStatus.collectAsState()
-    val deleteUserStatus by viewModel.deleteUserStatus.collectAsState()
+    val selectedUserState by viewModel.selectedUserState.collectAsStateWithLifecycle()
+    val updateStatus by viewModel.permissionUpdateStatus.collectAsStateWithLifecycle()
+    val deleteUserStatus by viewModel.deleteUserStatus.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     LaunchedEffect(userId) {
         viewModel.loadUserById(userId)
     }
 
+    DisposableEffect(userId) {
+        onDispose { viewModel.stopObservingSelectedUser() }
+    }
+
     val targetUser = (selectedUserState as? Resource.Success)?.data
-    val editablePermissions = remember(targetUser?.id, targetUser?.permissions, targetUser?.isAdmin) {
-        mutableStateMapOf<String, Boolean>().apply {
-            if (targetUser != null) {
-                put("is_admin", targetUser.permissions["is_admin"] == true || targetUser.isAdmin)
-                put("can_manage_placements", targetUser.permissions["can_manage_placements"] == true)
-                put("can_manage_events", targetUser.permissions["can_manage_events"] == true)
-                put("can_manage_notes", targetUser.permissions["can_manage_notes"] == true)
-                put("can_manage_society_csss", targetUser.permissions["can_manage_society_csss"] == true)
-                put("can_manage_society_tech_club", targetUser.permissions["can_manage_society_tech_club"] == true)
-            }
+    val editablePermissions = remember { mutableStateMapOf<String, Boolean>() }
+
+    LaunchedEffect(targetUser?.id, targetUser?.permissions) {
+        editablePermissions.clear()
+        val permissions = targetUser
+            ?.permissions
+            ?.map { PermissionManager.normalizePermission(it) }
+            ?.toSet()
+            ?: emptySet()
+
+        fun hasPermission(key: String): Boolean {
+            return permissions.contains(PermissionManager.normalizePermission(key))
         }
+
+        editablePermissions["is_admin"] = hasPermission("is_admin")
+        editablePermissions["can_manage_placements"] = hasPermission("can_manage_placements")
+        editablePermissions["can_manage_events"] = hasPermission("can_manage_events")
+        editablePermissions["can_manage_notes"] = hasPermission("can_manage_notes")
+        editablePermissions["can_manage_society_csss"] = hasPermission("can_manage_society_csss")
+        editablePermissions["can_manage_society_tech_club"] = hasPermission("can_manage_society_tech_club")
+        Log.d("ADMIN_FINAL", "permissions=${targetUser?.permissions}")
     }
     var isSaving by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }

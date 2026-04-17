@@ -13,16 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.Senior
@@ -33,11 +29,11 @@ import com.example.campusconnect.util.DbgLog
 
 @Composable
 fun Seniors(viewModel: MainViewModel, navController: NavController) {
-    var seniors by remember { mutableStateOf<List<Senior>>(emptyList()) }
+    val seniors by viewModel.seniorsList.collectAsStateWithLifecycle(emptyList())
+    val profile by viewModel.sessionProfileFlow.collectAsStateWithLifecycle(null)
     val deleteStatus = viewModel.deleteSeniorStatus
-    val canAddSenior = viewModel.userProfile?.canAddSenior() == true
+    val canAddSenior = profile?.canAddSenior() == true
     val snackbarHostState = remember { SnackbarHostState() }
-    val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(Unit) {
         DbgLog.d("UI", "Seniors screen enter")
@@ -48,15 +44,8 @@ fun Seniors(viewModel: MainViewModel, navController: NavController) {
         DbgLog.d("UI", "Seniors render state count=${seniors.size} canAddSenior=$canAddSenior")
     }
 
-    LaunchedEffect(viewModel, lifecycleOwner) {
-        DbgLog.d("UI", "Seniors collector setup")
-        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            DbgLog.d("UI", "Seniors collector active STARTED")
-            viewModel.seniorsList.collect { value ->
-                DbgLog.d("UI", "Seniors collector emission count=${value.size}")
-                seniors = value
-            }
-        }
+    LaunchedEffect(seniors.size) {
+        DbgLog.d("UI", "Seniors collector emission count=${seniors.size}")
     }
 
     LaunchedEffect(deleteStatus) {

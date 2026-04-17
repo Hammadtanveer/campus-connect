@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -42,6 +44,7 @@ import com.example.campusconnect.ui.senior.SeniorEditScreen
 
 @Composable
 fun Navigation(navController: NavController, viewModel: MainViewModel, pd: PaddingValues) {
+    val profile by viewModel.sessionProfileFlow.collectAsStateWithLifecycle(null)
     NavHost(
         navController = navController as NavHostController,
         startDestination = Screen.DrawerScreen.Profile.route,
@@ -52,7 +55,7 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         }
         composable("upload_note") {
             val context = LocalContext.current
-            val canUpload = viewModel.userProfile?.canUploadNotes() == true
+            val canUpload = profile?.canUploadNotes() == true
 
             if (!canUpload) {
                 LaunchedEffect(Unit) {
@@ -253,7 +256,7 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         }
         composable("senior_add") {
             val context = LocalContext.current
-            val canAddSenior = viewModel.userProfile?.canAddSenior() == true
+            val canAddSenior = profile?.canAddSenior() == true
 
             if (!canAddSenior) {
                 LaunchedEffect(Unit) {

@@ -2,6 +2,7 @@ package com.example.campusconnect.util
 
 import com.example.campusconnect.data.models.Permission
 import com.example.campusconnect.data.models.UserProfile
+import com.example.campusconnect.security.PermissionManager
 
 /**
  * Centralized utility for checking user permissions in the RBAC system.
@@ -24,21 +25,6 @@ import com.example.campusconnect.data.models.UserProfile
  */
 object PermissionChecker {
 
-    private fun hasFlagPermission(user: UserProfile, permission: String): Boolean {
-        if (user.permissions[permission] == true) return true
-
-        return when {
-            permission.startsWith("events:") -> user.permissions["can_manage_events"] == true
-            permission.startsWith("notes:") -> user.permissions["can_manage_notes"] == true
-            permission.startsWith("placements:") -> user.permissions["can_manage_placements"] == true
-            permission.startsWith("society:") -> {
-                user.permissions["can_manage_society"] == true ||
-                    user.permissions.keys.any { it.startsWith("can_manage_society_") && user.permissions[it] == true }
-            }
-            else -> false
-        }
-    }
-
     /**
      * Checks if a user has a specific permission.
      *
@@ -55,37 +41,10 @@ object PermissionChecker {
     fun hasPermission(user: UserProfile?, permission: String): Boolean {
         // Null safety: no user = no permission
         if (user == null) return false
-
-        // Super admin has all permissions
-        if (isSuperAdmin(user)) return true
-
-        // User must be active to have permissions
-        if (user.status != "active") return false
-
-        // Parse the required permission
-        val requiredPerm = Permission.fromString(permission)
-
-        // Check each permission the user has
-        for (userPermString in user.permissionsList) {
-            val userPerm = Permission.fromString(userPermString)
-
-            // Exact match
-            if (userPerm.toString() == requiredPerm.toString()) return true
-
-            // Wildcard match
-            if (userPerm.matches(requiredPerm)) return true
-        }
-
-        // Check legacy roles field for backward compatibility
-        if (hasFlagPermission(user, permission) || user.roles.contains(permission)) return true
-
-        // Check if user has wildcard for this resource
-        val resourceWildcard = "${requiredPerm.resource}:*:*"
-        if (user.permissionsList.contains(resourceWildcard) || user.permissions[resourceWildcard] == true || user.roles.contains(resourceWildcard)) {
-            return true
-        }
-
-        return false
+        if (!PermissionManager.hasActiveAccess(user)) return false
+        val perms = PermissionManager.effectivePermissions(user)
+        val normalized = PermissionManager.normalizePermission(permission)
+        return perms.contains("*:*:*") || perms.contains(normalized)
     }
 
     /**
@@ -167,7 +126,7 @@ object PermissionChecker {
      * @return true if user is super admin
      */
     fun isSuperAdmin(user: UserProfile?): Boolean {
-        return user?.role in listOf("super_admin", "superadmin")
+        return PermissionManager.isSuperAdmin(user)
     }
 
     /**
@@ -177,7 +136,7 @@ object PermissionChecker {
      * @return true if user has admin role
      */
     fun isAdmin(user: UserProfile?): Boolean {
-        return user?.role in listOf("super_admin", "superadmin", "admin") || user?.isAdmin == true
+        return PermissionManager.canAccessAdminPanel(user)
     }
 
     /**
@@ -211,23 +170,7 @@ object PermissionChecker {
      * @return Set of all effective permissions
      */
     fun getEffectivePermissions(user: UserProfile?): Set<String> {
-        if (user == null) return emptySet()
-
-        // Super admin has all permissions
-        if (isSuperAdmin(user)) {
-            return setOf("*:*:*")
-        }
-
-        val effectivePerms = mutableSetOf<String>()
-
-        // Add explicit permissions
-        effectivePerms.addAll(user.permissionsList)
-        effectivePerms.addAll(user.permissions.filterValues { it }.keys)
-
-        // Add legacy roles
-        effectivePerms.addAll(user.roles)
-
-        return effectivePerms
+        return PermissionManager.effectivePermissions(user)
     }
 
     /**

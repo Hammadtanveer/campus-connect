@@ -84,16 +84,13 @@ class SeniorsRepository @Inject constructor(
         db.collection("users").document(uid)
             .get()
             .addOnSuccessListener { userDoc ->
-                val role = userDoc.getString("role")?.trim()?.lowercase()
-                val isAdmin = userDoc.getBoolean("isAdmin") == true
                 val permissions = (userDoc.get("permissions") as? List<*>)
                     ?.filterIsInstance<String>()
                     ?: emptyList()
 
-                val canCreateSenior = isAdmin ||
-                    role in listOf("admin", "super_admin", "superadmin") ||
-                    permissions.contains("*:*:*") ||
-                    permissions.contains("seniors:add:all")
+                val normalizedPermissions = permissions.map { it.trim().lowercase() }
+                val canCreateSenior = normalizedPermissions.contains("*:*:*") ||
+                    normalizedPermissions.contains("seniors:add:all")
 
                 if (!canCreateSenior) {
                     DbgLog.d("Repo", "addSenior blocked by role/permissions")

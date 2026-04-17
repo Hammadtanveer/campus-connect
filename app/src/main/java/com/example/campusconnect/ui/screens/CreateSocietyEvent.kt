@@ -35,6 +35,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.ui.viewmodels.EventViewModel
@@ -50,6 +51,7 @@ fun CreateSocietyEventScreen(
     viewModel: EventViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val profile by viewModel.currentUserProfileFlow.collectAsStateWithLifecycle(null)
     val isEditMode = !eventId.isNullOrBlank()
 
     var name by remember { mutableStateOf("") }
@@ -64,10 +66,6 @@ fun CreateSocietyEventScreen(
     var isPosterUploading by remember { mutableStateOf(false) }
 
     val status = if (isEditMode) viewModel.updateEventStatus else viewModel.addEventStatus
-
-    LaunchedEffect(Unit) {
-        viewModel.refreshUserRole()
-    }
 
     LaunchedEffect(eventId, societyId) {
         if (isEditMode) {
@@ -104,11 +102,11 @@ fun CreateSocietyEventScreen(
         }
     }
 
-    val requiredAccess = if (isEditMode) viewModel.canEditSocietyEvent() else viewModel.canCreateSocietyEvent()
+    val requiredAccess = if (isEditMode) viewModel.canEditSocietyEvent(profile) else viewModel.canCreateSocietyEvent(profile)
     if (!requiredAccess) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text(
-                text = if (viewModel.isRoleLoading) "Checking role..." else "Only Admin and Super Admin can manage events.",
+                text = "You do not have permission to manage society events.",
                 color = MaterialTheme.colorScheme.error
             )
         }
@@ -241,6 +239,7 @@ fun CreateSocietyEventScreen(
                     viewModel.updateEvent(
                         societyId = societyId,
                         eventId = eventId.orEmpty(),
+                        profile = profile,
                         updated = existing.copy(
                             societyId = societyId,
                             societyName = effectiveSocietyName,
@@ -267,7 +266,8 @@ fun CreateSocietyEventScreen(
                         convener = convener,
                         register = register,
                         posterUrl = posterUrl,
-                        posterPublicId = posterPublicId
+                        posterPublicId = posterPublicId,
+                        profile = profile
                     )
                 }
             },

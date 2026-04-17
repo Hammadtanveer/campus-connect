@@ -8,5 +8,6 @@ import com.example.campusconnect.data.models.UserProfile
 data class SessionState(
     val userId: String? = null,
     val email: String? = null,
-    val profile: UserProfile? = null
+    val profile: UserProfile? = null,
+    val profileRevision: Long = 0L
 )

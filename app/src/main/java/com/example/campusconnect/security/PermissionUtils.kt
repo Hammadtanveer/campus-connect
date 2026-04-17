@@ -14,52 +14,14 @@ object Permissions {
     const val SOCIETY_MANAGE = "society:manage"
 }
 
-private fun UserProfile.hasAnyPermission(vararg keys: String): Boolean {
-    if (permissions["*:*:*"] == true || permissionsList.contains("*:*:*")) return true
-    return keys.any { key ->
-        permissions[key] == true || permissionsList.contains(key) || roles.contains(key)
-    }
-}
+fun UserProfile.canCreateEvent(): Boolean = PermissionManager.canCreateEvents(this)
 
-private fun UserProfile.hasAdminRole(): Boolean {
-    val normalizedRole = role.trim().lowercase()
-    return isAdmin || normalizedRole in listOf("admin", "super_admin", "superadmin")
-}
-
-fun UserProfile.canCreateEvent(): Boolean = hasAdminRole() || hasAnyPermission(
-    "can_manage_events",
-    Permissions.EVENT_CREATE,
-    "events:create:own",
-    "events:create:all"
-)
-
-fun UserProfile.canUploadNotes(): Boolean = hasAdminRole() || hasAnyPermission(
-    "can_manage_notes",
-    Permissions.NOTES_UPLOAD,
-    "notes:upload:own",
-    "notes:upload:all"
-)
+fun UserProfile.canUploadNotes(): Boolean = PermissionManager.canUploadNotes(this)
 
 fun UserProfile.canAddSenior(): Boolean {
-    val normalizedRole = role.trim().lowercase()
-    if (normalizedRole == "admin" || normalizedRole == "super_admin" || normalizedRole == "superadmin") {
-        return true
-    }
-    return permissions["*:*:*"] == true ||
-        permissions["is_admin"] == true ||
-        permissionsList.contains("seniors:add:all") ||
-        roles.contains("seniors:add:all")
+    return PermissionManager.canManageSeniors(this)
 }
 
-fun UserProfile.canUpdateSenior(): Boolean = hasAdminRole() || hasAnyPermission(
-    "is_admin",
-    Permissions.SENIOR_UPDATE,
-    "seniors:edit:all",
-    "seniors:verify:all"
-)
+fun UserProfile.canUpdateSenior(): Boolean = PermissionManager.canManageSeniors(this)
 
-fun UserProfile.canManageSociety(): Boolean = hasAdminRole() || hasAnyPermission(
-    "can_manage_society",
-    Permissions.SOCIETY_MANAGE,
-    "society:manage"
-) || permissions.keys.any { it.startsWith("can_manage_society_") && permissions[it] == true }
+fun UserProfile.canManageSociety(): Boolean = PermissionManager.canManageSociety(this)

@@ -3,22 +3,28 @@ package com.example.campusconnect.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.campusconnect.data.models.Resource
+import com.example.campusconnect.data.models.UserProfile
 import com.example.campusconnect.data.repository.AdminNotificationRepository
 import com.example.campusconnect.notifications.NotificationTopics
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.session.SessionManager
-import com.example.campusconnect.util.PermissionChecker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class AdminSendNotificationViewModel @Inject constructor(
     private val repository: AdminNotificationRepository,
-    private val sessionManager: SessionManager
+    sessionManager: SessionManager
 ) : ViewModel() {
+
+    private val _currentUser = MutableStateFlow<UserProfile?>(null)
+    val currentUser: StateFlow<UserProfile?> = _currentUser.asStateFlow()
 
     data class TopicOption(
         val label: String,
@@ -37,10 +43,18 @@ class AdminSendNotificationViewModel @Inject constructor(
     private val _sendState = MutableStateFlow<Resource<Unit>?>(null)
     val sendState: StateFlow<Resource<Unit>?> = _sendState.asStateFlow()
 
-    fun sendNotification(topic: TopicOption, title: String, body: String) {
-        val profile = sessionManager.state.value.profile
+    init {
+        viewModelScope.launch {
+            sessionManager.state.map { it.profile }.collectLatest { profile ->
+                _currentUser.value = profile
+            }
+        }
+    }
 
-        if (!PermissionChecker.isSuperAdmin(profile)) {
+    fun sendNotification(topic: TopicOption, title: String, body: String) {
+        val profile = currentUser.value
+
+        if (!PermissionManager.canSendNotifications(profile)) {
             _sendState.value = Resource.Error("Only super admin can send notifications")
             return
         }

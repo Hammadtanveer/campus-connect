@@ -7,18 +7,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.data.models.SocietyEvent
+import com.example.campusconnect.data.models.UserProfile
 import com.example.campusconnect.data.repository.SocietyEventRepository
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.session.SessionManager
-import com.example.campusconnect.util.PermissionChecker
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.io.File
@@ -27,9 +25,7 @@ import javax.inject.Inject
 @HiltViewModel
 class EventViewModel @Inject constructor(
     private val repository: SocietyEventRepository,
-    private val sessionManager: SessionManager,
-    private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _societyEventsState = MutableStateFlow<Resource<List<SocietyEvent>>>(Resource.Loading)
@@ -56,52 +52,7 @@ class EventViewModel @Inject constructor(
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
-    var currentUserRole by mutableStateOf<String?>(null)
-        private set
-
-    var isRoleLoading by mutableStateOf(false)
-        private set
-
-    init {
-        viewModelScope.launch {
-            sessionManager.state
-                .map { it.userId }
-                .distinctUntilChanged()
-                .collect { refreshUserRole() }
-        }
-    }
-
-    private fun normalizeRole(role: String?): String {
-        return role.orEmpty().trim().lowercase()
-    }
-
-    private fun isAdminRole(role: String?): Boolean {
-        val normalized = normalizeRole(role)
-        return normalized == "admin" || normalized == "superadmin" || normalized == "super_admin"
-    }
-
-    private fun isSuperAdminRole(role: String?): Boolean {
-        val normalized = normalizeRole(role)
-        return normalized == "superadmin" || normalized == "super_admin"
-    }
-
-    fun refreshUserRole() {
-        val uid = auth.currentUser?.uid ?: run {
-            currentUserRole = null
-            return
-        }
-
-        isRoleLoading = true
-        firestore.collection("users").document(uid).get()
-            .addOnSuccessListener { doc ->
-                currentUserRole = normalizeRole(doc.getString("role")).ifBlank { null }
-                isRoleLoading = false
-            }
-            .addOnFailureListener {
-                currentUserRole = null
-                isRoleLoading = false
-            }
-    }
+    val currentUserProfileFlow: Flow<UserProfile?> = sessionManager.state.map { it.profile }
 
     fun observeSocietyEvents(societyId: String): Flow<Resource<List<SocietyEvent>>> {
         return repository.observeEventsBySociety(societyId)
@@ -143,18 +94,14 @@ class EventViewModel @Inject constructor(
         }
     }
 
-    fun canCreateSocietyEvent(): Boolean {
-        val firestoreRoleAllowed = isAdminRole(currentUserRole)
-        val sessionFallback = PermissionChecker.isAdminAccessValid(sessionManager.state.value.profile)
-        return firestoreRoleAllowed || sessionFallback
+    fun canCreateSocietyEvent(profile: UserProfile?): Boolean {
+        return PermissionManager.canManageSociety(profile)
     }
 
-    fun canEditSocietyEvent(): Boolean = canCreateSocietyEvent()
+    fun canEditSocietyEvent(profile: UserProfile?): Boolean = canCreateSocietyEvent(profile)
 
-    fun canDeleteSocietyEvent(): Boolean {
-        val firestoreRoleAllowed = isSuperAdminRole(currentUserRole)
-        val sessionFallback = PermissionChecker.isSuperAdmin(sessionManager.state.value.profile)
-        return firestoreRoleAllowed || sessionFallback
+    fun canDeleteSocietyEvent(profile: UserProfile?): Boolean {
+        return PermissionManager.canDeleteSocietyEvent(profile)
     }
 
     fun createEvent(
@@ -168,10 +115,10 @@ class EventViewModel @Inject constructor(
         convener: String,
         register: String,
         posterUrl: String,
-        posterPublicId: String
+        posterPublicId: String,
+        profile: UserProfile?
     ) {
-        val profile = sessionManager.state.value.profile
-        if (!canCreateSocietyEvent()) {
+        if (!canCreateSocietyEvent(profile)) {
             addEventStatus = Resource.Error("Only admin and super admin can create events")
             return
         }
@@ -191,14 +138,14 @@ class EventViewModel @Inject constructor(
                 posterUrl = posterUrl,
                 posterPublicId = posterPublicId,
                 createdBy = profile?.id.orEmpty(),
-                createdByRole = normalizeRole(currentUserRole).ifBlank { profile?.role ?: "user" }
+                createdByRole = PermissionManager.normalizeRole(profile?.role).ifBlank { "user" }
             )
             addEventStatus = repository.addEvent(societyId, event)
         }
     }
 
-    fun updateEvent(societyId: String, eventId: String, updated: SocietyEvent) {
-        if (!canEditSocietyEvent()) {
+    fun updateEvent(societyId: String, eventId: String, updated: SocietyEvent, profile: UserProfile?) {
+        if (!canEditSocietyEvent(profile)) {
             updateEventStatus = Resource.Error("Only admin and super admin can edit events")
             return
         }
@@ -212,8 +159,8 @@ class EventViewModel @Inject constructor(
         }
     }
 
-    fun deleteEvent(societyId: String, eventId: String) {
-        if (!canDeleteSocietyEvent()) {
+    fun deleteEvent(societyId: String, eventId: String, profile: UserProfile?) {
+        if (!canDeleteSocietyEvent(profile)) {
             deleteEventStatus = Resource.Error("Only super admin can delete events")
             return
         }

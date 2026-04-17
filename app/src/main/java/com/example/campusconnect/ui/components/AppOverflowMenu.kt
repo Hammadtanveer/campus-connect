@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.example.campusconnect.data.models.UserProfile
+import com.example.campusconnect.security.PermissionManager
 
 @Composable
 fun AppOverflowMenu(
@@ -28,9 +29,8 @@ fun AppOverflowMenu(
     var menuExpanded by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
 
-    val normalizedRole = userProfile?.role?.trim()?.lowercase().orEmpty()
-    val isSuperAdmin = normalizedRole == "super_admin" || normalizedRole == "superadmin"
-    val canAccessAdminPanel = isSuperAdmin || normalizedRole == "admin" || userProfile?.isAdmin == true
+    val isSuperAdmin = PermissionManager.isSuperAdmin(userProfile)
+    val canAccessAdminPanel = PermissionManager.canAccessAdminPanel(userProfile)
 
     IconButton(onClick = { menuExpanded = true }) {
         Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "More options")

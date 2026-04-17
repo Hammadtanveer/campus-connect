@@ -2,19 +2,18 @@ package com.example.campusconnect.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.util.Log
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.data.models.UserProfile
 import com.example.campusconnect.data.repository.AdminUsersRepository
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.session.SessionManager
-import com.example.campusconnect.util.PermissionChecker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import javax.inject.Inject
@@ -35,6 +34,7 @@ class AdminPanelViewModel @Inject constructor(
     )
 
     private var usersObserverJob: Job? = null
+    private var selectedUserObserverJob: Job? = null
 
     companion object {
         val MANAGED_PERMISSION_KEYS = listOf(
@@ -47,13 +47,8 @@ class AdminPanelViewModel @Inject constructor(
         )
     }
 
-    val currentUser = sessionManager.state
-        .map { it.profile }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = sessionManager.state.value.profile
-        )
+    private val _currentUser = MutableStateFlow<UserProfile?>(null)
+    val currentUser: StateFlow<UserProfile?> = _currentUser.asStateFlow()
 
     private val _usersState = MutableStateFlow<Resource<List<UserProfile>>>(Resource.Loading)
     val usersState: StateFlow<Resource<List<UserProfile>>> = _usersState.asStateFlow()
@@ -69,8 +64,9 @@ class AdminPanelViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            currentUser.collectLatest { user ->
-                if (PermissionChecker.isSuperAdmin(user)) {
+            sessionManager.state.map { it.profile }.collectLatest { user ->
+                _currentUser.value = user
+                if (PermissionManager.canManageUsers(user)) {
                     observeAllUsers()
                 } else {
                     _usersState.value = Resource.Success(emptyList())
@@ -88,7 +84,7 @@ class AdminPanelViewModel @Inject constructor(
         }
     }
 
-    fun canCurrentUserManageUsers(): Boolean = PermissionChecker.isSuperAdmin(currentUser.value)
+    fun canCurrentUserManageUsers(): Boolean = PermissionManager.canManageUsers(currentUser.value)
 
     fun updatePermissionsForUser(userId: String, permissions: Map<String, Boolean>) {
         val actor = currentUser.value
@@ -105,11 +101,15 @@ class AdminPanelViewModel @Inject constructor(
 
         viewModelScope.launch {
             _permissionUpdateStatus.value = Resource.Loading
+            Log.d("ADMIN_DEBUG", "UI permissions = ${actor?.permissions}")
             _permissionUpdateStatus.value = adminUsersRepository.updateUserPermissions(
                 userId = userId,
                 permissions = permissions,
                 actorUserId = actorId
             )
+            if (_permissionUpdateStatus.value is Resource.Success) {
+                Log.d("ADMIN_DEBUG", "Permissions updated")
+            }
         }
     }
 
@@ -119,8 +119,9 @@ class AdminPanelViewModel @Inject constructor(
 
     fun hasPermission(permissionKey: String): Boolean {
         val user = currentUser.value ?: return false
-        if (PermissionChecker.isSuperAdmin(user)) return true
-        return user.permissions[permissionKey] == true
+        val normalized = PermissionManager.normalizePermission(permissionKey)
+        val perms = PermissionManager.effectivePermissions(user)
+        return perms.contains("*:*:*") || perms.contains(normalized)
     }
 
     fun getUserById(userId: String): UserProfile? {
@@ -134,10 +135,19 @@ class AdminPanelViewModel @Inject constructor(
             return
         }
 
-        viewModelScope.launch {
-            _selectedUserState.value = Resource.Loading
-            _selectedUserState.value = adminUsersRepository.getUserById(userId)
+        selectedUserObserverJob?.cancel()
+        selectedUserObserverJob = viewModelScope.launch {
+            adminUsersRepository.observeUserById(userId).collectLatest { result ->
+                _selectedUserState.value = result
+                val selected = (result as? Resource.Success)?.data
+                Log.d("ADMIN_DEBUG", "Selected user realtime permissions = ${selected?.permissions}")
+            }
         }
+    }
+
+    fun stopObservingSelectedUser() {
+        selectedUserObserverJob?.cancel()
+        selectedUserObserverJob = null
     }
 
     fun deleteUser(userId: String) {
@@ -157,25 +167,23 @@ class AdminPanelViewModel @Inject constructor(
     }
 
     fun getFeatureVisibility(user: UserProfile?): AdminFeatureVisibility {
-        val isSuperAdmin = PermissionChecker.isSuperAdmin(user)
-        val permissions = user?.permissions ?: emptyMap()
-
-        val canModerateContent = isSuperAdmin || permissions["can_manage_notes"] == true
-
-        val canManageSociety = isSuperAdmin ||
-            permissions["can_manage_society"] == true ||
-            permissions.keys.any { key ->
-                key.startsWith("can_manage_society_") && permissions[key] == true
-            }
+        val canModerateContent = PermissionManager.canModerateContent(user)
+        val canManageSociety = PermissionManager.canManageSociety(user)
 
         return AdminFeatureVisibility(
-            analytics = isSuperAdmin,
-            userManagement = isSuperAdmin,
+            analytics = PermissionManager.canViewAnalytics(user),
+            userManagement = PermissionManager.canManageUsers(user),
             contentModeration = canModerateContent,
-            sendNotification = isSuperAdmin,
+            sendNotification = PermissionManager.canSendNotifications(user),
             societyManagement = canManageSociety,
-            activityLog = isSuperAdmin
+            activityLog = PermissionManager.canViewActivityLog(user)
         )
+    }
+
+    override fun onCleared() {
+        usersObserverJob?.cancel()
+        selectedUserObserverJob?.cancel()
+        super.onCleared()
     }
 }
 

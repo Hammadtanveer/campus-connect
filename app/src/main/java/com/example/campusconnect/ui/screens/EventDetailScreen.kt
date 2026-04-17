@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -29,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.core.net.toUri
 import com.example.campusconnect.NotificationHelper
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.campusconnect.ui.events.EventsViewModel
 import com.example.campusconnect.data.models.Resource
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,6 +45,7 @@ fun EventDetailScreen(
     eventsViewModel: EventsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val profile by eventsViewModel.currentUserProfileFlow.collectAsStateWithLifecycle(null)
     val eventState = remember { mutableStateOf<OnlineEvent?>(null) }
     val loading = remember { mutableStateOf(true) }
     val participantCount = remember { mutableStateOf<Int?>(null) }
@@ -121,7 +124,7 @@ fun EventDetailScreen(
                         }
                         val effectiveEventId = event.id.ifBlank { eventId ?: "" }
 
-                        eventsViewModel.registerForEvent(effectiveEventId) { ok, _ ->
+                        eventsViewModel.registerForEvent(effectiveEventId, profile) { ok, _ ->
                             if (ok) {
                                 // schedule reminder 30 minutes before
                                 NotificationHelper.scheduleEventReminder(context, event)

@@ -4,22 +4,28 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.campusconnect.data.models.Note
 import com.example.campusconnect.data.models.Resource
+import com.example.campusconnect.data.models.UserProfile
 import com.example.campusconnect.data.repository.NotesRepository
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.session.SessionManager
-import com.example.campusconnect.util.PermissionChecker
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class ContentModerationViewModel @Inject constructor(
     private val notesRepository: NotesRepository,
-    private val sessionManager: SessionManager
+    sessionManager: SessionManager
 ) : ViewModel() {
+
+    private val _currentUser = MutableStateFlow<UserProfile?>(null)
+    val currentUser: StateFlow<UserProfile?> = _currentUser.asStateFlow()
 
     private val _notesState = MutableStateFlow<Resource<List<Note>>>(Resource.Loading)
     val notesState: StateFlow<Resource<List<Note>>> = _notesState.asStateFlow()
@@ -29,18 +35,25 @@ class ContentModerationViewModel @Inject constructor(
 
     private val _updatingNoteIds = MutableStateFlow<Set<String>>(emptySet())
     val updatingNoteIds: StateFlow<Set<String>> = _updatingNoteIds.asStateFlow()
+    private var notesObserverJob: Job? = null
 
     init {
-        observeNotes()
+        viewModelScope.launch {
+            sessionManager.state.map { it.profile }.collectLatest { profile ->
+                _currentUser.value = profile
+                observeNotes()
+            }
+        }
     }
 
     private fun observeNotes() {
+        notesObserverJob?.cancel()
         if (!canModerateNotes()) {
             _notesState.value = Resource.Error("You do not have permission to moderate notes")
             return
         }
 
-        viewModelScope.launch {
+        notesObserverJob = viewModelScope.launch {
             notesRepository.observeNotesForModeration().collectLatest { result ->
                 _notesState.value = result
             }
@@ -56,7 +69,7 @@ class ContentModerationViewModel @Inject constructor(
     }
 
     private fun updateModeration(noteId: String, status: String) {
-        val profile = sessionManager.state.value.profile
+        val profile = currentUser.value
         val reviewerId = profile?.id.orEmpty()
         val reviewerName = profile?.displayName.orEmpty()
 
@@ -88,8 +101,7 @@ class ContentModerationViewModel @Inject constructor(
     }
 
     private fun canModerateNotes(): Boolean {
-        val profile = sessionManager.state.value.profile
-        return PermissionChecker.isSuperAdmin(profile) || profile?.permissions?.get("can_manage_notes") == true
+        return PermissionManager.canModerateContent(currentUser.value)
     }
 }
 

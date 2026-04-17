@@ -1,36 +1,42 @@
 package com.example.campusconnect.util
 
+import android.util.Log
 import com.example.campusconnect.data.models.UserProfile
+import com.example.campusconnect.security.PermissionManager
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentSnapshot
 
 object UserProfileMapper {
 
+    private fun normalize(value: String): String = value.trim().lowercase()
+
     fun fromDocument(doc: DocumentSnapshot): UserProfile? {
-        return fromMap(doc.id, doc.data ?: return null)
+        val raw = doc.data ?: return null
+        val snapshotPermissions = (doc.get("permissions") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+        val merged = raw.toMutableMap()
+        merged["permissions"] = snapshotPermissions
+        Log.d("FINAL_DB", "snapshot=${doc.data}")
+        return fromMap(doc.id, merged)
     }
 
     fun fromMap(id: String, data: Map<String, Any>): UserProfile {
-        val permissionsField = data["permissions"]
-        val permissionsMap = when (permissionsField) {
-            is Map<*, *> -> permissionsField.entries
-                .mapNotNull { (k, v) -> (k as? String)?.let { key -> key to (v as? Boolean ?: false) } }
-                .toMap()
-            is List<*> -> permissionsField
-                .filterIsInstance<String>()
-                .associateWith { true }
-            else -> emptyMap()
-        }
+        val firestorePermissions = (data["permissions"] as? List<*>)
+            ?.filterIsInstance<String>()
+            ?: emptyList()
+        val normalizedPermissions = firestorePermissions
+            .map { PermissionManager.normalizePermission(it) }
+            .filter { it.isNotBlank() }
+            .distinct()
 
-        val legacyPermissions = when (val raw = data["permissionsList"]) {
-            is List<*> -> raw.filterIsInstance<String>()
-            else -> permissionsMap.filterValues { it }.keys.toList()
-        }
+        Log.d("FINAL_DB", "snapshot=$data")
+        Log.d("PERM_DEBUG_PM", "Firestore permissions(userId=$id)=$normalizedPermissions")
 
         fun string(key: String): String = data[key] as? String ?: ""
         fun stringOrNull(key: String): String? = data[key] as? String
         fun bool(key: String): Boolean = data[key] as? Boolean ?: false
         fun timestamp(key: String): Timestamp? = data[key] as? Timestamp
+
+        val normalizedRole = PermissionManager.normalizeRole(string("role"))
 
         return UserProfile(
             id = if (string("id").isBlank()) id else string("id"),
@@ -42,11 +48,10 @@ object UserProfileMapper {
             bio = string("bio"),
             profilePictureUrl = string("profilePictureUrl"),
             eventCount = (data["eventCount"] as? Number)?.toInt() ?: 0,
-            isAdmin = bool("isAdmin") || permissionsMap["is_admin"] == true,
-            roles = (data["roles"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-            role = string("role").ifBlank { if (permissionsMap["is_admin"] == true) "admin" else "user" },
-            permissions = permissionsMap,
-            permissionsList = legacyPermissions,
+            role = normalizedRole.ifBlank {
+                if (normalizedPermissions.contains(PermissionManager.normalizePermission("is_admin"))) "admin" else "user"
+            },
+            permissions = normalizedPermissions,
             department = stringOrNull("department"),
             status = string("status").ifBlank { "active" },
             createdBy = stringOrNull("createdBy"),
@@ -61,7 +66,9 @@ object UserProfileMapper {
             revokedBy = stringOrNull("revokedBy"),
             revokedAt = timestamp("revokedAt"),
             revocationReason = stringOrNull("revocationReason")
-        )
+        ).also { mapped ->
+            PermissionManager.logProfileSnapshot(mapped, "UserProfileMapper")
+        }
     }
 }
 

@@ -33,9 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -45,11 +43,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.data.models.SocietyEvent
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.ui.viewmodels.EventViewModel
 
 private data class SocietyUi(val id: String, val name: String)
@@ -121,12 +121,21 @@ fun SocietyEventsScreen(
         }
     }
 
-    val state by viewModel.societyEventsState.collectAsState()
+    val state by viewModel.societyEventsState.collectAsStateWithLifecycle()
+    val currentProfile by viewModel.currentUserProfileFlow.collectAsStateWithLifecycle(null)
     val deleteStatus = viewModel.deleteEventStatus
 
-    val canCreate = remember(viewModel.currentUserRole, viewModel.isRoleLoading) { viewModel.canCreateSocietyEvent() }
-    val canEdit = remember(viewModel.currentUserRole, viewModel.isRoleLoading) { viewModel.canEditSocietyEvent() }
-    val canDelete = remember(viewModel.currentUserRole, viewModel.isRoleLoading) { viewModel.canDeleteSocietyEvent() }
+    val canCreate = PermissionManager.canManageSociety(currentProfile)
+    val canEdit = PermissionManager.canManageSociety(currentProfile)
+    val canDelete = PermissionManager.canDeleteSocietyEvent(currentProfile)
+
+    LaunchedEffect(currentProfile, canCreate, canEdit, canDelete) {
+        val perms = PermissionManager.effectivePermissions(currentProfile).sorted()
+        android.util.Log.d(
+            "PERM_DEBUG",
+            "UI SocietyEventsScreen -> role=${currentProfile?.role ?: ""}, perms=$perms, canCreate=$canCreate, canEdit=$canEdit, canDelete=$canDelete"
+        )
+    }
 
     LaunchedEffect(deleteStatus) {
         when (deleteStatus) {
@@ -194,7 +203,7 @@ fun SocietyEventsScreen(
                                 canDelete = canDelete,
                                 onOpen = { navController.navigate("societyEvent/$societyId/${event.id}") },
                                 onEdit = { navController.navigate("societyEvent/edit/$societyId/${event.id}") },
-                                onDelete = { viewModel.deleteEvent(societyId, event.id) }
+                                onDelete = { viewModel.deleteEvent(societyId, event.id, currentProfile) }
                             )
                         }
                     }

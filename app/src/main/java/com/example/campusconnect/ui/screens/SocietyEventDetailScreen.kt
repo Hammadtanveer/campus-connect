@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.ui.viewmodels.EventViewModel
@@ -33,6 +34,7 @@ fun SocietyEventDetailScreen(
     viewModel: EventViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val profile by viewModel.currentUserProfileFlow.collectAsStateWithLifecycle(null)
 
     LaunchedEffect(eventId, societyId) {
         viewModel.getSocietyEvent(societyId, eventId)
@@ -64,14 +66,14 @@ fun SocietyEventDetailScreen(
                     }
                 },
                 actions = {
-                    if (event != null && viewModel.canEditSocietyEvent()) {
+                    if (event != null && viewModel.canEditSocietyEvent(profile)) {
                         IconButton(onClick = { onEdit(event.id) }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit")
                         }
                     }
-                    if (event != null && viewModel.canDeleteSocietyEvent()) {
+                    if (event != null && viewModel.canDeleteSocietyEvent(profile)) {
                         IconButton(onClick = {
-                            viewModel.deleteEvent(societyId, event.id)
+                            viewModel.deleteEvent(societyId, event.id, profile)
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                         }

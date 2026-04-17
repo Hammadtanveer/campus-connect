@@ -29,6 +29,11 @@ class EventsViewModelTest {
     private lateinit var mockEventsRepo: EventsRepository
     private lateinit var mockSessionManager: SessionManager
     private lateinit var mockActivityLog: ActivityLogRepository
+    private val authenticatedProfile = UserProfile(
+        id = "test-user-id",
+        displayName = "Test User",
+        permissions = listOf("events:create:own")
+    )
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -41,8 +46,7 @@ class EventsViewModelTest {
         mockActivityLog = mock()
 
         // Setup mock session
-        val mockProfile = UserProfile(id = "test-user-id", displayName = "Test User")
-        val sessionState = SessionState(profile = mockProfile)
+        val sessionState = SessionState(profile = authenticatedProfile)
         whenever(mockSessionManager.state).thenReturn(MutableStateFlow(sessionState))
     }
 
@@ -132,6 +136,7 @@ class EventsViewModelTest {
             durationMinutes = 60,
             eventType = com.example.campusconnect.data.models.EventType.ONLINE,
             venue = "",
+            profile = authenticatedProfile,
             onResult = { success, _ ->
                 resultSuccess = success
             }
@@ -166,6 +171,7 @@ class EventsViewModelTest {
             durationMinutes = 60,
             eventType = com.example.campusconnect.data.models.EventType.ONLINE,
             venue = "",
+            profile = null,
             onResult = { success, error ->
                 resultSuccess = success
                 resultError = error
@@ -196,7 +202,7 @@ class EventsViewModelTest {
         var resultSuccess = false
 
         // When
-        viewModel.registerForEvent("event-123") { success, _ ->
+        viewModel.registerForEvent("event-123", authenticatedProfile) { success, _ ->
             resultSuccess = success
         }
 

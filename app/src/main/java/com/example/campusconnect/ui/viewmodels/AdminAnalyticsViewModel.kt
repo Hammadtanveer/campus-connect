@@ -4,15 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.data.repository.AdminAnalyticsRepository
+import com.example.campusconnect.data.models.UserProfile
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.session.SessionManager
-import com.example.campusconnect.util.PermissionChecker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -22,23 +22,23 @@ class AdminAnalyticsViewModel @Inject constructor(
     sessionManager: SessionManager
 ) : ViewModel() {
 
-    val currentUser = sessionManager.state
-        .map { it.profile }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = sessionManager.state.value.profile
-        )
+    private val _currentUser = MutableStateFlow<UserProfile?>(null)
+    val currentUser: StateFlow<UserProfile?> = _currentUser.asStateFlow()
 
     private val _countsState = MutableStateFlow<Resource<AdminAnalyticsRepository.AnalyticsCounts>>(Resource.Loading)
     val countsState: StateFlow<Resource<AdminAnalyticsRepository.AnalyticsCounts>> = _countsState.asStateFlow()
 
     init {
-        refresh()
+        viewModelScope.launch {
+            sessionManager.state.map { it.profile }.collectLatest { profile ->
+                _currentUser.value = profile
+                refresh()
+            }
+        }
     }
 
     fun refresh() {
-        if (!PermissionChecker.isSuperAdmin(currentUser.value)) {
+        if (!PermissionManager.canViewAnalytics(currentUser.value)) {
             _countsState.value = Resource.Error("Only super admin can access analytics")
             return
         }

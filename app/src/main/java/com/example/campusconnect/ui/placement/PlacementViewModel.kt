@@ -4,12 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.campusconnect.data.models.Placement
 import com.example.campusconnect.data.models.Resource
+import com.example.campusconnect.data.models.UserProfile
 import com.example.campusconnect.data.repository.PlacementRepository
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -18,6 +22,9 @@ class PlacementViewModel @Inject constructor(
     private val repository: PlacementRepository,
     private val sessionManager: SessionManager
 ) : ViewModel() {
+
+    val currentUserProfile: Flow<UserProfile?> = sessionManager.state
+        .map { it.profile }
 
     private val _placements = MutableStateFlow<Resource<List<Placement>>>(Resource.Loading)
     val placements: StateFlow<Resource<List<Placement>>> = _placements
@@ -44,6 +51,11 @@ class PlacementViewModel @Inject constructor(
         val profile = sessionManager.state.value.profile
         val actorUserId = profile?.id.orEmpty()
         val actorUserName = profile?.displayName.orEmpty()
+
+        if (!PermissionManager.canManagePlacements(profile)) {
+            _savePlacementStatus.value = Resource.Error("No permission to post placements")
+            return
+        }
 
         if (actorUserId.isBlank()) {
             _savePlacementStatus.value = Resource.Error("Not authenticated")
@@ -76,20 +88,11 @@ class PlacementViewModel @Inject constructor(
         }
     }
 
-    private fun isAdminOrSuperAdmin(role: String?, isAdminFlag: Boolean): Boolean {
-        if (isAdminFlag) return true
-        return when (role.orEmpty().trim().lowercase()) {
-            "admin", "super_admin", "superadmin" -> true
-            else -> false
-        }
-    }
-
     fun deletePlacement(
-        id: String,
-        currentUserRole: String?,
-        isAdminFlag: Boolean
+        id: String
     ) {
-        if (!isAdminOrSuperAdmin(currentUserRole, isAdminFlag)) {
+        val profile = sessionManager.state.value.profile
+        if (!PermissionManager.canManagePlacements(profile)) {
             _deletePlacementStatus.value = Resource.Error("Only Admin/Super Admin can delete jobs")
             return
         }

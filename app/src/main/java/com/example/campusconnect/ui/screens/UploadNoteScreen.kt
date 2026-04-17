@@ -40,7 +40,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.models.UploadProgress
 import com.example.campusconnect.security.canUploadNotes
@@ -68,14 +68,15 @@ fun UploadNoteScreen(
     onOpenAdminPanel: () -> Unit
 ) {
     val viewModel: UploadNoteViewModel = hiltViewModel()
-    val uploadProgress by viewModel.uploadProgress.collectAsState()
-    val selectedFileUri by viewModel.selectedFileUri.collectAsState()
-    val fileName by viewModel.fileName.collectAsState()
-    val fileSize by viewModel.fileSize.collectAsState()
+    val uploadProgress by viewModel.uploadProgress.collectAsStateWithLifecycle()
+    val selectedFileUri by viewModel.selectedFileUri.collectAsStateWithLifecycle()
+    val fileName by viewModel.fileName.collectAsStateWithLifecycle()
+    val fileSize by viewModel.fileSize.collectAsStateWithLifecycle()
+    val profile by mainViewModel.sessionProfileFlow.collectAsStateWithLifecycle(null)
 
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
-    val canUpload = mainViewModel.userProfile?.canUploadNotes() == true
+    val canUpload = profile?.canUploadNotes() == true
 
     var title by rememberSaveable { mutableStateOf("") }
     var subjectCode by rememberSaveable { mutableStateOf("") }
@@ -117,7 +118,7 @@ fun UploadNoteScreen(
                 },
                 actions = {
                     AppOverflowMenu(
-                        userProfile = mainViewModel.userProfile,
+                        userProfile = profile,
                         onOpenAdminPanel = onOpenAdminPanel,
                         onLogout = { mainViewModel.signOut() }
                     )

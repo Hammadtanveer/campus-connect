@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.models.Note
@@ -46,15 +47,12 @@ fun NotesScreen(
     val notesViewModel: NotesViewModel = hiltViewModel()
     val uploadViewModel: UploadNoteViewModel = hiltViewModel()
 
-    val profile = mainViewModel.userProfile
+    val profile by mainViewModel.sessionProfileFlow.collectAsStateWithLifecycle(null)
     val canUploadNotes = profile?.canUploadNotes() == true
 
     var selectedTab by remember { mutableStateOf(0) }
 
-    val tabs = remember(canUploadNotes) {
-        if (canUploadNotes) listOf("All Notes", "My Uploads", "Upload")
-        else listOf("All Notes")
-    }
+    val tabs = if (canUploadNotes) listOf("All Notes", "My Uploads", "Upload") else listOf("All Notes")
 
     LaunchedEffect(selectedTab, canUploadNotes) {
         if (canUploadNotes && selectedTab == 2 && navController != null) {
@@ -95,8 +93,8 @@ fun NotesScreen(
 
 @Composable
 fun AllNotesTab(viewModel: NotesViewModel) {
-    val state by viewModel.allNotesState.collectAsState()
-    val searchQuery by viewModel.searchQuery.collectAsState()
+    val state by viewModel.allNotesState.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // Keep search behavior while removing subject/semester filter controls.
@@ -165,8 +163,8 @@ private fun SearchOnlySection(
 
 @Composable
 fun MyNotesTab(viewModel: NotesViewModel) {
-    val state by viewModel.myNotesState.collectAsState()
-    val deleteInProgress by viewModel.deleteInProgress.collectAsState()
+    val state by viewModel.myNotesState.collectAsStateWithLifecycle()
+    val deleteInProgress by viewModel.deleteInProgress.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     NotesListContent(
@@ -435,10 +433,10 @@ fun UploadTab(
     onUploadSuccess: () -> Unit
 ) {
     val context = LocalContext.current
-    val uploadProgress by viewModel.uploadProgress.collectAsState()
-    val selectedFileUri by viewModel.selectedFileUri.collectAsState()
-    val fileName by viewModel.fileName.collectAsState()
-    val fileSize by viewModel.fileSize.collectAsState()
+    val uploadProgress by viewModel.uploadProgress.collectAsStateWithLifecycle()
+    val selectedFileUri by viewModel.selectedFileUri.collectAsStateWithLifecycle()
+    val fileName by viewModel.fileName.collectAsStateWithLifecycle()
+    val fileSize by viewModel.fileSize.collectAsStateWithLifecycle()
 
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }

@@ -89,6 +89,11 @@ class AuthViewModel @Inject constructor(
         onResult: (Boolean, String?) -> Unit
     ) {
         val isAdmin = adminCode.isNotBlank() && adminCode == Constants.ADMIN_CODE
+        val permissions = if (isAdmin) {
+            listOf("is_admin", "events:create:all", "notes:upload:all", "placements:manage")
+        } else {
+            emptyList()
+        }
         val profile = UserProfile(
             id = userId,
             displayName = displayName,
@@ -97,15 +102,8 @@ class AuthViewModel @Inject constructor(
             branch = branch,
             year = year,
             bio = bio,
-            isAdmin = isAdmin,
-            roles = if (isAdmin) Constants.DEFAULT_ADMIN_ROLES else emptyList(),
             role = if (isAdmin) "admin" else "user",
-            permissions = mapOf(
-                "is_admin" to isAdmin,
-                "can_manage_events" to isAdmin,
-                "can_manage_notes" to isAdmin,
-                "can_manage_placements" to isAdmin
-            )
+            permissions = permissions
         )
         firestore.collection("users").document(userId)
             .set(profile)

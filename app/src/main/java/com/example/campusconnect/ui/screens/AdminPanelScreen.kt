@@ -12,14 +12,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.models.UserProfile
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.ui.viewmodels.AdminPanelViewModel
-import com.example.campusconnect.util.PermissionChecker
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,11 +28,20 @@ fun AdminPanelScreen(
     navController: NavController,
     adminPanelViewModel: AdminPanelViewModel = hiltViewModel()
 ) {
-    val profile = viewModel.userProfile
+    val profile by adminPanelViewModel.currentUser.collectAsStateWithLifecycle()
 
-    val isSuperAdmin = PermissionChecker.isSuperAdmin(profile)
-    val isAdmin = PermissionChecker.isAdminAccessValid(profile)
+    val isSuperAdmin = PermissionManager.isSuperAdmin(profile)
+    val isAdmin = PermissionManager.canAccessAdminPanel(profile)
     val featureVisibility = adminPanelViewModel.getFeatureVisibility(profile)
+
+    LaunchedEffect(profile, isAdmin, isSuperAdmin, featureVisibility) {
+        val perms = PermissionManager.effectivePermissions(profile).sorted()
+        android.util.Log.d("ADMIN_DEBUG", "UI permissions = ${profile?.permissions}")
+        android.util.Log.d(
+            "PERM_DEBUG",
+            "UI AdminPanelScreen -> role=${profile?.role ?: ""}, perms=$perms, isAdmin=$isAdmin, isSuperAdmin=$isSuperAdmin, features=$featureVisibility"
+        )
+    }
 
     Scaffold(
         topBar = {

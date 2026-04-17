@@ -37,12 +37,15 @@ import com.example.campusconnect.data.repository.AdminActivityLogRepository
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.functions.ktx.functions
 import com.example.campusconnect.data.Senior
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.delay
 import com.example.campusconnect.notifications.NotificationSubscriptionManager
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.util.DbgLog
 import com.example.campusconnect.util.UserProfileMapper
 
@@ -68,6 +71,7 @@ class MainViewModel @Inject constructor(
 
     private val _userProfile = mutableStateOf<UserProfile?>(null)
     val userProfile: UserProfile? get() = _userProfile.value
+    val sessionProfileFlow: Flow<UserProfile?> = sessionManager.state.map { it.profile }
 
     private val _currentScreen = mutableStateOf<Screen>(Screen.DrawerScreen.Profile)
     val currentScreen: Screen get() = _currentScreen.value
@@ -112,6 +116,8 @@ class MainViewModel @Inject constructor(
     private val _seniorsList = MutableStateFlow<List<Senior>>(emptyList())
     val seniorsList: StateFlow<List<Senior>> = _seniorsList.asStateFlow()
     private var seniorsObserverJob: Job? = null
+    private var userProfileListener: ListenerRegistration? = null
+    private var observedProfileUid: String? = null
     private var authStateListener: FirebaseAuth.AuthStateListener? = null
     private var lastObservedUid: String? = null
     private val _deleteSeniorStatus = mutableStateOf<Resource<Unit>?>(null)
@@ -133,9 +139,10 @@ class MainViewModel @Inject constructor(
             DbgLog.d(SENIOR_TAG, "sessionManager collect start")
             sessionManager.state.collect { state ->
                 DbgLog.d(SENIOR_TAG, "session update profilePresent=${state.profile != null}")
-                if (state.profile != null) {
-                    _userProfile.value = state.profile
-                }
+                _userProfile.value = state.profile
+                val profile = state.profile
+                val perms = PermissionManager.effectivePermissions(profile).sorted()
+                Log.d("PERM_DEBUG", "MainViewModel session sync -> userId=${profile?.id ?: "null"}, role=${profile?.role ?: ""}, permissions=$perms")
             }
         }
 
@@ -171,15 +178,19 @@ class MainViewModel @Inject constructor(
         if (user == null) {
             DbgLog.d(SENIOR_TAG, "auth user missing, clear seniors and stop initializing")
             seniorsObserverJob?.cancel()
+            userProfileListener?.remove()
+            userProfileListener = null
+            observedProfileUid = null
             _seniorsList.value = emptyList()
             sessionManager.updateAuth(null, null)
+            sessionManager.updateProfile(null)
             _initializing.value = false
             return
         }
 
         DbgLog.d(SENIOR_TAG, "auth user ready uid=${user.uid}, bootstrap profile + seniors")
         sessionManager.updateAuth(user.uid, user.email)
-        loadUserProfile(user.uid)
+        observeUserProfile(user.uid)
         observeSeniors()
     }
 
@@ -205,43 +216,15 @@ class MainViewModel @Inject constructor(
 
     // All your existing methods with State updates
     private fun normalizeRbac(profile: UserProfile): UserProfile {
-        var p = profile
-        val normalizedRole = p.role.trim().lowercase().let { role ->
-            when (role) {
-                "superadmin" -> "super_admin"
-                else -> role
-            }
-        }
-        if (normalizedRole != p.role) {
-            p = p.copy(role = normalizedRole)
-        }
-
-        val hasWildcard = p.permissions["*:*:*"] == true || p.permissionsList.any { it == "*:*:*" }
-        val isSuper = p.role in listOf("super_admin", "superadmin") || hasWildcard
-        if (isSuper) {
-            val defaultLegacy = listOf("admin", "event:create", "notes:upload")
-            val mergedRoles = (p.roles + defaultLegacy).distinct()
-            val mergedPermissions = p.permissions + mapOf(
-                "*:*:*" to true,
-                "is_admin" to true,
-                "can_manage_events" to true,
-                "can_manage_notes" to true,
-                "can_manage_placements" to true
-            )
-            val mergedPermissionList = (p.permissionsList + "*:*:*").distinct()
-            p = p.copy(
-                role = "super_admin",
-                isAdmin = true,
-                roles = mergedRoles,
-                permissions = mergedPermissions,
-                permissionsList = mergedPermissionList
-            )
-        }
-
-        if (!p.isAdmin && p.role == "admin") {
-            p = p.copy(isAdmin = true)
-        }
-        return p
+        val normalizedRole = profile.role.trim().lowercase()
+        val normalizedPermissions = profile.permissions
+            .map { PermissionManager.normalizePermission(it) }
+            .filter { it.isNotBlank() }
+            .distinct()
+        return profile.copy(
+            role = normalizedRole,
+            permissions = normalizedPermissions
+        )
     }
 
     private fun parseClaimStringList(raw: Any?): List<String> = when (raw) {
@@ -256,26 +239,53 @@ class MainViewModel @Inject constructor(
         return if (role == "superadmin") "super_admin" else role
     }
 
-    private fun loadUserProfile(userId: String) {
-        DbgLog.d(SENIOR_TAG, "loadUserProfile start userId=$userId")
-        firestore.collection("users").document(userId)
-            .get()
-            .addOnSuccessListener { doc ->
-                DbgLog.d(SENIOR_TAG, "loadUserProfile success exists=${doc.exists()}")
+    private fun observeUserProfile(userId: String) {
+        if (observedProfileUid == userId && userProfileListener != null) {
+            DbgLog.d(SENIOR_TAG, "observeUserProfile already active for userId=$userId")
+            return
+        }
+
+        userProfileListener?.remove()
+        userProfileListener = null
+        observedProfileUid = userId
+
+        DbgLog.d(SENIOR_TAG, "observeUserProfile start userId=$userId")
+        userProfileListener = firestore.collection("users").document(userId)
+            .addSnapshotListener { doc, error ->
+                if (error != null) {
+                    _initializing.value = false
+                    DbgLog.e(SENIOR_TAG, "observeUserProfile error; initializing=false", error)
+                    return@addSnapshotListener
+                }
+
+                if (doc == null) {
+                    _initializing.value = false
+                    DbgLog.e(SENIOR_TAG, "observeUserProfile null snapshot; initializing=false")
+                    return@addSnapshotListener
+                }
+
+                DbgLog.d(SENIOR_TAG, "observeUserProfile snapshot exists=${doc.exists()} pendingWrites=${doc.metadata.hasPendingWrites()} fromCache=${doc.metadata.isFromCache}")
+
                 if (doc.exists()) {
                     val profile = UserProfileMapper.fromDocument(doc)
                     val normalized = profile?.let { normalizeRbac(it) }
                     _userProfile.value = normalized
                     sessionManager.updateProfile(normalized)
+                    PermissionManager.logProfileSnapshot(normalized, "MainViewModel.observeUserProfile")
+
+                    val role = normalized?.role.orEmpty()
+                    val perms = normalized?.let { PermissionManager.effectivePermissions(it).sorted() } ?: emptyList()
+                    Log.d("PERM_DEBUG", "REALTIME UPDATE -> role=$role, permissions=$perms")
+                    if (normalized != null && perms.isEmpty()) {
+                        Log.d("PERM_DEBUG", "userId=${normalized.id}, role=${normalized.role}, permissions missing or empty")
+                    }
+
                     loadUserActivities()
-                    // Navigate into the app after successful profile load
                     _currentScreen.value = Screen.DrawerScreen.Profile
-                    Log.i("MainViewModel", "loadUserProfile: profile loaded, navigating to Profile for $userId")
                 } else {
-                    // Firestore document missing — attempt to build a fallback profile from FirebaseAuth user
                     val firebaseUser = auth.currentUser
                     if (firebaseUser != null) {
-                        DbgLog.d(SENIOR_TAG, "loadUserProfile fallback profile for uid=${firebaseUser.uid}")
+                        DbgLog.d(SENIOR_TAG, "observeUserProfile fallback profile for uid=${firebaseUser.uid}")
                         val fallback = UserProfile(
                             id = firebaseUser.uid,
                             displayName = firebaseUser.displayName ?: "",
@@ -285,30 +295,22 @@ class MainViewModel @Inject constructor(
                             year = "",
                             bio = "",
                         )
-                        // set locally so AuthGate treats the user as authenticated
                         _userProfile.value = fallback
                         sessionManager.updateProfile(fallback)
                         _currentScreen.value = Screen.DrawerScreen.Profile
-                        // write the fallback profile to Firestore (best-effort)
                         firestore.collection("users").document(firebaseUser.uid)
                             .set(fallback)
                             .addOnSuccessListener {
-                                Log.i("MainViewModel", "loadUserProfile: wrote fallback profile for ${firebaseUser.uid}")
-                                DbgLog.d(SENIOR_TAG, "loadUserProfile fallback write success uid=${firebaseUser.uid}")
+                                DbgLog.d(SENIOR_TAG, "observeUserProfile fallback write success uid=${firebaseUser.uid}")
                             }
-                            .addOnFailureListener { error ->
-                                DbgLog.e(SENIOR_TAG, "loadUserProfile fallback write failed", error)
+                            .addOnFailureListener { writeError ->
+                                DbgLog.e(SENIOR_TAG, "observeUserProfile fallback write failed", writeError)
                             }
                     }
                 }
-                // refresh claims after setting profile
-                refreshClaims()
+
                 _initializing.value = false
-                DbgLog.d(SENIOR_TAG, "loadUserProfile completed; initializing=false")
-            }
-            .addOnFailureListener { error ->
-                _initializing.value = false
-                DbgLog.e(SENIOR_TAG, "loadUserProfile failed; initializing=false", error)
+                DbgLog.d(SENIOR_TAG, "observeUserProfile snapshot processed; initializing=false")
             }
     }
 
@@ -322,22 +324,19 @@ class MainViewModel @Inject constructor(
 
         val current = _userProfile.value
         if (current != null) {
-            val mergedRoles = (current.roles + claimRoles).distinct()
-            val mergedPermissions = current.permissions + claimPermissions.associateWith { true }
-            val mergedPermissionList = (current.permissionsList + claimPermissions).distinct()
+            val claimDerivedPermissions = claimPermissions + claimRoles
+            val mergedPermissions = (current.permissions + claimDerivedPermissions)
+                .map { PermissionManager.normalizePermission(it) }
+                .distinct()
             val resolvedRole = when {
                 claimsSuperAdmin -> "super_admin"
                 !claimRole.isNullOrBlank() -> claimRole
                 else -> current.role
             }
-            val mergedAdmin = current.isAdmin || claimsAdmin || claimsSuperAdmin || resolvedRole == "admin" || resolvedRole == "super_admin"
             val updated = normalizeRbac(
                 current.copy(
-                    isAdmin = mergedAdmin,
                     role = resolvedRole,
-                    roles = mergedRoles,
-                    permissions = mergedPermissions,
-                    permissionsList = mergedPermissionList
+                    permissions = mergedPermissions
                 )
             )
             _userProfile.value = updated
@@ -386,7 +385,7 @@ class MainViewModel @Inject constructor(
                         }
 
                         // Then attempt to load the full profile from Firestore (best-effort)
-                        loadUserProfile(uid)
+                        observeUserProfile(uid)
                         subscribeTopicsOncePerSession()
                         // claims refresh will happen in loadUserProfile
                         onResult(true, null)
@@ -509,6 +508,11 @@ class MainViewModel @Inject constructor(
         isAdmin: Boolean = false,
         onResult: (Boolean, String?) -> Unit
     ) {
+        val defaultPermissions = if (isAdmin) {
+            listOf("is_admin", "events:create:all", "notes:upload:all", "placements:manage")
+        } else {
+            emptyList()
+        }
         val profile = UserProfile(
             id = userId,
             displayName = displayName,
@@ -517,15 +521,8 @@ class MainViewModel @Inject constructor(
             branch = branch,
             year = year,
             bio = bio,
-            isAdmin = isAdmin,
-            roles = if (isAdmin) listOf("admin", "event:create", "notes:upload") else emptyList(),
             role = if (isAdmin) "admin" else "user",
-            permissions = mapOf(
-                "is_admin" to isAdmin,
-                "can_manage_events" to isAdmin,
-                "can_manage_notes" to isAdmin,
-                "can_manage_placements" to isAdmin
-            )
+            permissions = defaultPermissions
         )
         firestore.collection("users").document(userId)
             .set(profile)
@@ -878,17 +875,19 @@ class MainViewModel @Inject constructor(
         db.collection("users").document(uid)
             .get()
             .addOnSuccessListener { snap ->
-                val existingRoles = (snap.get("roles") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-                val mergedRoles = (existingRoles + Constants.DEFAULT_ADMIN_ROLES).distinct()
+                val existingPermissions = (snap.get("permissions") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                val mergedPermissions = (existingPermissions + listOf("is_admin", "events:create:all", "notes:upload:all", "placements:manage"))
+                    .map { PermissionManager.normalizePermission(it) }
+                    .distinct()
                 val updates = mapOf(
-                    "isAdmin" to true,
-                    "roles" to mergedRoles
+                    "permissions" to mergedPermissions,
+                    "role" to "admin"
                 )
                 db.collection("users").document(uid)
                     .update(updates)
                     .addOnSuccessListener {
                         // Update local profile state
-                        val updated = _userProfile.value?.copy(isAdmin = true, roles = mergedRoles)
+                        val updated = _userProfile.value?.copy(permissions = mergedPermissions, role = "admin")
                         _userProfile.value = updated
                         try {
                             // also update session manager so other viewmodels/screens see the change immediately
@@ -927,12 +926,12 @@ class MainViewModel @Inject constructor(
                             // Merge token claims into local profile
                             applyClaimsToProfile(token)
                             // Also reload Firestore profile document to pick up server updates
-                            loadUserProfile(user.uid)
+                            observeUserProfile(user.uid)
                             onResult(true, null)
                         }
                         .addOnFailureListener { e ->
                             // Even if token refresh fails, still attempt to reload profile
-                            loadUserProfile(user.uid)
+                            observeUserProfile(user.uid)
                             onResult(false, e.localizedMessage)
                         }
                 }
@@ -947,6 +946,9 @@ class MainViewModel @Inject constructor(
     override fun onCleared() {
         authStateListener?.let { auth.removeAuthStateListener(it) }
         authStateListener = null
+        userProfileListener?.remove()
+        userProfileListener = null
+        observedProfileUid = null
         seniorsObserverJob?.cancel()
         super.onCleared()
     }

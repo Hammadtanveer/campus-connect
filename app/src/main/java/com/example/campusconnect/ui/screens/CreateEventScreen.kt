@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.ui.events.EventsViewModel
 
@@ -44,6 +45,7 @@ fun CreateEventScreen(
     viewModel: EventsViewModel = hiltViewModel()
 ) {
     val isEditMode = !eventId.isNullOrBlank()
+    val profile by viewModel.currentUserProfileFlow.collectAsStateWithLifecycle(null)
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -73,7 +75,7 @@ fun CreateEventScreen(
                 eventType = event.eventType
                 meetLink = event.meetLink
                 venue = event.venue
-                hasEditPermission = viewModel.canEditEvent(event)
+                hasEditPermission = viewModel.canEditEvent(event, profile)
                 if (!hasEditPermission) {
                     error = "You don't have permission to edit this event."
                 }
@@ -87,7 +89,7 @@ fun CreateEventScreen(
         isLoadingEvent = false
     }
 
-    if (!isEditMode && !viewModel.canCreateEvent()) {
+    if (!isEditMode && !viewModel.canCreateEvent(profile)) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text("You don't have permission to create events.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
         }
@@ -271,7 +273,8 @@ fun CreateEventScreen(
                                     eventType = eventType,
                                     venue = venue,
                                     maxParticipants = maxP,
-                                    meetLink = meetLink
+                                    meetLink = meetLink,
+                                    profile = profile
                                 )
                                 Toast.makeText(context, "Event created successfully!", Toast.LENGTH_SHORT).show()
                             }
