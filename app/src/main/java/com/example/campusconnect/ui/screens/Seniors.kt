@@ -10,29 +10,57 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
 import com.example.campusconnect.MainViewModel
 import com.example.campusconnect.data.Senior
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.security.canAddSenior
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.example.campusconnect.util.DbgLog
 
 @Composable
 fun Seniors(viewModel: MainViewModel, navController: NavController) {
-    val seniors by viewModel.seniorsList.collectAsState()
+    var seniors by remember { mutableStateOf<List<Senior>>(emptyList()) }
     val deleteStatus = viewModel.deleteSeniorStatus
     val canAddSenior = viewModel.userProfile?.canAddSenior() == true
     val snackbarHostState = remember { SnackbarHostState() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(Unit) {
+        DbgLog.d("UI", "Seniors screen enter")
+        onDispose { DbgLog.d("UI", "Seniors screen exit") }
+    }
+
+    LaunchedEffect(seniors.size, canAddSenior) {
+        DbgLog.d("UI", "Seniors render state count=${seniors.size} canAddSenior=$canAddSenior")
+    }
+
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        DbgLog.d("UI", "Seniors collector setup")
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            DbgLog.d("UI", "Seniors collector active STARTED")
+            viewModel.seniorsList.collect { value ->
+                DbgLog.d("UI", "Seniors collector emission count=${value.size}")
+                seniors = value
+            }
+        }
+    }
 
     LaunchedEffect(deleteStatus) {
+        DbgLog.d("UI", "deleteStatus changed=$deleteStatus")
         when (deleteStatus) {
             is Resource.Success<*> -> {
                 snackbarHostState.showSnackbar("Senior deleted")
@@ -72,6 +100,7 @@ fun Seniors(viewModel: MainViewModel, navController: NavController) {
                 })
             }
             if (seniors.isEmpty()) {
+                DbgLog.d("UI", "Seniors empty state shown canAddSenior=$canAddSenior")
                 item {
                     Box(
                         modifier = Modifier

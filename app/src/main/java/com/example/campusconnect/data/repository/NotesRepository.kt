@@ -8,6 +8,7 @@ import com.example.campusconnect.data.local.toEntity
 import com.example.campusconnect.data.models.Note
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.util.Constants
+import com.example.campusconnect.util.DbgLog
 import com.example.campusconnect.util.FileUtils
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
@@ -405,16 +406,24 @@ class NotesRepository @Inject constructor(
     suspend fun syncNotes(subject: String? = null, semester: String? = null) {
         withContext(Dispatchers.IO) {
             try {
+                DbgLog.d("Repo", "syncNotes start subject=$subject semester=$semester")
+                val beforeCount = notesDao.countNotesLogged()
+                DbgLog.d("Repo", "syncNotes local count before=$beforeCount")
                 // Fetch latest remote notes (one-shot)
                 var query: Query = notesCollection.orderBy("uploadedAt", Query.Direction.DESCENDING)
                 subject?.let { query = query.whereEqualTo("subject", it) }
                 semester?.let { query = query.whereEqualTo("semester", it) }
                 val snap = query.get().await()
+                DbgLog.d("Repo", "syncNotes remote docs=${snap.documents.size}")
                 val entities = snap.documents.mapNotNull { doc ->
                     doc.toObject(Note::class.java)?.copy(id = doc.id)?.toEntity()
                 }
-                notesDao.insertNotes(entities)
-            } catch (_: Exception) { }
+                notesDao.insertNotesLogged(entities)
+                val afterCount = notesDao.countNotesLogged()
+                DbgLog.d("Repo", "syncNotes local count after=$afterCount")
+            } catch (error: Exception) {
+                DbgLog.e("Repo", "syncNotes failed", error)
+            }
         }
     }
 }

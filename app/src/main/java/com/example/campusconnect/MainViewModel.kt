@@ -41,7 +41,9 @@ import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import com.example.campusconnect.notifications.NotificationSubscriptionManager
+import com.example.campusconnect.util.DbgLog
 import com.example.campusconnect.util.UserProfileMapper
 
 @HiltViewModel
@@ -57,6 +59,7 @@ class MainViewModel @Inject constructor(
     private val adminActivityLogRepository: AdminActivityLogRepository
 ) : AndroidViewModel(application) {
     companion object {
+        private const val SENIOR_TAG = "VM"
     }
 
     // Use State for Compose compatibility
@@ -109,6 +112,8 @@ class MainViewModel @Inject constructor(
     private val _seniorsList = MutableStateFlow<List<Senior>>(emptyList())
     val seniorsList: StateFlow<List<Senior>> = _seniorsList.asStateFlow()
     private var seniorsObserverJob: Job? = null
+    private var authStateListener: FirebaseAuth.AuthStateListener? = null
+    private var lastObservedUid: String? = null
     private val _deleteSeniorStatus = mutableStateOf<Resource<Unit>?>(null)
     val deleteSeniorStatus: Resource<Unit>? get() = _deleteSeniorStatus.value
 
@@ -122,34 +127,77 @@ class MainViewModel @Inject constructor(
     }
 
     init {
+        DbgLog.d(SENIOR_TAG, "init start")
         // Sync with SessionManager to keep profile updated across ViewModels
         viewModelScope.launch {
+            DbgLog.d(SENIOR_TAG, "sessionManager collect start")
             sessionManager.state.collect { state ->
+                DbgLog.d(SENIOR_TAG, "session update profilePresent=${state.profile != null}")
                 if (state.profile != null) {
                     _userProfile.value = state.profile
                 }
             }
         }
 
-        auth.currentUser?.let { user ->
-            sessionManager.updateAuth(user.uid, user.email)
-            loadUserProfile(user.uid)
-        } ?: run { _initializing.value = false }
+        authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            handleAuthStateChanged(firebaseAuth.currentUser)
+        }
+        authStateListener?.let { auth.addAuthStateListener(it) }
+
+        // Handle current auth synchronously so first launch doesn't depend on listener timing.
+        handleAuthStateChanged(auth.currentUser)
+
+        // Safety net: avoid indefinite splash if an async callback stalls.
+        viewModelScope.launch {
+            delay(6000)
+            if (_initializing.value) {
+                DbgLog.e(SENIOR_TAG, "initialization watchdog tripped; forcing initializing=false")
+                _initializing.value = false
+            }
+        }
+        DbgLog.d(SENIOR_TAG, "init end")
+    }
+
+    private fun handleAuthStateChanged(user: com.google.firebase.auth.FirebaseUser?) {
+        val uid = user?.uid
+        DbgLog.d(SENIOR_TAG, "authState changed uid=${uid ?: "null"}")
+
+        if (uid == lastObservedUid) {
+            DbgLog.d(SENIOR_TAG, "authState unchanged, skip re-init")
+            return
+        }
+
+        lastObservedUid = uid
+        if (user == null) {
+            DbgLog.d(SENIOR_TAG, "auth user missing, clear seniors and stop initializing")
+            seniorsObserverJob?.cancel()
+            _seniorsList.value = emptyList()
+            sessionManager.updateAuth(null, null)
+            _initializing.value = false
+            return
+        }
+
+        DbgLog.d(SENIOR_TAG, "auth user ready uid=${user.uid}, bootstrap profile + seniors")
+        sessionManager.updateAuth(user.uid, user.email)
+        loadUserProfile(user.uid)
         observeSeniors()
     }
 
     private fun observeSeniors() {
         seniorsObserverJob?.cancel()
+        DbgLog.d(SENIOR_TAG, "observeSeniors collector created")
         seniorsObserverJob = viewModelScope.launch {
             seniorsRepo.observeSeniors().collect { res ->
                 when (res) {
                     is Resource.Success -> {
+                        DbgLog.d(SENIOR_TAG, "observeSeniors success count=${res.data.size}")
                         if (res.data != _seniorsList.value) {
                             _seniorsList.value = res.data
+                            DbgLog.d(SENIOR_TAG, "seniorsList updated count=${_seniorsList.value.size}")
                         }
                     }
-                    is Resource.Error -> Unit
-                    is Resource.Loading -> Unit
+                    is Resource.Error -> DbgLog.e(SENIOR_TAG, "observeSeniors error=${res.message}")
+                    is Resource.Loading -> DbgLog.d(SENIOR_TAG, "observeSeniors loading")
                 }
             }
         }
@@ -209,9 +257,11 @@ class MainViewModel @Inject constructor(
     }
 
     private fun loadUserProfile(userId: String) {
+        DbgLog.d(SENIOR_TAG, "loadUserProfile start userId=$userId")
         firestore.collection("users").document(userId)
             .get()
             .addOnSuccessListener { doc ->
+                DbgLog.d(SENIOR_TAG, "loadUserProfile success exists=${doc.exists()}")
                 if (doc.exists()) {
                     val profile = UserProfileMapper.fromDocument(doc)
                     val normalized = profile?.let { normalizeRbac(it) }
@@ -225,6 +275,7 @@ class MainViewModel @Inject constructor(
                     // Firestore document missing — attempt to build a fallback profile from FirebaseAuth user
                     val firebaseUser = auth.currentUser
                     if (firebaseUser != null) {
+                        DbgLog.d(SENIOR_TAG, "loadUserProfile fallback profile for uid=${firebaseUser.uid}")
                         val fallback = UserProfile(
                             id = firebaseUser.uid,
                             displayName = firebaseUser.displayName ?: "",
@@ -243,18 +294,21 @@ class MainViewModel @Inject constructor(
                             .set(fallback)
                             .addOnSuccessListener {
                                 Log.i("MainViewModel", "loadUserProfile: wrote fallback profile for ${firebaseUser.uid}")
+                                DbgLog.d(SENIOR_TAG, "loadUserProfile fallback write success uid=${firebaseUser.uid}")
                             }
-                            .addOnFailureListener { _ ->
-                                Unit
+                            .addOnFailureListener { error ->
+                                DbgLog.e(SENIOR_TAG, "loadUserProfile fallback write failed", error)
                             }
                     }
                 }
                 // refresh claims after setting profile
                 refreshClaims()
                 _initializing.value = false
+                DbgLog.d(SENIOR_TAG, "loadUserProfile completed; initializing=false")
             }
-            .addOnFailureListener { _ ->
+            .addOnFailureListener { error ->
                 _initializing.value = false
+                DbgLog.e(SENIOR_TAG, "loadUserProfile failed; initializing=false", error)
             }
     }
 
@@ -891,6 +945,8 @@ class MainViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        authStateListener?.let { auth.removeAuthStateListener(it) }
+        authStateListener = null
         seniorsObserverJob?.cancel()
         super.onCleared()
     }
