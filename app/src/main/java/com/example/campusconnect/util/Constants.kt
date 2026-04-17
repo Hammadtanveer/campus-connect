@@ -3,8 +3,6 @@ package com.example.campusconnect.util
 import com.google.firebase.Timestamp
 
 object Constants {
-    // Admin code for granting admin privileges during registration or upgrade
-    const val ADMIN_CODE = "CAMPUS_ADMIN_2025"
     // Default admin permissions granted on upgrade (mirrors server-side expectations)
     val DEFAULT_ADMIN_PERMISSIONS = listOf(
         "meetings:manage",
@@ -13,8 +11,6 @@ object Constants {
         "society:*:manage"
     )
 
-    // User-facing error messages
-    const val ERROR_INVALID_ADMIN_CODE = "Invalid admin code. Please contact your administrator for the correct code."
 
     // File size limits
     const val MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024L // 10 MB

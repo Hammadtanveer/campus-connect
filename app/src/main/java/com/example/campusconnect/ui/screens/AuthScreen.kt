@@ -90,9 +90,7 @@ private fun RegisterScreen(
     var email by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
-    var adminCode by remember { mutableStateOf("") }
-    var showAdminField by remember { mutableStateOf(false) }
-    var loading by remember { mutableStateOf(false) }
+     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var success by remember { mutableStateOf<String?>(null) }
 
@@ -116,16 +114,6 @@ private fun RegisterScreen(
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(12.dp))
-            TextButton(onClick = { showAdminField = !showAdminField }) { Text(if (showAdminField) "Hide admin code" else "I have an admin code") }
-            if (showAdminField) {
-                OutlinedTextField(
-                    value = adminCode,
-                    onValueChange = { adminCode = it },
-                    label = { Text("Admin Code (Optional)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
             // Show error or success message
             error?.let { Text(text = it, color = MaterialTheme.colorScheme.error) }
             success?.let { Text(text = it, color = Success) }
@@ -155,12 +143,11 @@ private fun RegisterScreen(
                     course = "",
                     branch = "",
                     year = "",
-                    bio = "",
-                    adminCode = adminCode.trim()
+                    bio = ""
                 ) { ok, err ->
                     loading = false
                     if (ok) {
-                        success = if (adminCode.isNotBlank()) "Admin account created successfully. Signing you in..." else "Account created successfully. Signing you in..."
+                        success = "Account created successfully. Signing you in..."
                         // Short delay to let the user read the success message, then notify parent to close auth UI
                         scope.launch {
                             delay(900)

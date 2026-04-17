@@ -3,7 +3,6 @@ package com.example.campusconnect.auth
 import androidx.lifecycle.ViewModel
 import com.example.campusconnect.data.models.UserProfile
 import com.example.campusconnect.session.SessionManager
-import com.example.campusconnect.util.Constants
 import com.example.campusconnect.util.UserProfileMapper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
@@ -43,7 +42,6 @@ class AuthViewModel @Inject constructor(
         branch: String,
         year: String,
         bio: String,
-        adminCode: String,
         onResult: (Boolean, String?) -> Unit
     ) {
         auth.createUserWithEmailAndPassword(email, password)
@@ -67,7 +65,6 @@ class AuthViewModel @Inject constructor(
                                 branch = branch,
                                 year = year,
                                 bio = bio,
-                                adminCode = adminCode,
                                 onResult = onResult
                             )
                         }
@@ -85,15 +82,8 @@ class AuthViewModel @Inject constructor(
         branch: String,
         year: String,
         bio: String,
-        adminCode: String,
         onResult: (Boolean, String?) -> Unit
     ) {
-        val isAdmin = adminCode.isNotBlank() && adminCode == Constants.ADMIN_CODE
-        val permissions = if (isAdmin) {
-            Constants.DEFAULT_ADMIN_PERMISSIONS
-        } else {
-            emptyList()
-        }
         val profile = UserProfile(
             id = userId,
             displayName = displayName,
@@ -102,7 +92,7 @@ class AuthViewModel @Inject constructor(
             branch = branch,
             year = year,
             bio = bio,
-            permissions = permissions
+            permissions = emptyList()
         )
         firestore.collection("users").document(userId)
             .set(profile)

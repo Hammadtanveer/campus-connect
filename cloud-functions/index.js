@@ -6,8 +6,8 @@ const admin = require('firebase-admin');
 // Initialize the admin SDK
 admin.initializeApp();
 
-// Configuration: set ADMIN_CODE and DEFAULT_ADMIN_PERMISSIONS in functions config (or fallback here)
-const DEFAULT_ADMIN_CODE = functions.config().campus?.admin_code || 'CAMPUS_ADMIN_2025';
+// Configuration: set ADMIN_CODE and DEFAULT_ADMIN_PERMISSIONS in functions config
+const DEFAULT_ADMIN_CODE = functions.config().campus?.admin_code || '';
 const DEFAULT_ADMIN_PERMISSIONS = (functions.config().campus?.default_admin_permissions && functions.config().campus.default_admin_permissions.split(',')) || [
   'meetings:manage',
   'notes:manage',
@@ -37,6 +37,9 @@ exports.requestAdminAccess = functions.https.onCall(async (data, context) => {
   }
 
   // Validate admin code
+  if (!DEFAULT_ADMIN_CODE) {
+    throw new functions.https.HttpsError('failed-precondition', 'Admin code is not configured on the server');
+  }
   if (adminCode !== DEFAULT_ADMIN_CODE) {
     throw new functions.https.HttpsError('permission-denied', 'Invalid admin code');
   }

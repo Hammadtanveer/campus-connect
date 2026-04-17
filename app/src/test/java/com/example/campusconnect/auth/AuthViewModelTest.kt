@@ -91,7 +91,7 @@ class AuthViewModelTest {
         val firestore = mock<FirebaseFirestore>()
         val session = SessionManager()
         val vm = AuthViewModel(fake.auth, firestore, session)
-        vm.register("new@e.com", "pass", "Name", "", "", "", "", "") { ok, _ -> assertTrue(ok) }
+        vm.register("new@e.com", "pass", "Name", "", "", "", "") { ok, _ -> assertTrue(ok) }
         assertEquals("uid_reg", session.state.value.userId)
     }
 
@@ -102,7 +102,7 @@ class AuthViewModelTest {
         val session = SessionManager()
         val vm = AuthViewModel(fake.auth, firestore, session)
         var failed = false
-        vm.register("new@e.com", "pass", "Name", "", "", "", "", "") { ok, _ -> if (!ok) failed = true }
+        vm.register("new@e.com", "pass", "Name", "", "", "", "") { ok, _ -> if (!ok) failed = true }
         assertTrue(failed)
         assertNull(session.state.value.userId)
     }

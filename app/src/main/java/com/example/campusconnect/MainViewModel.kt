@@ -26,7 +26,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.campusconnect.data.models.Note
 import kotlinx.coroutines.launch
 import android.app.Application
-import com.example.campusconnect.util.Constants
 import com.example.campusconnect.util.formatTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -368,17 +367,9 @@ class MainViewModel @Inject constructor(
         branch: String,
         year: String,
         bio: String = "",
-        adminCode: String = "",
         onResult: (Boolean, String?) -> Unit
     ) {
         Log.i("MainViewModel", "registerWithEmailPassword: starting for $email")
-
-        // Validate admin code locally before making any network call
-        val trimmedAdminCode = adminCode.trim()
-        if (trimmedAdminCode.isNotBlank() && trimmedAdminCode != Constants.ADMIN_CODE) {
-            onResult(false, Constants.ERROR_INVALID_ADMIN_CODE)
-            return
-        }
 
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
@@ -389,7 +380,6 @@ class MainViewModel @Inject constructor(
                         onResult(false, "Registration succeeded but no user instance found.")
                         return@addOnCompleteListener
                     }
-                    val isAdminRegistration = trimmedAdminCode.isNotBlank() && trimmedAdminCode == Constants.ADMIN_CODE
                     val profileUpdates = UserProfileChangeRequest.Builder()
                         .setDisplayName(displayName)
                         .build()
@@ -403,8 +393,7 @@ class MainViewModel @Inject constructor(
                                 course = course,
                                 branch = branch,
                                 year = year,
-                                bio = bio,
-                                isAdmin = isAdminRegistration
+                                bio = bio
                             ) { ok, err ->
                                 if (ok) {
                                     Log.i("MainViewModel", "createUserProfile succeeded for ${user.uid}")
@@ -448,14 +437,8 @@ class MainViewModel @Inject constructor(
         branch: String,
         year: String,
         bio: String = "",
-        isAdmin: Boolean = false,
         onResult: (Boolean, String?) -> Unit
     ) {
-        val defaultPermissions = if (isAdmin) {
-            Constants.DEFAULT_ADMIN_PERMISSIONS
-        } else {
-            emptyList()
-        }
         val profile = UserProfile(
             id = userId,
             displayName = displayName,
@@ -464,7 +447,7 @@ class MainViewModel @Inject constructor(
             branch = branch,
             year = year,
             bio = bio,
-            permissions = defaultPermissions
+            permissions = emptyList()
         )
         firestore.collection("users").document(userId)
             .set(profile)
@@ -799,53 +782,9 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Upgrade currently signed-in user to admin locally by updating Firestore document.
-     * NOTE: This does NOT set Firebase Custom Claims (requires Admin SDK). It enables client-side features.
-     */
-    @Suppress("unused")
-    fun upgradeToAdmin(providedCode: String, onResult: (Boolean, String?) -> Unit) {
-        val user = auth.currentUser ?: return onResult(false, "Not signed in")
-        if (providedCode != Constants.ADMIN_CODE) {
-            onResult(false, "Invalid admin code")
-            return
-        }
-        val uid = user.uid
-        val db = FirebaseFirestore.getInstance()
-        db.collection("users").document(uid)
-            .get()
-            .addOnSuccessListener { snap ->
-                val existingPermissions = (snap.get("permissions") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-                val mergedPermissions = (existingPermissions + Constants.DEFAULT_ADMIN_PERMISSIONS)
-                    .map { PermissionManager.normalizePermission(it) }
-                    .distinct()
-                val updates = mapOf(
-                    "permissions" to mergedPermissions
-                )
-                db.collection("users").document(uid)
-                    .update(updates)
-                    .addOnSuccessListener {
-                        // Update local profile state
-                        val updated = _userProfile.value?.copy(permissions = mergedPermissions)
-                        _userProfile.value = updated
-                        try {
-                            // also update session manager so other viewmodels/screens see the change immediately
-                            sessionManager.updateProfile(updated)
-                        } catch (ex: Exception) {
-                            Unit
-                        }
-                        onResult(true, null)
-                    }
-                    .addOnFailureListener { e ->
-                        onResult(false, e.localizedMessage)
-                    }
-            }
-            .addOnFailureListener { e -> onResult(false, e.localizedMessage) }
-    }
 
     /**
      * Request admin access using server-side validation (callable Cloud Function).
-     * This is preferred over client-only `upgradeToAdmin` because the admin code is validated server-side.
      */
     @Suppress("unused")
     fun requestAdminAccessServer(adminCode: String, onResult: (Boolean, String?) -> Unit) {
