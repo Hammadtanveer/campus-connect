@@ -125,15 +125,15 @@ fun SocietyEventsScreen(
     val currentProfile by viewModel.currentUserProfileFlow.collectAsStateWithLifecycle(null)
     val deleteStatus = viewModel.deleteEventStatus
 
-    val canCreate = PermissionManager.canManageSociety(currentProfile)
-    val canEdit = PermissionManager.canManageSociety(currentProfile)
-    val canDelete = PermissionManager.canDeleteSocietyEvent(currentProfile)
+    val canCreate = PermissionManager.canManageSociety(currentProfile, societyId)
+    val canEdit = PermissionManager.canManageSociety(currentProfile, societyId)
+    val canDelete = viewModel.canDeleteSocietyEvent(currentProfile, societyId)
 
     LaunchedEffect(currentProfile, canCreate, canEdit, canDelete) {
         val perms = PermissionManager.effectivePermissions(currentProfile).sorted()
         android.util.Log.d(
             "PERM_DEBUG",
-            "UI SocietyEventsScreen -> role=${currentProfile?.role ?: ""}, perms=$perms, canCreate=$canCreate, canEdit=$canEdit, canDelete=$canDelete"
+            "UI SocietyEventsScreen -> societyId=$societyId role=${currentProfile?.role ?: ""}, perms=$perms, canCreate=$canCreate, canEdit=$canEdit, canDelete=$canDelete"
         )
     }
 

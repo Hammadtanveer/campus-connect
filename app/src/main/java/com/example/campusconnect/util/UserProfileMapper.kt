@@ -37,6 +37,13 @@ object UserProfileMapper {
         fun timestamp(key: String): Timestamp? = data[key] as? Timestamp
 
         val normalizedRole = PermissionManager.normalizeRole(string("role"))
+        val hasAdminModulePermission = normalizedPermissions.any {
+            it == "meetings:manage" ||
+                it == "notes:manage" ||
+                it == "placements:manage" ||
+                it == "admin:access" ||
+                (it.startsWith("society:") && it.endsWith(":manage"))
+        }
 
         return UserProfile(
             id = if (string("id").isBlank()) id else string("id"),
@@ -49,7 +56,7 @@ object UserProfileMapper {
             profilePictureUrl = string("profilePictureUrl"),
             eventCount = (data["eventCount"] as? Number)?.toInt() ?: 0,
             role = normalizedRole.ifBlank {
-                if (normalizedPermissions.contains(PermissionManager.normalizePermission("is_admin"))) "admin" else "user"
+                if (hasAdminModulePermission) "admin" else "user"
             },
             permissions = normalizedPermissions,
             department = stringOrNull("department"),

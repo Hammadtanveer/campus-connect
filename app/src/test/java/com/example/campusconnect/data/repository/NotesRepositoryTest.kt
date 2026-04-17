@@ -5,6 +5,7 @@ import com.example.campusconnect.data.local.NoteEntity
 import com.example.campusconnect.data.local.NotesDao
 import com.example.campusconnect.data.models.Note
 import com.example.campusconnect.data.models.Resource
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,6 +26,7 @@ class NotesRepositoryTest {
     private lateinit var mockMediaManager: MediaManager
     private lateinit var mockNotesDao: NotesDao
     private lateinit var mockAdminActivityLogRepository: AdminActivityLogRepository
+    private lateinit var mockAuth: FirebaseAuth
 
     @Before
     fun setup() {
@@ -32,12 +34,14 @@ class NotesRepositoryTest {
         mockMediaManager = mock()
         mockNotesDao = mock()
         mockAdminActivityLogRepository = mock()
+        mockAuth = mock()
 
         repository = NotesRepository(
             mockFirestore,
             mockMediaManager,
             mockNotesDao,
-            mockAdminActivityLogRepository
+            mockAdminActivityLogRepository,
+            mockAuth
         )
     }
 
@@ -79,7 +83,8 @@ class NotesRepositoryTest {
             mockFirestore,
             mockMediaManager,
             mockNotesDao,
-            mockAdminActivityLogRepository
+            mockAdminActivityLogRepository,
+            mockAuth
         )
 
         // Then it should not be null

@@ -9,18 +9,15 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
     }
 
-    function isAdminOrSuperAdmin() {
-      return isAuthenticated() && (
-        userData().role in ['admin', 'superadmin', 'super_admin'] ||
-        request.auth.token.role in ['admin', 'superadmin', 'super_admin'] ||
-        request.auth.token.admin == true ||
-        request.auth.token.superAdmin == true
-      );
+    function hasPermission(permission) {
+      return isAuthenticated() &&
+        userData().permissions is list &&
+        ('*:*:*' in userData().permissions || permission in userData().permissions);
     }
 
     match /societies/{societyId}/events/{allPaths=**} {
       allow read: if isAuthenticated();
-      allow write: if isAdminOrSuperAdmin();
+      allow write: if hasPermission('society:*:manage') || hasPermission('society:' + societyId + ':manage');
     }
 
     match /{allPaths=**} {

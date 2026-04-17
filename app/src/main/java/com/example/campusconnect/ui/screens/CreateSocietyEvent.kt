@@ -102,7 +102,11 @@ fun CreateSocietyEventScreen(
         }
     }
 
-    val requiredAccess = if (isEditMode) viewModel.canEditSocietyEvent(profile) else viewModel.canCreateSocietyEvent(profile)
+    val requiredAccess = if (isEditMode) {
+        viewModel.canEditSocietyEvent(profile, societyId)
+    } else {
+        viewModel.canCreateSocietyEvent(profile, societyId)
+    }
     if (!requiredAccess) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text(

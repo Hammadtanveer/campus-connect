@@ -58,7 +58,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Step 4: Prompt for UID
 Write-Host "`n=====================================" -ForegroundColor Cyan
-Write-Host "  Set Admin Claims" -ForegroundColor Cyan
+Write-Host "  Set User Permissions" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 
 Write-Host "`nCopy the UID from the list above and paste it below." -ForegroundColor Yellow
@@ -71,28 +71,28 @@ if (-not $uid -or $uid.Length -lt 10) {
 
 # Step 5: Choose permissions
 Write-Host "`nSelect permissions to grant:" -ForegroundColor Yellow
-Write-Host "1. Full Admin (admin + all permissions)" -ForegroundColor White
-Write-Host "2. Event Manager (event:create)" -ForegroundColor White
-Write-Host "3. Notes Manager (notes:upload)" -ForegroundColor White
+Write-Host "1. Full Admin (module management permissions)" -ForegroundColor White
+Write-Host "2. Meetings & Announcements Manager (meetings:manage)" -ForegroundColor White
+Write-Host "3. Notes Manager (notes:manage)" -ForegroundColor White
 Write-Host "4. Custom (you choose)" -ForegroundColor White
 
 $choice = Read-Host "`nEnter choice (1-4)"
 
 switch ($choice) {
     "1" {
-        $permissions = "admin event:create notes:upload senior:update society:manage"
+        $permissions = "meetings:manage notes:manage placements:manage society:*:manage"
         Write-Host "`n✅ Will grant: Full Admin Access" -ForegroundColor Green
     }
     "2" {
-        $permissions = "event:create"
-        Write-Host "`n✅ Will grant: Event Manager" -ForegroundColor Green
+        $permissions = "meetings:manage"
+        Write-Host "`n✅ Will grant: Meetings & Announcements Manager" -ForegroundColor Green
     }
     "3" {
-        $permissions = "notes:upload"
+        $permissions = "notes:manage"
         Write-Host "`n✅ Will grant: Notes Manager" -ForegroundColor Green
     }
     "4" {
-        Write-Host "`nAvailable permissions: admin, event:create, notes:upload, senior:update, society:manage" -ForegroundColor Gray
+        Write-Host "`nAvailable permissions: meetings:manage, notes:manage, placements:manage, society:*:manage, society:<id>:manage" -ForegroundColor Gray
         $permissions = Read-Host "Enter permissions (space-separated)"
         Write-Host "`n✅ Will grant: $permissions" -ForegroundColor Green
     }
@@ -115,8 +115,8 @@ if ($confirm -ne "yes" -and $confirm -ne "y") {
     exit 0
 }
 
-# Step 7: Set claims
-Write-Host "`nSetting custom claims..." -ForegroundColor Yellow
+# Step 7: Set permissions in Firestore
+Write-Host "`nUpdating Firestore permissions..." -ForegroundColor Yellow
 
 $command = "node scripts/setCustomClaims.js `"$uid`" $permissions"
 Write-Host "Running: $command`n" -ForegroundColor Gray
@@ -127,11 +127,8 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "`n=====================================" -ForegroundColor Green
     Write-Host "  ✅ SUCCESS!" -ForegroundColor Green
     Write-Host "=====================================" -ForegroundColor Green
-    Write-Host "`nAdmin claims set successfully!" -ForegroundColor Green
-    Write-Host "`n⚠️  IMPORTANT: The user must:" -ForegroundColor Yellow
-    Write-Host "   1. Sign out of the app" -ForegroundColor White
-    Write-Host "   2. Sign back in" -ForegroundColor White
-    Write-Host "   3. Go to Profile → Open Admin Panel`n" -ForegroundColor White
+    Write-Host "`nPermissions updated successfully!" -ForegroundColor Green
+    Write-Host "`nGo to Profile → Open Admin Panel to verify access.`n" -ForegroundColor White
 } else {
     Write-Host "`n❌ Failed to set claims. Check the error above." -ForegroundColor Red
     exit 1

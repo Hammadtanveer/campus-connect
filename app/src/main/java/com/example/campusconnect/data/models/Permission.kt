@@ -79,22 +79,17 @@ data class Permission(
  */
 object Permissions {
 
-    // ========== EVENT MANAGEMENT ==========
+    // ========== MEETINGS & ANNOUNCEMENTS ==========
 
-    /** Create events for own society/organization */
-    const val EVENTS_CREATE = "events:create:own"
+    /** Manage meetings and announcements */
+    const val MEETINGS_MANAGE = "meetings:manage"
 
-    /** Edit events created by the user */
-    const val EVENTS_EDIT_OWN = "events:edit:own"
-
-    /** Edit any event on the platform */
-    const val EVENTS_EDIT_ALL = "events:edit:all"
-
-    /** Delete events created by the user */
-    const val EVENTS_DELETE_OWN = "events:delete:own"
-
-    /** Delete any event */
-    const val EVENTS_DELETE_ALL = "events:delete:all"
+    // Legacy aliases kept for compatibility with existing templates/usages.
+    const val EVENTS_CREATE = MEETINGS_MANAGE
+    const val EVENTS_EDIT_OWN = MEETINGS_MANAGE
+    const val EVENTS_EDIT_ALL = MEETINGS_MANAGE
+    const val EVENTS_DELETE_OWN = MEETINGS_MANAGE
+    const val EVENTS_DELETE_ALL = MEETINGS_MANAGE
 
     /** Feature events on homepage */
     const val EVENTS_FEATURE = "events:feature:all"
@@ -104,45 +99,38 @@ object Permissions {
 
     // ========== NOTES MANAGEMENT ==========
 
-    /** Upload study notes and materials */
-    const val NOTES_UPLOAD = "notes:upload:own"
+    /** Manage notes (upload/edit/delete) */
+    const val NOTES_MANAGE = "notes:manage"
 
-    /** Edit notes uploaded by the user */
-    const val NOTES_EDIT_OWN = "notes:edit:own"
-
-    /** Review and moderate all uploaded notes */
-    const val NOTES_MODERATE = "notes:moderate:all"
-
-    /** Delete any notes */
-    const val NOTES_DELETE = "notes:delete:all"
+    // Legacy aliases kept for compatibility with existing templates/usages.
+    const val NOTES_UPLOAD = NOTES_MANAGE
+    const val NOTES_EDIT_OWN = NOTES_MANAGE
+    const val NOTES_MODERATE = NOTES_MANAGE
+    const val NOTES_DELETE = NOTES_MANAGE
 
     /** Feature quality notes on homepage */
     const val NOTES_FEATURE = "notes:feature:all"
 
     // ========== SENIORS MANAGEMENT ==========
 
-    /** Add new senior profiles */
-    const val SENIORS_ADD = "seniors:add:all"
+    /** Manage seniors (add/edit/delete) */
+    const val SENIORS_MANAGE = "seniors:manage"
 
-    /** Edit senior information */
-    const val SENIORS_EDIT = "seniors:edit:all"
-
-    /** Remove senior profiles */
-    const val SENIORS_DELETE = "seniors:delete:all"
-
-    /** Verify senior profiles as authentic */
-    const val SENIORS_VERIFY = "seniors:verify:all"
+    // Legacy aliases kept for compatibility with existing templates/usages.
+    const val SENIORS_ADD = SENIORS_MANAGE
+    const val SENIORS_EDIT = SENIORS_MANAGE
+    const val SENIORS_DELETE = SENIORS_MANAGE
+    const val SENIORS_VERIFY = SENIORS_MANAGE
 
     // ========== PLACEMENTS MANAGEMENT ==========
 
-    /** Add new placement records */
-    const val PLACEMENTS_ADD = "placements:add:all"
+    /** Manage placements (create/edit/delete) */
+    const val PLACEMENTS_MANAGE = "placements:manage"
 
-    /** Edit placement information */
-    const val PLACEMENTS_EDIT = "placements:edit:all"
-
-    /** Remove placement records */
-    const val PLACEMENTS_DELETE = "placements:delete:all"
+    // Legacy aliases kept for compatibility with existing templates/usages.
+    const val PLACEMENTS_ADD = PLACEMENTS_MANAGE
+    const val PLACEMENTS_EDIT = PLACEMENTS_MANAGE
+    const val PLACEMENTS_DELETE = PLACEMENTS_MANAGE
 
     // ========== USER MANAGEMENT ==========
 
@@ -210,32 +198,20 @@ object Permissions {
      * @return Map of category name to list of permission strings
      */
     fun getAllGrouped(): Map<String, List<String>> = mapOf(
-        "Events" to listOf(
-            EVENTS_CREATE,
-            EVENTS_EDIT_OWN,
-            EVENTS_EDIT_ALL,
-            EVENTS_DELETE_OWN,
-            EVENTS_DELETE_ALL,
+        "Meetings & Announcements" to listOf(
+            MEETINGS_MANAGE,
             EVENTS_FEATURE,
             EVENTS_MODERATE
         ),
         "Notes" to listOf(
-            NOTES_UPLOAD,
-            NOTES_EDIT_OWN,
-            NOTES_MODERATE,
-            NOTES_DELETE,
+            NOTES_MANAGE,
             NOTES_FEATURE
         ),
         "Seniors" to listOf(
-            SENIORS_ADD,
-            SENIORS_EDIT,
-            SENIORS_DELETE,
-            SENIORS_VERIFY
+            SENIORS_MANAGE
         ),
         "Placements" to listOf(
-            PLACEMENTS_ADD,
-            PLACEMENTS_EDIT,
-            PLACEMENTS_DELETE
+            PLACEMENTS_MANAGE
         ),
         "Users" to listOf(
             USERS_VIEW,
@@ -275,31 +251,19 @@ object Permissions {
      */
     fun getDescription(permission: String): String = when (permission) {
         // Events
-        EVENTS_CREATE -> "Create events for your society or organization"
-        EVENTS_EDIT_OWN -> "Edit events that you created"
-        EVENTS_EDIT_ALL -> "Edit any event on the platform"
-        EVENTS_DELETE_OWN -> "Delete events that you created"
-        EVENTS_DELETE_ALL -> "Delete any event on the platform"
+        MEETINGS_MANAGE -> "Manage Meetings & Announcements"
         EVENTS_FEATURE -> "Feature important events on the homepage"
         EVENTS_MODERATE -> "Review and moderate reported events"
 
         // Notes
-        NOTES_UPLOAD -> "Upload study notes and materials"
-        NOTES_EDIT_OWN -> "Edit notes that you uploaded"
-        NOTES_MODERATE -> "Review and approve uploaded notes"
-        NOTES_DELETE -> "Delete any notes from the platform"
+        NOTES_MANAGE -> "Manage Notes"
         NOTES_FEATURE -> "Highlight quality notes for students"
 
         // Seniors
-        SENIORS_ADD -> "Add new senior alumni profiles"
-        SENIORS_EDIT -> "Edit senior profile information"
-        SENIORS_DELETE -> "Remove senior profiles from the system"
-        SENIORS_VERIFY -> "Mark senior profiles as verified/authentic"
+        SENIORS_MANAGE -> "Manage senior profile data"
 
         // Placements
-        PLACEMENTS_ADD -> "Add new placement records and companies"
-        PLACEMENTS_EDIT -> "Update placement information and statistics"
-        PLACEMENTS_DELETE -> "Remove outdated placement records"
+        PLACEMENTS_MANAGE -> "Manage placement records and updates"
 
         // Users
         USERS_VIEW -> "View detailed user profiles and statistics"

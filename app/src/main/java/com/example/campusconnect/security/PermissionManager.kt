@@ -7,26 +7,44 @@ import com.google.firebase.Timestamp
 object PermissionManager {
     private const val TAG = "PERM_DEBUG"
     private const val PM_TAG = "PERM_DEBUG_PM"
+    private val managedSocietyIds = setOf(
+        "csss",
+        "hobbies_club",
+        "tech_club",
+        "sports_club",
+        "cultural_society",
+        "literary_society"
+    )
 
     private fun normalize(value: String): String = value.trim().lowercase()
+
+    private fun safeLogDebug(tag: String, message: String) {
+        runCatching { Log.d(tag, message) }
+    }
 
     fun normalizeRole(role: String?): String = normalize(role.orEmpty())
 
     fun normalizePermission(permission: String): String {
-        return when (val normalized = normalize(permission)) {
-            "manage_society" -> "society:manage"
-            "can_manage_society" -> "society:manage"
-            "manage_senior", "manage_seniors", "senior:manage" -> "seniors:add:all"
-            "manage_placement",
-            "manage_placements",
-            "can_manage_placements",
-            "placements:add:all",
-            "placements:edit:all",
-            "placements:delete:all",
-            "placements:manage",
-            "placement:manage" -> "placements:manage"
-            else -> normalized
+        val normalized = normalize(permission)
+
+        if (normalized.startsWith("society:") && normalized.endsWith(":manage")) {
+            val societyId = normalized.removePrefix("society:").removeSuffix(":manage")
+            if (societyId == "*") return "society:*:manage"
+            return societyManagePermission(normalizeSocietyId(societyId))
         }
+
+        return normalized
+    }
+
+    private fun normalizeSocietyId(societyId: String): String = normalize(societyId)
+
+    fun societyManagePermission(societyId: String): String {
+        val normalizedSocietyId = normalizeSocietyId(societyId)
+        return "society:$normalizedSocietyId:manage"
+    }
+
+    fun managedSocietyPermissionKeys(): List<String> {
+        return managedSocietyIds.map(::societyManagePermission)
     }
 
     fun hasActiveAccess(profile: UserProfile?): Boolean {
@@ -38,7 +56,6 @@ object PermissionManager {
 
     fun effectivePermissions(profile: UserProfile?): Set<String> {
         if (profile == null) return emptySet()
-        // Strict mode: ONLY permissions is authoritative.
         return profile.permissions
             .map(::normalizePermission)
             .filter { it.isNotBlank() }
@@ -53,31 +70,25 @@ object PermissionManager {
     private fun logDecision(feature: String, profile: UserProfile?, allowed: Boolean) {
         val uid = profile?.id ?: "unknown"
         val perms = effectivePermissions(profile).sorted()
-        Log.d(TAG, "feature=$feature allowed=$allowed userId=$uid permissions=$perms")
+        safeLogDebug(TAG, "feature=$feature allowed=$allowed userId=$uid permissions=$perms")
     }
 
     fun isSuperAdmin(profile: UserProfile?): Boolean {
-        val allowed = hasPermission(profile, "*:*:*") || hasPermission(profile, "admin:super")
+        val allowed = hasPermission(profile, "*:*:*")
         logDecision("isSuperAdmin", profile, allowed)
         return allowed
     }
 
     fun canCreateEvents(profile: UserProfile?): Boolean {
         if (!hasActiveAccess(profile)) return false
-        val allowed = hasPermission(profile, "event:create") ||
-            hasPermission(profile, "events:create:own") ||
-            hasPermission(profile, "events:create:all") ||
-            hasPermission(profile, "can_manage_events")
+        val allowed = hasPermission(profile, "meetings:manage")
         logDecision("canCreateEvents", profile, allowed)
         return allowed
     }
 
     fun canUploadNotes(profile: UserProfile?): Boolean {
         if (!hasActiveAccess(profile)) return false
-        val allowed = hasPermission(profile, "notes:upload") ||
-            hasPermission(profile, "notes:upload:own") ||
-            hasPermission(profile, "notes:upload:all") ||
-            hasPermission(profile, "can_manage_notes")
+        val allowed = hasPermission(profile, "notes:manage")
         logDecision("canUploadNotes", profile, allowed)
         return allowed
     }
@@ -85,7 +96,7 @@ object PermissionManager {
     fun canManagePlacements(profile: UserProfile?): Boolean {
         if (!hasActiveAccess(profile)) return false
         val perms = effectivePermissions(profile).sorted()
-        Log.d(PM_TAG, "Checking placements: perms=$perms")
+        safeLogDebug(PM_TAG, "Checking placements: perms=$perms")
         val allowed = hasPermission(profile, "placements:manage")
         logDecision("canManagePlacements", profile, allowed)
         return allowed
@@ -93,60 +104,68 @@ object PermissionManager {
 
     fun canManageSeniors(profile: UserProfile?): Boolean {
         if (!hasActiveAccess(profile)) return false
-        val allowed = hasPermission(profile, "seniors:add:all") ||
-            hasPermission(profile, "seniors:edit:all") ||
-            hasPermission(profile, "seniors:verify:all") ||
-            hasPermission(profile, "seniors:delete:all")
+        val allowed = hasPermission(profile, "seniors:manage")
         logDecision("canManageSeniors", profile, allowed)
+        return allowed
+    }
+
+    fun canManageSociety(profile: UserProfile?, societyId: String): Boolean {
+        if (!hasActiveAccess(profile)) return false
+        val normalizedSocietyPermission = societyManagePermission(societyId)
+        val allowed = hasPermission(profile, "society:*:manage") || hasPermission(profile, normalizedSocietyPermission)
+        safeLogDebug(PM_TAG, "Checking society: societyId=$societyId permission=$normalizedSocietyPermission allowed=$allowed")
+        logDecision("canManageSociety:$societyId", profile, allowed)
         return allowed
     }
 
     fun canManageSociety(profile: UserProfile?): Boolean {
         if (!hasActiveAccess(profile)) return false
-        val allowed = hasPermission(profile, "society:manage") ||
-            hasPermission(profile, "can_manage_society")
+        val perms = effectivePermissions(profile)
+        val allowed = perms.contains("*:*:*") ||
+            perms.contains("society:*:manage") ||
+            perms.any { it.startsWith("society:") && it.endsWith(":manage") }
         logDecision("canManageSociety", profile, allowed)
         return allowed
     }
 
     fun canDeleteSocietyEvent(profile: UserProfile?): Boolean {
         if (!hasActiveAccess(profile)) return false
-        val allowed = hasPermission(profile, "society:delete:all") || hasPermission(profile, "society:event:delete:all")
+        val allowed = hasPermission(profile, "society:*:manage")
         logDecision("canDeleteSocietyEvent", profile, allowed)
         return allowed
     }
 
     fun canManageUsers(profile: UserProfile?): Boolean {
         if (!hasActiveAccess(profile)) return false
-        val allowed = hasPermission(profile, "admin:users:manage")
+        val allowed = hasPermission(profile, "admin:access")
         logDecision("canManageUsers", profile, allowed)
         return allowed
     }
 
     fun canViewAnalytics(profile: UserProfile?): Boolean {
         if (!hasActiveAccess(profile)) return false
-        val allowed = hasPermission(profile, "admin:analytics:view")
+        val allowed = hasPermission(profile, "admin:access")
         logDecision("canViewAnalytics", profile, allowed)
         return allowed
     }
 
     fun canSendNotifications(profile: UserProfile?): Boolean {
         if (!hasActiveAccess(profile)) return false
-        val allowed = hasPermission(profile, "notifications:send:all")
+        val allowed = hasPermission(profile, "admin:access")
         logDecision("canSendNotifications", profile, allowed)
         return allowed
     }
 
     fun canViewActivityLog(profile: UserProfile?): Boolean {
         if (!hasActiveAccess(profile)) return false
-        val allowed = hasPermission(profile, "admin:activity_log:view")
+        val allowed = hasPermission(profile, "admin:access")
         logDecision("canViewActivityLog", profile, allowed)
         return allowed
     }
 
     fun canModerateContent(profile: UserProfile?): Boolean {
         if (!hasActiveAccess(profile)) return false
-        val allowed = hasPermission(profile, "notes:moderate:all") || canUploadNotes(profile)
+        val allowed = hasPermission(profile, "notes:manage")
         logDecision("canModerateContent", profile, allowed)
         return allowed
     }
@@ -163,7 +182,7 @@ object PermissionManager {
             canViewAnalytics(profile) ||
             canSendNotifications(profile) ||
             canViewActivityLog(profile) ||
-            hasPermission(profile, "admin:panel:view")
+            hasPermission(profile, "admin:access")
         logDecision("canAccessAdminPanel", profile, allowed)
         return allowed
     }
@@ -171,12 +190,12 @@ object PermissionManager {
     fun logProfileSnapshot(userId: String, role: String?, permissions: Collection<String>) {
         val normalizedRole = normalizeRole(role)
         val normalizedPermissions = permissions.map(::normalizePermission).distinct().sorted()
-        Log.d(TAG, "userId=$userId, role=$normalizedRole, permissions=$normalizedPermissions")
+        safeLogDebug(TAG, "userId=$userId, role=$normalizedRole, permissions=$normalizedPermissions")
     }
 
     fun logProfileSnapshot(profile: UserProfile?, source: String) {
         if (profile == null) {
-            Log.d(TAG, "source=$source, profile=null")
+            safeLogDebug(TAG, "source=$source, profile=null")
             return
         }
         logProfileSnapshot(

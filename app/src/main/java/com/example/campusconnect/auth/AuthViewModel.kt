@@ -90,7 +90,7 @@ class AuthViewModel @Inject constructor(
     ) {
         val isAdmin = adminCode.isNotBlank() && adminCode == Constants.ADMIN_CODE
         val permissions = if (isAdmin) {
-            listOf("is_admin", "events:create:all", "notes:upload:all", "placements:manage")
+            Constants.DEFAULT_ADMIN_PERMISSIONS
         } else {
             emptyList()
         }
@@ -102,7 +102,6 @@ class AuthViewModel @Inject constructor(
             branch = branch,
             year = year,
             bio = bio,
-            role = if (isAdmin) "admin" else "user",
             permissions = permissions
         )
         firestore.collection("users").document(userId)

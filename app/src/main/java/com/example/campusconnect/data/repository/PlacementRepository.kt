@@ -1,7 +1,9 @@
 ﻿package com.example.campusconnect.data.repository
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.FirebaseAuth
 import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.data.models.Placement
+import com.example.campusconnect.util.FirestoreErrorMapper
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -11,15 +13,23 @@ import javax.inject.Singleton
 @Singleton
 class PlacementRepository @Inject constructor(
     private val db: FirebaseFirestore,
-    private val adminActivityLogRepository: AdminActivityLogRepository
+    private val adminActivityLogRepository: AdminActivityLogRepository,
+    private val auth: FirebaseAuth
 ) {
     fun observePlacements(): Flow<Resource<List<Placement>>> = callbackFlow {
         trySend(Resource.Loading)
+
+        if (auth.currentUser == null) {
+            trySend(Resource.Error("Please sign in to view placement updates."))
+            close()
+            return@callbackFlow
+        }
+
         val registration = db.collection("placements")
             .orderBy("postedDate", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    trySend(Resource.Error(error.message))
+                    trySend(Resource.Error(FirestoreErrorMapper.toUserMessage(error, auth.currentUser != null)))
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
@@ -53,7 +63,7 @@ class PlacementRepository @Inject constructor(
             )
             Resource.Success(docRef.id)
         } catch (e: Exception) {
-            Resource.Error(e.message)
+            Resource.Error(FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null))
         }
     }
     suspend fun deletePlacement(placementId: String): Resource<Unit> {
@@ -64,7 +74,7 @@ class PlacementRepository @Inject constructor(
             db.collection("placements").document(placementId).delete().await()
             Resource.Success(Unit)
         } catch (e: Exception) {
-            Resource.Error(e.message ?: "Failed to delete placement")
+            Resource.Error(FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null))
         }
     }
 
@@ -79,7 +89,7 @@ class PlacementRepository @Inject constructor(
                 .await()
             Resource.Success(Unit)
         } catch (e: Exception) {
-            Resource.Error(e.message ?: "Failed to update placement")
+            Resource.Error(FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null))
         }
     }
 
@@ -93,7 +103,7 @@ class PlacementRepository @Inject constructor(
                 Resource.Error("Placement not found")
             }
         } catch (e: Exception) {
-            Resource.Error(e.message)
+            Resource.Error(FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null))
         }
     }
 }

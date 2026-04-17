@@ -38,13 +38,11 @@ class AdminPanelViewModel @Inject constructor(
 
     companion object {
         val MANAGED_PERMISSION_KEYS = listOf(
-            "is_admin",
-            "can_manage_placements",
-            "can_manage_events",
-            "can_manage_notes",
-            "can_manage_society_csss",
-            "can_manage_society_tech_club"
-        )
+            "placements:manage",
+            "notes:manage",
+            "meetings:manage",
+            "seniors:manage",
+        ) + PermissionManager.managedSocietyPermissionKeys()
     }
 
     private val _currentUser = MutableStateFlow<UserProfile?>(null)

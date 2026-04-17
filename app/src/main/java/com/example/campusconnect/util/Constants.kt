@@ -5,8 +5,13 @@ import com.google.firebase.Timestamp
 object Constants {
     // Admin code for granting admin privileges during registration or upgrade
     const val ADMIN_CODE = "CAMPUS_ADMIN_2025"
-    // Default admin roles granted on upgrade (mirrors server-side expectations)
-    val DEFAULT_ADMIN_ROLES = listOf("admin", "event:create", "notes:upload")
+    // Default admin permissions granted on upgrade (mirrors server-side expectations)
+    val DEFAULT_ADMIN_PERMISSIONS = listOf(
+        "meetings:manage",
+        "notes:manage",
+        "placements:manage",
+        "society:*:manage"
+    )
 
     // User-facing error messages
     const val ERROR_INVALID_ADMIN_CODE = "Invalid admin code. Please contact your administrator for the correct code."

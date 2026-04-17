@@ -2,6 +2,7 @@ package com.example.campusconnect.notifications
 
 import android.content.Context
 import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -29,6 +30,8 @@ object FirestoreAutoNotificationManager {
     private val societyPostRegistrations = mutableMapOf<String, ListenerRegistration>()
     private val societyNames = mutableMapOf<String, String>()
     private var started = false
+    private var listenersAttached = false
+    private var authStateListener: FirebaseAuth.AuthStateListener? = null
 
     private data class Source(
         val collection: String,
@@ -46,7 +49,31 @@ object FirestoreAutoNotificationManager {
         started = true
 
         val appContext = context.applicationContext
+        val auth = FirebaseAuth.getInstance()
         val firestore = FirebaseFirestore.getInstance()
+
+        authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            val currentUser = firebaseAuth.currentUser
+            if (currentUser == null) {
+                Log.d(TAG, "Auth unavailable, stopping Firestore notification listeners")
+                stopListeners()
+            } else if (!listenersAttached) {
+                Log.d(TAG, "Auth ready (uid=${currentUser.uid}), attaching Firestore notification listeners")
+                attachListeners(appContext, firestore)
+            }
+        }
+        authStateListener?.let { auth.addAuthStateListener(it) }
+
+        if (auth.currentUser != null) {
+            attachListeners(appContext, firestore)
+        } else {
+            Log.d(TAG, "start deferred until authenticated user is available")
+        }
+    }
+
+    private fun attachListeners(appContext: Context, firestore: FirebaseFirestore) {
+        if (listenersAttached) return
+        listenersAttached = true
 
         val sources = listOf(
             Source(
@@ -111,6 +138,14 @@ object FirestoreAutoNotificationManager {
             "FirestoreAutoNotif",
             "Started listeners for [events, meetings, announcements, placements, notes, societies]"
         )
+    }
+
+    private fun stopListeners() {
+        registrations.forEach { it.remove() }
+        registrations.clear()
+        societyPostRegistrations.values.forEach { it.remove() }
+        societyPostRegistrations.clear()
+        listenersAttached = false
     }
 
     private fun observeSocietyPosts(context: Context, firestore: FirebaseFirestore) {
@@ -350,4 +385,3 @@ object FirestoreAutoNotificationManager {
         return formatter.format(date)
     }
 }
-

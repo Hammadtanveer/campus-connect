@@ -1,6 +1,7 @@
 package com.example.campusconnect.data.repository
 
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.tasks.await
@@ -13,6 +14,7 @@ import com.example.campusconnect.data.models.EventCategory
 import com.example.campusconnect.data.models.EventRegistration
 import com.example.campusconnect.data.models.RegistrationStatus
 import com.example.campusconnect.data.models.EventType
+import com.example.campusconnect.util.FirestoreErrorMapper
 import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,15 +27,23 @@ import javax.inject.Singleton
 @Singleton
 class EventsRepository @Inject constructor(
     private val db: FirebaseFirestore,
-    private val adminActivityLogRepository: AdminActivityLogRepository
+    private val adminActivityLogRepository: AdminActivityLogRepository,
+    private val auth: FirebaseAuth
 ) {
 
     fun observeEvents(): Flow<Resource<List<OnlineEvent>>> = callbackFlow {
         trySend(Resource.Loading)
+
+        if (auth.currentUser == null) {
+            trySend(Resource.Error("Please sign in to view meetings and announcements."))
+            close()
+            return@callbackFlow
+        }
+
         val registration: ListenerRegistration = db.collection("events")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    trySend(Resource.Error(error.message))
+                    trySend(Resource.Error(FirestoreErrorMapper.toUserMessage(error, auth.currentUser != null)))
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
@@ -100,7 +110,7 @@ class EventsRepository @Inject constructor(
                 )
                 onResult(true, null)
             }
-            .addOnFailureListener { e -> onResult(false, e.message) }
+            .addOnFailureListener { e -> onResult(false, FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null)) }
     }
 
     fun updateEvent(
@@ -127,14 +137,14 @@ class EventsRepository @Inject constructor(
         db.collection("events").document(eventId)
             .update(updates)
             .addOnSuccessListener { onResult(true, null) }
-            .addOnFailureListener { e -> onResult(false, e.message) }
+            .addOnFailureListener { e -> onResult(false, FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null)) }
     }
 
     fun deleteEvent(eventId: String, onResult: (Boolean, String?) -> Unit) {
         db.collection("events").document(eventId)
             .delete()
             .addOnSuccessListener { onResult(true, null) }
-            .addOnFailureListener { e -> onResult(false, e.message) }
+            .addOnFailureListener { e -> onResult(false, FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null)) }
     }
 
     fun registerForEvent(userId: String, eventId: String, onResult: (Boolean, String?) -> Unit) {
@@ -151,7 +161,7 @@ class EventsRepository @Inject constructor(
         db.collection("registrations").document(id)
             .set(reg)
             .addOnSuccessListener { onResult(true, null) }
-            .addOnFailureListener { e -> onResult(false, e.message) }
+            .addOnFailureListener { e -> onResult(false, FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null)) }
     }
 
     fun observeMyRegistrations(userId: String): Flow<Resource<List<EventRegistration>>> = callbackFlow {
@@ -160,7 +170,7 @@ class EventsRepository @Inject constructor(
             .whereEqualTo("userId", userId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    trySend(Resource.Error(error.message))
+                    trySend(Resource.Error(FirestoreErrorMapper.toUserMessage(error, auth.currentUser != null)))
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
@@ -189,7 +199,7 @@ class EventsRepository @Inject constructor(
                 Resource.Error("Event not found")
             }
         } catch (e: Exception) {
-            Resource.Error(e.message)
+            Resource.Error(FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null))
         }
     }
 

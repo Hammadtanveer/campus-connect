@@ -51,6 +51,16 @@ class NotesViewModel @Inject constructor(
     private val _deleteInProgress = MutableStateFlow<String?>(null)
     val deleteInProgress: StateFlow<String?> = _deleteInProgress.asStateFlow()
 
+    private fun buildErrorState(message: String, retry: () -> Unit): UiState.Error {
+        val type = when {
+            message.contains("sign in", ignoreCase = true) ||
+                message.contains("session", ignoreCase = true) -> UiState.Error.ErrorType.AUTH
+            message.contains("permission", ignoreCase = true) -> UiState.Error.ErrorType.PERMISSION
+            else -> UiState.Error.ErrorType.GENERIC
+        }
+        return UiState.Error(message = message, errorType = type, retry = retry)
+    }
+
     // Paging support for large lists (Optional - requires Paging 3 library)
     // private val _notesPagingFlow = MutableStateFlow<Flow<PagingData<Note>>?>(null)
     // val notesPagingFlow: StateFlow<Flow<PagingData<Note>>?> = _notesPagingFlow.asStateFlow()
@@ -65,7 +75,9 @@ class NotesViewModel @Inject constructor(
     private fun startPeriodicSync() {
         viewModelScope.launch {
             while (true) {
-                try { repository.syncNotes() } catch (_: Exception) {}
+                if (auth.currentUser != null) {
+                    try { repository.syncNotes() } catch (_: Exception) {}
+                }
                 delay(5 * 60 * 1000) // every 5 minutes
             }
         }
@@ -75,6 +87,14 @@ class NotesViewModel @Inject constructor(
      * Load all notes with current filters
      */
     fun loadAllNotes() {
+        if (auth.currentUser == null) {
+            _allNotesState.value = buildErrorState(
+                message = "Please sign in to view notes.",
+                retry = ::loadAllNotes
+            )
+            return
+        }
+
         viewModelScope.launch {
             repository.observeNotes(
                 subject = _selectedSubject.value,
@@ -85,7 +105,10 @@ class NotesViewModel @Inject constructor(
                     is Resource.Loading -> _allNotesState.value = UiState.Loading
                     is Resource.Success -> _allNotesState.value = UiState.Success(resource.data)
                     is Resource.Error -> {
-                        _allNotesState.value = UiState.Error(resource.message ?: "Error loading notes")
+                        _allNotesState.value = buildErrorState(
+                            message = resource.message ?: "Unable to load notes right now.",
+                            retry = ::loadAllNotes
+                        )
                     }
                 }
             }
@@ -96,14 +119,25 @@ class NotesViewModel @Inject constructor(
      * Load my uploaded notes
      */
     fun loadMyNotes() {
-        val userId = auth.currentUser?.uid ?: return
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            _myNotesState.value = buildErrorState(
+                message = "Please sign in to view your notes.",
+                retry = ::loadMyNotes
+            )
+            return
+        }
+
         viewModelScope.launch {
             repository.observeMyNotes(userId).collect { resource ->
                 when (resource) {
                     is Resource.Loading -> _myNotesState.value = UiState.Loading
                     is Resource.Success -> _myNotesState.value = UiState.Success(resource.data)
                     is Resource.Error -> {
-                        _myNotesState.value = UiState.Error(resource.message ?: "Error loading my notes")
+                        _myNotesState.value = buildErrorState(
+                            message = resource.message ?: "Unable to load your notes right now.",
+                            retry = ::loadMyNotes
+                        )
                     }
                 }
             }

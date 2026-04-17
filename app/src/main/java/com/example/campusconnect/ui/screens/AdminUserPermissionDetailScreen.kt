@@ -46,12 +46,16 @@ import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.ui.viewmodels.AdminPanelViewModel
 
 private val PermissionLabels = mapOf(
-    "is_admin" to "General Admin",
-    "can_manage_placements" to "Manage Placements",
-    "can_manage_events" to "Manage Events",
-    "can_manage_notes" to "Manage Notes",
-    "can_manage_society_csss" to "Manage Society: CSSS",
-    "can_manage_society_tech_club" to "Manage Society: Tech Club"
+    "placements:manage" to "Manage Placements",
+    "notes:manage" to "Manage Notes",
+    "meetings:manage" to "Manage Meetings & Announcements",
+    "seniors:manage" to "Manage Seniors",
+    "society:csss:manage" to "Manage Society: CSSS",
+    "society:hobbies_club:manage" to "Manage Society: Hobbies Club",
+    "society:tech_club:manage" to "Manage Society: Tech Club",
+    "society:sports_club:manage" to "Manage Society: Sports Club",
+    "society:cultural_society:manage" to "Manage Society: Cultural Society",
+    "society:literary_society:manage" to "Manage Society: Literary Society"
 )
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -89,12 +93,9 @@ fun AdminUserPermissionDetailScreen(
             return permissions.contains(PermissionManager.normalizePermission(key))
         }
 
-        editablePermissions["is_admin"] = hasPermission("is_admin")
-        editablePermissions["can_manage_placements"] = hasPermission("can_manage_placements")
-        editablePermissions["can_manage_events"] = hasPermission("can_manage_events")
-        editablePermissions["can_manage_notes"] = hasPermission("can_manage_notes")
-        editablePermissions["can_manage_society_csss"] = hasPermission("can_manage_society_csss")
-        editablePermissions["can_manage_society_tech_club"] = hasPermission("can_manage_society_tech_club")
+        AdminPanelViewModel.MANAGED_PERMISSION_KEYS.forEach { key ->
+            editablePermissions[key] = hasPermission(key)
+        }
         Log.d("ADMIN_FINAL", "permissions=${targetUser?.permissions}")
     }
     var isSaving by remember { mutableStateOf(false) }

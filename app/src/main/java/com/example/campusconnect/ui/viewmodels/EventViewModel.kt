@@ -94,14 +94,16 @@ class EventViewModel @Inject constructor(
         }
     }
 
-    fun canCreateSocietyEvent(profile: UserProfile?): Boolean {
-        return PermissionManager.canManageSociety(profile)
+    fun canCreateSocietyEvent(profile: UserProfile?, societyId: String): Boolean {
+        return PermissionManager.canManageSociety(profile, societyId)
     }
 
-    fun canEditSocietyEvent(profile: UserProfile?): Boolean = canCreateSocietyEvent(profile)
+    fun canEditSocietyEvent(profile: UserProfile?, societyId: String): Boolean =
+        canCreateSocietyEvent(profile, societyId)
 
-    fun canDeleteSocietyEvent(profile: UserProfile?): Boolean {
-        return PermissionManager.canDeleteSocietyEvent(profile)
+    fun canDeleteSocietyEvent(profile: UserProfile?, societyId: String): Boolean {
+        return PermissionManager.canManageSociety(profile, societyId) ||
+            PermissionManager.canDeleteSocietyEvent(profile)
     }
 
     fun createEvent(
@@ -118,8 +120,8 @@ class EventViewModel @Inject constructor(
         posterPublicId: String,
         profile: UserProfile?
     ) {
-        if (!canCreateSocietyEvent(profile)) {
-            addEventStatus = Resource.Error("Only admin and super admin can create events")
+        if (!canCreateSocietyEvent(profile, societyId)) {
+            addEventStatus = Resource.Error("No permission to manage this society")
             return
         }
 
@@ -145,8 +147,8 @@ class EventViewModel @Inject constructor(
     }
 
     fun updateEvent(societyId: String, eventId: String, updated: SocietyEvent, profile: UserProfile?) {
-        if (!canEditSocietyEvent(profile)) {
-            updateEventStatus = Resource.Error("Only admin and super admin can edit events")
+        if (!canEditSocietyEvent(profile, societyId)) {
+            updateEventStatus = Resource.Error("No permission to manage this society")
             return
         }
 
@@ -160,8 +162,8 @@ class EventViewModel @Inject constructor(
     }
 
     fun deleteEvent(societyId: String, eventId: String, profile: UserProfile?) {
-        if (!canDeleteSocietyEvent(profile)) {
-            deleteEventStatus = Resource.Error("Only super admin can delete events")
+        if (!canDeleteSocietyEvent(profile, societyId)) {
+            deleteEventStatus = Resource.Error("No permission to manage this society")
             return
         }
 

@@ -66,12 +66,12 @@ fun SocietyEventDetailScreen(
                     }
                 },
                 actions = {
-                    if (event != null && viewModel.canEditSocietyEvent(profile)) {
+                    if (event != null && viewModel.canEditSocietyEvent(profile, societyId)) {
                         IconButton(onClick = { onEdit(event.id) }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit")
                         }
                     }
-                    if (event != null && viewModel.canDeleteSocietyEvent(profile)) {
+                    if (event != null && viewModel.canDeleteSocietyEvent(profile, societyId)) {
                         IconButton(onClick = {
                             viewModel.deleteEvent(societyId, event.id, profile)
                         }) {

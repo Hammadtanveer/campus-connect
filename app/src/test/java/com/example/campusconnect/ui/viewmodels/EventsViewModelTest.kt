@@ -14,6 +14,7 @@ import com.google.firebase.Timestamp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -32,7 +33,7 @@ class EventsViewModelTest {
     private val authenticatedProfile = UserProfile(
         id = "test-user-id",
         displayName = "Test User",
-        permissions = listOf("events:create:own")
+        permissions = listOf("meetings:manage")
     )
 
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -80,7 +81,7 @@ class EventsViewModelTest {
         // But for unit test with UnconfinedTestDispatcher, it might execute?
         // Let's verify the type. EventsViewModel.eventsState is StateFlow<Resource<List<OnlineEvent>>>
 
-        val state = viewModel.eventsState.value
+        val state = viewModel.eventsState.first { it !is Resource.Loading }
 
         // Assert based on Resource type, not UiState (EventsViewModel uses Resource directly now)
         assertTrue(state is Resource.Success)
@@ -103,7 +104,7 @@ class EventsViewModelTest {
         )
 
         // Then
-        val state = viewModel.eventsState.value
+        val state = viewModel.eventsState.first { it !is Resource.Loading }
         assertTrue(state is Resource.Error)
         assertEquals("Network error", (state as Resource.Error).message)
     }
@@ -118,13 +119,13 @@ class EventsViewModelTest {
             mockActivityLog
         )
 
-        whenever(
-            mockEventsRepo.createEvent(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
-        ).thenAnswer { invocation ->
+        doAnswer { invocation ->
             val callback = invocation.getArgument<(Boolean, String?) -> Unit>(12)
             callback(true, null)
-        }
+            Unit
+        }.whenever(mockEventsRepo).createEvent(
+            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+        )
 
         var resultSuccess = false
 

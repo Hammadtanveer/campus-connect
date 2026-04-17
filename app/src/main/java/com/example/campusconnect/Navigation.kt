@@ -15,6 +15,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.campusconnect.security.canAddSenior
+import com.example.campusconnect.security.canUpdateSenior
 import com.example.campusconnect.security.canUploadNotes
 import com.example.campusconnect.ui.placement.AddPlacementScreen
 import com.example.campusconnect.ui.placement.PlacementDetailScreen
@@ -212,10 +213,12 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         composable("senior_detail/{seniorId}") { backStackEntry ->
             val seniorId = backStackEntry.arguments?.getString("seniorId")
             val senior = viewModel.getSenior(seniorId ?: "")
+            val canManageSenior = profile?.canUpdateSenior() == true
             if (senior != null) {
                 SeniorDetailScreen(
                     senior = senior,
                     viewModel = viewModel,
+                    canManageSenior = canManageSenior,
                     onBackClick = { navController.popBackStack() },
                     onEditClick = { navController.navigate("senior_edit/${senior.id}") },
                     onDeleteClick = {
@@ -235,8 +238,15 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
         composable("senior_edit/{seniorId}") { backStackEntry ->
             val seniorId = backStackEntry.arguments?.getString("seniorId")
             val senior = viewModel.getSenior(seniorId ?: "")
-            if (senior != null) {
-                val context = LocalContext.current
+            val context = LocalContext.current
+            val canManageSenior = profile?.canUpdateSenior() == true
+
+            if (!canManageSenior) {
+                LaunchedEffect(Unit) {
+                    Toast.makeText(context, "You don't have permission to edit seniors", Toast.LENGTH_LONG).show()
+                    navController.popBackStack()
+                }
+            } else if (senior != null) {
                 SeniorEditScreen(
                     viewModel = viewModel,
                     senior = senior,

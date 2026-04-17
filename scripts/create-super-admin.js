@@ -45,9 +45,7 @@ async function createSuperAdminUser() {
       id: uid,
       email: 'hammadtanveer247@gmail.com',
       displayName: user.displayName || 'Super Admin',
-      role: 'super_admin',
-      isAdmin: true,
-      permissions: ['*:*:*'],
+      permissions: ['*:*:*', 'admin:access'],
       status: 'active',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       // Other default fields
@@ -63,7 +61,6 @@ async function createSuperAdminUser() {
       mentorshipStatus: 'available',
       mentorshipRating: null,
       totalConnections: 0,
-      roles: ['admin', 'event:create', 'notes:upload'], // Legacy compatibility
       department: null,
       createdBy: 'SYSTEM_BOOTSTRAP',
       expiresAt: null,
@@ -78,15 +75,6 @@ async function createSuperAdminUser() {
       revokedAt: null,
       revocationReason: null
     }, { merge: true });
-
-    // Set custom claims
-    console.log('🔐 Setting custom claims...');
-    await admin.auth().setCustomUserClaims(uid, {
-      superAdmin: true,
-      role: 'super_admin',
-      admin: true,
-      permissions: ['*:*:*']
-    });
 
     // Create audit log entry
     console.log('📋 Creating audit log...');
@@ -105,13 +93,12 @@ async function createSuperAdminUser() {
     console.log('\n📊 Details:');
     console.log(`   Email: hammadtanveer247@gmail.com`);
     console.log(`   UID: ${uid}`);
-    console.log(`   Role: super_admin`);
-    console.log(`   Permissions: *:*:* (all permissions)`);
+    console.log(`   Permissions: *:*:*, admin:access`);
     console.log(`   Status: active`);
 
     console.log('\n🎯 Next Steps:');
-    console.log('1. Sign out of your app (if signed in)');
-    console.log('2. Sign back in to refresh your token');
+    console.log('1. Open the app');
+    console.log('2. Go to Profile → Open Admin Panel');
     console.log('3. You should now have super admin access!');
     console.log('\n✅ You can now delete this script for security.');
 

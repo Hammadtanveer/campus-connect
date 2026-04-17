@@ -8,7 +8,7 @@
  * 1. Update SUPER_ADMIN_EMAIL below with your email
  * 2. Deploy: firebase deploy --only functions:bootstrapSuperAdmin
  * 3. Run: Open the function URL in browser (from Firebase Console)
- * 4. Verify: Check Firestore users/{your-uid} has role: "super_admin"
+ * 4. Verify: Check Firestore users/{your-uid} has permissions: ["*:*:*"]
  * 5. Delete: firebase functions:delete bootstrapSuperAdmin
  *
  * Security: This function can only be run once and self-deletes after success.
@@ -27,8 +27,7 @@ const SUPER_ADMIN_EMAIL = "hammadtanveer247@gmail.com";
  *
  * This function:
  * 1. Finds user by email
- * 2. Sets custom claims (superAdmin: true)
- * 3. Updates Firestore with super admin role
+ * 2. Updates Firestore with super admin permissions
  * 4. Returns success message
  */
 exports.bootstrapSuperAdmin = functions.https.onRequest(async (req, res) => {
@@ -70,7 +69,7 @@ exports.bootstrapSuperAdmin = functions.https.onRequest(async (req, res) => {
 
     // Check if already super admin
     const userDoc = await db.collection('users').doc(uid).get();
-    if (userDoc.exists && userDoc.data().role === 'super_admin') {
+    if (userDoc.exists && Array.isArray(userDoc.data().permissions) && userDoc.data().permissions.includes('*:*:*')) {
       res.send(`
         <html>
           <head><title>Already Super Admin</title></head>
@@ -89,18 +88,8 @@ exports.bootstrapSuperAdmin = functions.https.onRequest(async (req, res) => {
       return;
     }
 
-    // Set custom claims
-    await auth.setCustomUserClaims(uid, {
-      superAdmin: true,
-      role: 'super_admin',
-      admin: true,
-      permissions: ['*:*:*']
-    });
-
     // Update Firestore user document
     await db.collection('users').doc(uid).set({
-      role: 'super_admin',
-      isAdmin: true,
       permissions: ['*:*:*'],
       status: 'active',
       createdAt: admin.firestore.FieldValue.serverTimestamp()
@@ -130,7 +119,6 @@ exports.bootstrapSuperAdmin = functions.https.onRequest(async (req, res) => {
             <ul>
               <li><strong>Email:</strong> ${user.email}</li>
               <li><strong>User ID:</strong> ${uid}</li>
-              <li><strong>Role:</strong> super_admin</li>
               <li><strong>Permissions:</strong> *:*:* (All permissions)</li>
               <li><strong>Status:</strong> active</li>
             </ul>
@@ -165,8 +153,7 @@ exports.bootstrapSuperAdmin = functions.https.onRequest(async (req, res) => {
               <h3 style="margin-top: 0; color: #3b82f6;">📋 Firebase Verification</h3>
               <p>Verify in Firebase Console:</p>
               <ul>
-                <li><strong>Firestore:</strong> <code>users/${uid}</code> should have <code>role: "super_admin"</code></li>
-                <li><strong>Auth:</strong> User should have custom claims</li>
+                <li><strong>Firestore:</strong> <code>users/${uid}</code> should have <code>permissions: ["*:*:*"]</code></li>
                 <li><strong>Audit Log:</strong> Check <code>admin_audit_log</code> collection</li>
               </ul>
             </div>
@@ -216,18 +203,12 @@ exports.bootstrapSuperAdmin = functions.https.onRequest(async (req, res) => {
  * 4. Click Edit
  * 5. Add/Update these fields:
  *    ```
- *    role: "super_admin"
- *    isAdmin: true
  *    permissions: ["*:*:*"]
  *    status: "active"
  *    ```
  * 6. Save
  * 7. Sign out and sign back in to your app
  *
- * Then set custom claims via Firebase CLI:
- * ```
- * firebase functions:shell
- * > admin.auth().setCustomUserClaims('YOUR_USER_ID', {superAdmin: true, role: 'super_admin', admin: true, permissions: ['*:*:*']})
- * ```
+ * Firestore permissions are the single source of truth for authorization.
  */
 

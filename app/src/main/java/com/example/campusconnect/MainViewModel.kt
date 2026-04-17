@@ -18,7 +18,6 @@ import com.example.campusconnect.data.repository.NotesRepository
 import com.example.campusconnect.data.repository.SeniorsRepository
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
-import com.google.firebase.auth.GetTokenResult
 import com.example.campusconnect.security.canUploadNotes
 import com.example.campusconnect.security.canUpdateSenior
 import com.example.campusconnect.security.canManageSociety
@@ -227,18 +226,6 @@ class MainViewModel @Inject constructor(
         )
     }
 
-    private fun parseClaimStringList(raw: Any?): List<String> = when (raw) {
-        is List<*> -> raw.filterIsInstance<String>()
-        is String -> raw.split(',').map { it.trim() }.filter { it.isNotBlank() }
-        else -> emptyList()
-    }
-
-    private fun parseClaimRole(claims: Map<String, Any>): String? {
-        val role = (claims["role"] as? String)?.trim()?.lowercase()
-        if (role.isNullOrBlank()) return null
-        return if (role == "superadmin") "super_admin" else role
-    }
-
     private fun observeUserProfile(userId: String) {
         if (observedProfileUid == userId && userProfileListener != null) {
             DbgLog.d(SENIOR_TAG, "observeUserProfile already active for userId=$userId")
@@ -314,49 +301,6 @@ class MainViewModel @Inject constructor(
             }
     }
 
-    private fun applyClaimsToProfile(token: GetTokenResult) {
-        val claims = token.claims
-        val claimsAdmin = (claims["admin"] as? Boolean) == true
-        val claimsSuperAdmin = (claims["superAdmin"] as? Boolean) == true
-        val claimRoles = parseClaimStringList(claims["roles"])
-        val claimPermissions = parseClaimStringList(claims["permissions"])
-        val claimRole = parseClaimRole(claims)
-
-        val current = _userProfile.value
-        if (current != null) {
-            val claimDerivedPermissions = claimPermissions + claimRoles
-            val mergedPermissions = (current.permissions + claimDerivedPermissions)
-                .map { PermissionManager.normalizePermission(it) }
-                .distinct()
-            val resolvedRole = when {
-                claimsSuperAdmin -> "super_admin"
-                !claimRole.isNullOrBlank() -> claimRole
-                else -> current.role
-            }
-            val updated = normalizeRbac(
-                current.copy(
-                    role = resolvedRole,
-                    permissions = mergedPermissions
-                )
-            )
-            _userProfile.value = updated
-            sessionManager.updateProfile(updated)
-        }
-    }
-
-    fun refreshClaims(onDone: (() -> Unit)? = null) {
-        try {
-            val user = auth.currentUser ?: return
-            user.getIdToken(true)
-                .addOnSuccessListener { token ->
-                    applyClaimsToProfile(token)
-                    onDone?.invoke()
-                }
-                .addOnFailureListener { onDone?.invoke() }
-        } catch (_: Exception) { onDone?.invoke() }
-    }
-
-
     fun signInWithEmailPassword(
         email: String,
         password: String,
@@ -387,7 +331,6 @@ class MainViewModel @Inject constructor(
                         // Then attempt to load the full profile from Firestore (best-effort)
                         observeUserProfile(uid)
                         subscribeTopicsOncePerSession()
-                        // claims refresh will happen in loadUserProfile
                         onResult(true, null)
                     } else {
                         onResult(false, "Signed in but no user id. Please restart the app.")
@@ -509,7 +452,7 @@ class MainViewModel @Inject constructor(
         onResult: (Boolean, String?) -> Unit
     ) {
         val defaultPermissions = if (isAdmin) {
-            listOf("is_admin", "events:create:all", "notes:upload:all", "placements:manage")
+            Constants.DEFAULT_ADMIN_PERMISSIONS
         } else {
             emptyList()
         }
@@ -521,7 +464,6 @@ class MainViewModel @Inject constructor(
             branch = branch,
             year = year,
             bio = bio,
-            role = if (isAdmin) "admin" else "user",
             permissions = defaultPermissions
         )
         firestore.collection("users").document(userId)
@@ -543,8 +485,6 @@ class MainViewModel @Inject constructor(
                 }
                 _initializing.value = false
                 _currentScreen.value = Screen.DrawerScreen.Profile
-                // refresh token-based claims (no-op if server not setting custom claims) so UI merges both sources
-                refreshClaims()
                 onResult(true, null)
             }
             .addOnFailureListener { e ->
@@ -714,7 +654,7 @@ class MainViewModel @Inject constructor(
     @Suppress("unused")
     fun manageSociety(action: String, societyId: String, onResult: (Boolean, String?) -> Unit) {
         val p = _userProfile.value ?: return onResult(false, "Not authenticated")
-        if (!p.canManageSociety()) return onResult(false, "No permission to manage societies")
+        if (!p.canManageSociety(societyId)) return onResult(false, "No permission to manage societies")
         addActivity(
             UserActivity(
                 id = UUID.randomUUID().toString(),
@@ -876,18 +816,17 @@ class MainViewModel @Inject constructor(
             .get()
             .addOnSuccessListener { snap ->
                 val existingPermissions = (snap.get("permissions") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-                val mergedPermissions = (existingPermissions + listOf("is_admin", "events:create:all", "notes:upload:all", "placements:manage"))
+                val mergedPermissions = (existingPermissions + Constants.DEFAULT_ADMIN_PERMISSIONS)
                     .map { PermissionManager.normalizePermission(it) }
                     .distinct()
                 val updates = mapOf(
-                    "permissions" to mergedPermissions,
-                    "role" to "admin"
+                    "permissions" to mergedPermissions
                 )
                 db.collection("users").document(uid)
                     .update(updates)
                     .addOnSuccessListener {
                         // Update local profile state
-                        val updated = _userProfile.value?.copy(permissions = mergedPermissions, role = "admin")
+                        val updated = _userProfile.value?.copy(permissions = mergedPermissions)
                         _userProfile.value = updated
                         try {
                             // also update session manager so other viewmodels/screens see the change immediately
@@ -895,8 +834,7 @@ class MainViewModel @Inject constructor(
                         } catch (ex: Exception) {
                             Unit
                         }
-                        // refresh claims so any token-based roles are merged into the profile
-                        refreshClaims { onResult(true, null) }
+                        onResult(true, null)
                     }
                     .addOnFailureListener { e ->
                         onResult(false, e.localizedMessage)
@@ -920,20 +858,8 @@ class MainViewModel @Inject constructor(
             val data = hashMapOf("adminCode" to adminCode)
             callable.call(data)
                 .addOnSuccessListener { _ ->
-                    // Server updated custom claims and Firestore. Now refresh token and local profile
-                    user.getIdToken(true)
-                        .addOnSuccessListener { token ->
-                            // Merge token claims into local profile
-                            applyClaimsToProfile(token)
-                            // Also reload Firestore profile document to pick up server updates
-                            observeUserProfile(user.uid)
-                            onResult(true, null)
-                        }
-                        .addOnFailureListener { e ->
-                            // Even if token refresh fails, still attempt to reload profile
-                            observeUserProfile(user.uid)
-                            onResult(false, e.localizedMessage)
-                        }
+                    observeUserProfile(user.uid)
+                    onResult(true, null)
                 }
                 .addOnFailureListener { e ->
                     onResult(false, e.localizedMessage ?: e.message)

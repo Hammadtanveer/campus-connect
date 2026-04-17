@@ -26,6 +26,7 @@ import com.example.campusconnect.ui.components.AppOverflowMenu
 fun SeniorDetailScreen(
     senior: Senior,
     viewModel: MainViewModel,
+    canManageSenior: Boolean,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -66,11 +67,13 @@ fun SeniorDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onEditClick) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit Senior")
-                    }
-                    IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete Senior", tint = MaterialTheme.colorScheme.error)
+                    if (canManageSenior) {
+                        IconButton(onClick = onEditClick) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit Senior")
+                        }
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Senior", tint = MaterialTheme.colorScheme.error)
+                        }
                     }
                     AppOverflowMenu(
                         userProfile = viewModel.userProfile,

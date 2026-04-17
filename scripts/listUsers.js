@@ -1,6 +1,6 @@
 /**
  * Helper script to list all Firebase users and their UIDs
- * Run this to find your user UID before setting custom claims
+ * Run this to find your user UID before updating Firestore permissions
  */
 
 const admin = require('firebase-admin');
@@ -41,17 +41,11 @@ async function listAllUsers() {
       console.log(`   Created:       ${new Date(userRecord.metadata.creationTime).toLocaleString()}`);
       console.log(`   Last Sign In:  ${userRecord.metadata.lastSignInTime ? new Date(userRecord.metadata.lastSignInTime).toLocaleString() : 'Never'}`);
 
-      // Check if user has custom claims
-      if (userRecord.customClaims) {
-        console.log(`   Custom Claims: ${JSON.stringify(userRecord.customClaims, null, 2)}`);
-      } else {
-        console.log(`   Custom Claims: None (Regular user)`);
-      }
       console.log('-'.repeat(80));
     });
 
     console.log('\n\n📝 To set admin access for a user, copy their UID and run:');
-    console.log('   node scripts/setCustomClaims.js "PASTE_UID_HERE" admin event:create notes:upload\n');
+    console.log('   node scripts/setCustomClaims.js "PASTE_UID_HERE" meetings:manage notes:manage placements:manage\n');
 
   } catch (error) {
     console.error('❌ Error listing users:', error.message);

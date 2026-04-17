@@ -5,8 +5,10 @@ import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
 import com.example.campusconnect.data.Senior
 import com.example.campusconnect.data.models.Resource
+import com.example.campusconnect.security.PermissionManager
 import com.example.campusconnect.util.Constants
 import com.example.campusconnect.util.DbgLog
+import com.example.campusconnect.util.FirestoreErrorMapper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
@@ -25,6 +27,13 @@ class SeniorsRepository @Inject constructor(
     fun observeSeniors(): Flow<Resource<List<Senior>>> = callbackFlow {
         DbgLog.d("Repo", "observeSeniors start")
         trySend(Resource.Loading)
+
+        if (auth.currentUser == null) {
+            trySend(Resource.Error("Please sign in to view seniors."))
+            close()
+            return@callbackFlow
+        }
+
         var lastEmitted: List<Senior>? = null
 
         val seniorsCollection = db.collection("seniors")
@@ -33,7 +42,7 @@ class SeniorsRepository @Inject constructor(
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     DbgLog.e("Repo", "observeSeniors snapshot error", error)
-                    trySend(Resource.Error(error.message))
+                    trySend(Resource.Error(FirestoreErrorMapper.toUserMessage(error, auth.currentUser != null)))
                     return@addSnapshotListener
                 }
 
@@ -88,9 +97,9 @@ class SeniorsRepository @Inject constructor(
                     ?.filterIsInstance<String>()
                     ?: emptyList()
 
-                val normalizedPermissions = permissions.map { it.trim().lowercase() }
+                val normalizedPermissions = permissions.map { PermissionManager.normalizePermission(it) }
                 val canCreateSenior = normalizedPermissions.contains("*:*:*") ||
-                    normalizedPermissions.contains("seniors:add:all")
+                    normalizedPermissions.contains("seniors:manage")
 
                 if (!canCreateSenior) {
                     DbgLog.d("Repo", "addSenior blocked by role/permissions")
@@ -111,12 +120,12 @@ class SeniorsRepository @Inject constructor(
                     }
                     .addOnFailureListener {
                         DbgLog.e("Repo", "addSenior set failed", it)
-                        onResult(false, it.message)
+                        onResult(false, FirestoreErrorMapper.toUserMessage(it, auth.currentUser != null))
                     }
             }
             .addOnFailureListener {
                 DbgLog.e("Repo", "addSenior permissions lookup failed", it)
-                onResult(false, it.message)
+                onResult(false, FirestoreErrorMapper.toUserMessage(it, auth.currentUser != null))
             }
     }
 
@@ -134,7 +143,7 @@ class SeniorsRepository @Inject constructor(
             }
             .addOnFailureListener {
                 DbgLog.e("Repo", "updateSenior failed id=${senior.id}", it)
-                onResult(false, it.message)
+                onResult(false, FirestoreErrorMapper.toUserMessage(it, auth.currentUser != null))
             }
     }
 
@@ -171,7 +180,7 @@ class SeniorsRepository @Inject constructor(
             }
             .addOnFailureListener {
                 DbgLog.e("Repo", "deleteSenior failed id=$seniorId", it)
-                onResult(false, it.message)
+                onResult(false, FirestoreErrorMapper.toUserMessage(it, auth.currentUser != null))
             }
     }
 }

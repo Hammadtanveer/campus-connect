@@ -55,22 +55,18 @@ class EventsViewModel @Inject constructor(
         return PermissionManager.canCreateEvents(profile)
     }
 
-    fun canEditEvent(event: OnlineEvent, profile: UserProfile?): Boolean {
+    fun canEditEvent(@Suppress("UNUSED_PARAMETER") event: OnlineEvent, profile: UserProfile?): Boolean {
         val p = profile ?: return false
         val perms = PermissionManager.effectivePermissions(p)
-        val ownsEvent = event.organizerId == p.id || event.createdBy == p.id
         return perms.contains("*:*:*") ||
-            perms.contains("events:edit:all") ||
-            (ownsEvent && perms.contains("events:edit:own"))
+            perms.contains("meetings:manage")
     }
 
-    fun canDeleteEvent(event: OnlineEvent, profile: UserProfile?): Boolean {
+    fun canDeleteEvent(@Suppress("UNUSED_PARAMETER") event: OnlineEvent, profile: UserProfile?): Boolean {
         val p = profile ?: return false
         val perms = PermissionManager.effectivePermissions(p)
-        val ownsEvent = event.organizerId == p.id || event.createdBy == p.id
         return perms.contains("*:*:*") ||
-            perms.contains("events:delete:all") ||
-            (ownsEvent && perms.contains("events:delete:own"))
+            perms.contains("meetings:manage")
     }
 
     // Proxy the repository flow if raw flow is needed

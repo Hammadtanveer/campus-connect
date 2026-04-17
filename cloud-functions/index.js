@@ -6,17 +6,21 @@ const admin = require('firebase-admin');
 // Initialize the admin SDK
 admin.initializeApp();
 
-// Configuration: set ADMIN_CODE and DEFAULT_ADMIN_ROLES in functions config (or fallback here)
+// Configuration: set ADMIN_CODE and DEFAULT_ADMIN_PERMISSIONS in functions config (or fallback here)
 const DEFAULT_ADMIN_CODE = functions.config().campus?.admin_code || 'CAMPUS_ADMIN_2025';
-const DEFAULT_ADMIN_ROLES = (functions.config().campus?.default_admin_roles && functions.config().campus.default_admin_roles.split(',')) || ['admin','event:create','notes:upload'];
+const DEFAULT_ADMIN_PERMISSIONS = (functions.config().campus?.default_admin_permissions && functions.config().campus.default_admin_permissions.split(',')) || [
+  'meetings:manage',
+  'notes:manage',
+  'placements:manage',
+  'society:*:manage',
+];
 
 /**
  * Callable function: requestAdminAccess
  * Expects: { adminCode: string }
  * Behavior:
  *  - Validates adminCode server-side against functions config
- *  - If valid: sets custom claims on the requesting user (admin=true, roles=[...])
- *  - Updates Firestore users/{uid} document with isAdmin=true and roles
+ *  - If valid: updates Firestore users/{uid} document with canonical permissions
  *  - Returns success or error
  * Security:
  *  - Only callable by authenticated users (context.auth.required)
@@ -43,22 +47,18 @@ exports.requestAdminAccess = functions.https.onCall(async (data, context) => {
   }
 
   try {
-    // Set custom claims
-    const claims = { admin: true, roles: DEFAULT_ADMIN_ROLES };
-    await admin.auth().setCustomUserClaims(uid, claims);
-
-    // Update Firestore users doc to reflect isAdmin and roles
+    // Update Firestore users doc with canonical permissions
     const db = admin.firestore();
     const userRef = db.collection('users').doc(uid);
 
-    // Merge existing roles with defaults and set isAdmin
+    // Merge existing doc permissions into canonical permissions
     const snap = await userRef.get();
-    const existingRoles = (snap.exists && snap.data() && snap.data().roles) ? snap.data().roles : [];
-    const mergedRoles = Array.from(new Set([...(existingRoles || []), ...DEFAULT_ADMIN_ROLES]));
+    const existingPermissions = (snap.exists && snap.data() && Array.isArray(snap.data().permissions)) ? snap.data().permissions : [];
+    const mergedPermissions = Array.from(new Set([...(existingPermissions || []), ...DEFAULT_ADMIN_PERMISSIONS]));
 
-    await userRef.set({ isAdmin: true, roles: mergedRoles }, { merge: true });
+    await userRef.set({ permissions: mergedPermissions }, { merge: true });
 
-    return { success: true, message: 'Admin access granted. Please refresh token (sign out/in or call getIdToken(true)).' };
+    return { success: true, message: 'Admin access granted.' };
   } catch (err) {
     console.error('requestAdminAccess error', err);
     throw new functions.https.HttpsError('internal', err.message || 'Internal error');
@@ -315,10 +315,13 @@ exports.sendTopicNotification = functions.https.onCall(async (data, context) => 
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required.');
   }
 
-  const token = context.auth.token || {};
-  const role = String(token.role || '').toLowerCase();
-  const isSuperAdmin = token.superAdmin === true || role === 'super_admin' || role === 'superadmin';
-  if (!isSuperAdmin) {
+  const db = admin.firestore();
+  const userDoc = await db.collection('users').doc(context.auth.uid).get();
+  const permissions = userDoc.exists && Array.isArray(userDoc.data().permissions)
+    ? userDoc.data().permissions
+    : [];
+  const canSend = permissions.includes('*:*:*') || permissions.includes('admin:access');
+  if (!canSend) {
     throw new functions.https.HttpsError('permission-denied', 'Only super admin can send notifications.');
   }
 

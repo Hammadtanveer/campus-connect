@@ -10,6 +10,7 @@ import com.example.campusconnect.data.models.Resource
 import com.example.campusconnect.util.Constants
 import com.example.campusconnect.util.DbgLog
 import com.example.campusconnect.util.FileUtils
+import com.example.campusconnect.util.FirestoreErrorMapper
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -39,7 +40,8 @@ class NotesRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val mediaManager: MediaManager,
     private val notesDao: NotesDao,
-    private val adminActivityLogRepository: AdminActivityLogRepository
+    private val adminActivityLogRepository: AdminActivityLogRepository,
+    private val auth: FirebaseAuth
 ) {
 
     private val notesCollection = firestore.collection("notes")
@@ -177,6 +179,12 @@ class NotesRepository @Inject constructor(
     ): Flow<Resource<List<Note>>> = callbackFlow {
         trySend(Resource.Loading)
 
+        if (auth.currentUser == null) {
+            trySend(Resource.Error("Please sign in to view notes."))
+            close()
+            return@callbackFlow
+        }
+
         var query: Query = notesCollection
 
         // Apply filters
@@ -197,7 +205,7 @@ class NotesRepository @Inject constructor(
 
         val registration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                val raw = error.message ?: "Failed to load notes"
+                val raw = FirestoreErrorMapper.toUserMessage(error, auth.currentUser != null)
                 val idx = extractFirestoreIndexUrl(raw)
                 val message = if (!idx.isNullOrBlank()) "$raw\n\nCreate required index here:\n$idx" else raw
                 trySend(Resource.Error(message))
@@ -241,11 +249,17 @@ class NotesRepository @Inject constructor(
     fun observeNotesForModeration(): Flow<Resource<List<Note>>> = callbackFlow {
         trySend(Resource.Loading)
 
+        if (auth.currentUser == null) {
+            trySend(Resource.Error("Please sign in to continue."))
+            close()
+            return@callbackFlow
+        }
+
         val registration = notesCollection
             .orderBy("uploadedAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    trySend(Resource.Error(error.message ?: "Failed to load notes for moderation"))
+                    trySend(Resource.Error(FirestoreErrorMapper.toUserMessage(error, auth.currentUser != null)))
                     return@addSnapshotListener
                 }
 
@@ -287,7 +301,7 @@ class NotesRepository @Inject constructor(
                 .await()
             Resource.Success(Unit)
         } catch (e: Exception) {
-            Resource.Error(e.message ?: "Failed to update moderation status")
+            Resource.Error(FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null))
         }
     }
 
@@ -311,7 +325,7 @@ class NotesRepository @Inject constructor(
 
             Resource.Success(Unit)
         } catch (e: Exception) {
-            Resource.Error(e.message ?: "Failed to delete note")
+            Resource.Error(FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null))
         }
     }
 
@@ -355,7 +369,7 @@ class NotesRepository @Inject constructor(
                 Resource.Error("Note not found")
             }
         } catch (e: Exception) {
-            Resource.Error(e.message ?: "Failed to load note")
+            Resource.Error(FirestoreErrorMapper.toUserMessage(e, auth.currentUser != null))
         }
     }
 
