@@ -308,6 +308,16 @@ class MainViewModel @Inject constructor(
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
+                    val user = auth.currentUser
+                    if (user != null && !user.isEmailVerified) {
+                        auth.signOut()
+                        _userProfile.value = null
+                        sessionManager.updateAuth(null, null)
+                        sessionManager.updateProfile(null)
+                        onResult(false, "Please verify your email before signing in. Check your inbox for verification link.")
+                        return@addOnCompleteListener
+                    }
+
                     val uid = auth.currentUser?.uid
                     Log.i("MainViewModel", "signInWithEmailPassword: success, uid=$uid")
                     if (uid != null) {
@@ -385,23 +395,37 @@ class MainViewModel @Inject constructor(
                         .build()
                     user.updateProfile(profileUpdates)
                         .addOnCompleteListener { updateTask ->
-                            if (!updateTask.isSuccessful) Unit
-                            createUserProfile(
-                                userId = user.uid,
-                                displayName = displayName,
-                                email = email,
-                                course = course,
-                                branch = branch,
-                                year = year,
-                                bio = bio
-                            ) { ok, err ->
-                                if (ok) {
-                                    Log.i("MainViewModel", "createUserProfile succeeded for ${user.uid}")
-                                    onResult(true, null)
-                                } else {
-                                    onResult(false, err ?: "Failed to save user profile.")
-                                }
+                            if (!updateTask.isSuccessful) {
+                                onResult(false, "Failed to update profile: ${updateTask.exception?.localizedMessage}")
+                                return@addOnCompleteListener
                             }
+
+                            user.sendEmailVerification()
+                                .addOnCompleteListener { verificationTask ->
+                                    if (!verificationTask.isSuccessful) {
+                                        Log.w(
+                                            "MainViewModel",
+                                            "Failed to send verification email: ${verificationTask.exception?.localizedMessage}"
+                                        )
+                                    }
+
+                                    createUserProfile(
+                                        userId = user.uid,
+                                        displayName = displayName,
+                                        email = email,
+                                        course = course,
+                                        branch = branch,
+                                        year = year,
+                                        bio = bio
+                                    ) { ok, err ->
+                                        if (ok) {
+                                            Log.i("MainViewModel", "createUserProfile succeeded for ${user.uid}")
+                                            onResult(true, null)
+                                        } else {
+                                            onResult(false, err ?: "Failed to save user profile.")
+                                        }
+                                    }
+                                }
                         }
                 } else {
                     val ex = task.exception
@@ -484,6 +508,13 @@ class MainViewModel @Inject constructor(
         _currentScreen.value = Screen.DrawerScreen.Profile
         // cleanup listeners
         // stopPendingRequestsListener() - Mentorship removed
+    }
+
+    fun refreshAuthState() {
+        val user = auth.currentUser
+        user?.reload()?.addOnCompleteListener {
+            handleAuthStateChanged(auth.currentUser)
+        }
     }
 
     fun setCurrentScreenByRoute(route: String) {

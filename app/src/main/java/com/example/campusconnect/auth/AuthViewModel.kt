@@ -1,5 +1,6 @@
 package com.example.campusconnect.auth
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.example.campusconnect.data.models.UserProfile
 import com.example.campusconnect.session.SessionManager
@@ -23,6 +24,14 @@ class AuthViewModel @Inject constructor(
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     val user = auth.currentUser
+                    if (user != null && !user.isEmailVerified) {
+                        auth.signOut()
+                        sessionManager.updateAuth(null, null)
+                        sessionManager.updateProfile(null)
+                        onResult(false, "Please verify your email before signing in. Check your inbox for verification link.")
+                        return@addOnCompleteListener
+                    }
+
                     sessionManager.updateAuth(user?.uid, user?.email)
                     if (user?.uid != null) {
                         loadUserProfile(user.uid)
@@ -56,17 +65,39 @@ class AuthViewModel @Inject constructor(
                         .setDisplayName(displayName)
                         .build()
                     user.updateProfile(profileUpdates)
-                        .addOnCompleteListener {
-                            createProfile(
-                                userId = user.uid,
-                                displayName = displayName,
-                                email = email,
-                                course = course,
-                                branch = branch,
-                                year = year,
-                                bio = bio,
-                                onResult = onResult
-                            )
+                        .addOnCompleteListener profileComplete@{ profileTask ->
+                            if (!profileTask.isSuccessful) {
+                                onResult(false, "Failed to update profile: ${profileTask.exception?.localizedMessage}")
+                                return@profileComplete
+                            }
+
+                            Log.d("AUTH_REGISTER", "Attempting to send verification email to: ${user.email}")
+                            user.sendEmailVerification()
+                                .addOnSuccessListener {
+                                    Log.d("AUTH_REGISTER", "Verification email sent successfully!")
+                                }
+                                .addOnFailureListener { e ->
+                                    Log.e("AUTH_REGISTER", "Failed to send verification email", e)
+                                }
+                                .addOnCompleteListener { verificationTask ->
+                                    if (!verificationTask.isSuccessful) {
+                                        Log.w(
+                                            "AuthViewModel",
+                                            "Failed to send verification email: ${verificationTask.exception?.localizedMessage}"
+                                        )
+                                    }
+
+                                    createProfile(
+                                        userId = user.uid,
+                                        displayName = displayName,
+                                        email = email,
+                                        course = course,
+                                        branch = branch,
+                                        year = year,
+                                        bio = bio,
+                                        onResult = onResult
+                                    )
+                                }
                         }
                 } else {
                     onResult(false, task.exception?.let { mapError(it) } ?: "Registration failed")

@@ -19,16 +19,23 @@ fun AuthGate(
 ) {
     val initializing = viewModel.initializing
     val userProfile = viewModel.userProfile
+    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
     val isAuthenticated = userProfile != null
+    val needsEmailVerification = currentUser != null && !currentUser.isEmailVerified
 
     Surface(color = MaterialTheme.colorScheme.background) {
         when {
             initializing -> SplashPlaceholder()
-            // Show welcome screens only when the user is not authenticated.
-            // Previously BuildConfig.FORCE_WELCOME was checked first and could force
-            // the welcome UI even when the user was signed in (debug helper). That
-            // prevented successful sign-in from navigating into the app. We keep
-            // showing the welcome host only when not authenticated so login works.
+            needsEmailVerification -> EmailVerificationScreen(
+                userEmail = currentUser?.email ?: "",
+                onVerified = {
+                    com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+                    viewModel.signOut()
+                },
+                onSignOut = {
+                    viewModel.signOut()
+                }
+            )
             !isAuthenticated -> WelcomeHost(viewModel, darkTheme = darkTheme)
             else -> MainView(
                 viewModel = viewModel,

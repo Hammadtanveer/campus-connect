@@ -147,11 +147,9 @@ private fun RegisterScreen(
                 ) { ok, err ->
                     loading = false
                     if (ok) {
-                        success = "Account created successfully. Signing you in..."
-                        // Short delay to let the user read the success message, then notify parent to close auth UI
+                        success = "Account created! Please check your email to verify your account."
                         scope.launch {
-                            delay(900)
-                            onRegistered()
+                            delay(2000)
                         }
                     } else {
                         error = err
