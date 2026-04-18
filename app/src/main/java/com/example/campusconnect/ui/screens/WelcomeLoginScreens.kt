@@ -33,26 +33,39 @@ import com.example.campusconnect.ui.screens.AuthScreen
 fun WelcomeHost(viewModel: MainViewModel, darkTheme: Boolean = isSystemInDarkTheme()) {
     val showingAuth = remember { mutableStateOf(false) }
     val startRegister = remember { mutableStateOf(false) }
+    val showingForgotPassword = remember { mutableStateOf(false) }
 
     if (showingAuth.value) {
-        AuthScreen(
-            startInRegister = startRegister.value,
-            onLoginSuccess = {
-                // When login succeeds, MainViewModel will pick up the session/profile changes
-                // and AuthGate will automatically switch to MainView. We can also hide the
-                // auth UI immediately for a snappier experience.
-                showingAuth.value = false
-            }
-        )
+        if (showingForgotPassword.value) {
+            ForgotPasswordScreen(
+                viewModel = viewModel,
+                onBackClick = { showingForgotPassword.value = false }
+            )
+        } else {
+            AuthScreen(
+                startInRegister = startRegister.value,
+                onLoginSuccess = {
+                    // When login succeeds, MainViewModel will pick up the session/profile changes
+                    // and AuthGate will automatically switch to MainView. We can also hide the
+                    // auth UI immediately for a snappier experience.
+                    showingAuth.value = false
+                },
+                onForgotPassword = {
+                    showingForgotPassword.value = true
+                }
+            )
+        }
     } else {
         WelcomeScreen(
             onLogin = {
                 startRegister.value = false
                 showingAuth.value = true
+                showingForgotPassword.value = false
             },
             onSignUp = {
                 startRegister.value = true
                 showingAuth.value = true
+                showingForgotPassword.value = false
             },
             darkTheme = darkTheme
         )

@@ -5,6 +5,8 @@ import androidx.compose.runtime.mutableStateOf
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.UUID
@@ -369,6 +371,27 @@ class MainViewModel @Inject constructor(
             }
     }
 
+    fun sendPasswordResetEmail(email: String, onResult: (Boolean, String?) -> Unit) {
+        Log.d("PASSWORD_RESET", "Sending password reset email to: $email")
+
+        auth.sendPasswordResetEmail(email)
+            .addOnSuccessListener {
+                Log.d("PASSWORD_RESET", "Password reset email sent successfully")
+                onResult(true, null)
+            }
+            .addOnFailureListener { exception ->
+                Log.e("PASSWORD_RESET", "Failed to send password reset email", exception)
+                val errorMessage = when (exception) {
+                    is FirebaseAuthInvalidUserException ->
+                        "No account found with this email address"
+                    is FirebaseAuthInvalidCredentialsException ->
+                        "Invalid email address format"
+                    else -> exception.localizedMessage ?: "Failed to send reset email"
+                }
+                onResult(false, errorMessage)
+            }
+    }
+
     fun registerWithEmailPassword(
         email: String,
         password: String,
@@ -394,10 +417,10 @@ class MainViewModel @Inject constructor(
                         .setDisplayName(displayName)
                         .build()
                     user.updateProfile(profileUpdates)
-                        .addOnCompleteListener { updateTask ->
+                        .addOnCompleteListener updateComplete@{ updateTask ->
                             if (!updateTask.isSuccessful) {
                                 onResult(false, "Failed to update profile: ${updateTask.exception?.localizedMessage}")
-                                return@addOnCompleteListener
+                                return@updateComplete
                             }
 
                             user.sendEmailVerification()

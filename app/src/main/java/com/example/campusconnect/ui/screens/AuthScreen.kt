@@ -1,6 +1,5 @@
 package com.example.campusconnect.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,10 +22,8 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,7 +55,8 @@ private enum class LocalAuthMode { LOGIN, REGISTER }
 fun AuthScreen(
     viewModel: MainViewModel = hiltViewModel(),
     startInRegister: Boolean = false,
-    onLoginSuccess: () -> Unit = {}
+    onLoginSuccess: () -> Unit = {},
+    onForgotPassword: () -> Unit = {}
 ) {
     var mode by remember { mutableStateOf(if (startInRegister) LocalAuthMode.REGISTER else LocalAuthMode.LOGIN) }
 
@@ -76,7 +74,8 @@ fun AuthScreen(
         LoginScreen(
             viewModel = viewModel,
             onSwitchToRegister = { mode = LocalAuthMode.REGISTER },
-            onLoginSuccess = onLoginSuccess
+            onLoginSuccess = onLoginSuccess,
+            onForgotPassword = onForgotPassword
         )
     }
 }
@@ -168,7 +167,8 @@ private fun RegisterScreen(
 private fun LoginScreen(
     viewModel: MainViewModel,
     onSwitchToRegister: () -> Unit,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    onForgotPassword: () -> Unit = {}
 ) {
     // Use the centralized Material color scheme
     val colorScheme = MaterialTheme.colorScheme
@@ -176,7 +176,6 @@ private fun LoginScreen(
     val background = colorScheme.background
     val textPrimary = colorScheme.onBackground
     val textSecondary = colorScheme.secondary
-    val border = colorScheme.outline
 
     var email by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
@@ -239,7 +238,7 @@ private fun LoginScreen(
                         color = primary,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { /* navigate to forgot */ }
+                            .clickable { onForgotPassword() }
                             .padding(end = 4.dp),
                         textAlign = TextAlign.Right
                     )
@@ -271,35 +270,6 @@ private fun LoginScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     success?.let { Text(text = it, color = Success) }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Divider with centered text
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        HorizontalDivider(modifier = Modifier.fillMaxWidth(), thickness = 1.dp, color = border)
-                        Box(modifier = Modifier.background(color = background).padding(horizontal = 12.dp)) {
-                            Text(text = "Or sign in with", color = textSecondary, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Google button (outlined style)
-                    OutlinedButton(
-                        onClick = { },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, border),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Transparent, contentColor = textPrimary)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                            // simple circular placeholder for Google icon
-                            Box(modifier = Modifier.size(20.dp)) {
-                                // replaceable with Google SVG asset
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = "Continue with Google", style = MaterialTheme.typography.bodyMedium, color = textPrimary)
-                        }
-                    }
 
                 }
 

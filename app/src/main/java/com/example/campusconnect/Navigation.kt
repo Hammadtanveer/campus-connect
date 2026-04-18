@@ -32,6 +32,7 @@ import com.example.campusconnect.ui.screens.CreateSocietyEventScreen
 import com.example.campusconnect.ui.screens.DownloadView
 import com.example.campusconnect.ui.screens.EventDetailScreen
 import com.example.campusconnect.ui.screens.EventsListScreen
+import com.example.campusconnect.ui.screens.ForgotPasswordScreen
 import com.example.campusconnect.ui.screens.NotesScreen
 import com.example.campusconnect.ui.screens.PlacementCareerScreen
 import com.example.campusconnect.ui.screens.Seniors
@@ -178,6 +179,12 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
             } else {
                 CreateEventScreen(navController = navController, eventId = eventId)
             }
+        }
+        composable("forgot_password") {
+            ForgotPasswordScreen(
+                viewModel = viewModel,
+                onBackClick = { navController.popBackStack() }
+            )
         }
 
         // Admin Panel
