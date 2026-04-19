@@ -29,17 +29,23 @@ class AdminUsersRepository @Inject constructor(
                     return@addSnapshotListener
                 }
 
-                val users = snapshot?.documents
-                    ?.mapNotNull { doc ->
+                if (snapshot == null) {
+                    trySend(Resource.Success(emptyList()))
+                    return@addSnapshotListener
+                }
+
+                val users = snapshot.documents
+                    .filter { doc -> doc.exists() }
+                    .mapNotNull { doc ->
                         try {
                             UserProfileMapper.fromDocument(doc)
                         } catch (_: Exception) {
                             null
                         }
                     }
-                    ?.distinctBy { it.email.lowercase().trim() }
-                    ?.sortedBy { it.displayName.lowercase() }
-                    ?: emptyList()
+                    .distinctBy { it.email.lowercase().trim() }
+                    .filter { it.role != "super_admin" }
+                    .sortedBy { it.displayName.lowercase() }
 
                 Log.d("ADMIN_DEBUG", "Realtime users update: count=${users.size}")
 

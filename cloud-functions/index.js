@@ -357,3 +357,17 @@ exports.sendTopicNotification = functions.https.onCall(async (data, context) => 
   return { success: true };
 });
 
+// Auto-delete Firestore user document when Firebase Auth user is deleted
+exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
+  const uid = user.uid;
+  console.log('onUserDeleted triggered for uid:', uid);
+
+  try {
+    const db = admin.firestore();
+    await db.collection('users').document(uid).delete();
+    console.log('Firestore user document deleted for uid:', uid);
+  } catch (error) {
+    console.error('Failed to delete Firestore document for uid:', uid, error);
+  }
+});
+

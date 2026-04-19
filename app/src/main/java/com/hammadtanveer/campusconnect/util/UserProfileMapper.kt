@@ -11,6 +11,7 @@ object UserProfileMapper {
     private fun normalize(value: String): String = value.trim().lowercase()
 
     fun fromDocument(doc: DocumentSnapshot): UserProfile? {
+        if (!doc.exists()) return null
         val raw = doc.data ?: return null
         val snapshotPermissions = (doc.get("permissions") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
         val merged = raw.toMutableMap()

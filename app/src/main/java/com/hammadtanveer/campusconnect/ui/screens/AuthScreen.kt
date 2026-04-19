@@ -231,6 +231,18 @@ private fun LoginScreen(
                         visualTransformation = PasswordVisualTransformation()
                     )
 
+                    error?.let {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
@@ -288,14 +300,6 @@ private fun LoginScreen(
             }
         }
 
-        // Error toast/message at bottom if present
-        error?.let {
-            Box(modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)) {
-                Text(text = it, color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.Center))
-            }
-        }
     }
 }
 

@@ -352,13 +352,51 @@ class MainViewModel @Inject constructor(
                     val lower = ex?.localizedMessage?.lowercase() ?: ""
                     val message = when (ex) {
                         is FirebaseAuthException -> {
-                            val code = try { ex.errorCode } catch (_: Exception) { null }
-                            when (code) {
-                                "ERROR_USER_NOT_FOUND", "USER_NOT_FOUND" -> "No user found with this email. Please sign up first."
-                                "ERROR_WRONG_PASSWORD", "WRONG_PASSWORD" -> "Incorrect password. Please try again."
-                                "ERROR_USER_DISABLED" -> "This user account has been disabled."
-                                "ERROR_NETWORK_REQUEST_FAILED" -> "Network error. Check your internet connection and try again."
-                                else -> ex.localizedMessage ?: "Authentication failed."
+                            val code = try { ex.errorCode } catch (_: Exception) { "" }
+                            val msg = ex.localizedMessage?.lowercase() ?: ""
+                            when {
+                                // User not found
+                                code == "ERROR_USER_NOT_FOUND" ||
+                                    code == "USER_NOT_FOUND" ||
+                                    "no user record" in msg ||
+                                    "user may have been deleted" in msg ->
+                                    "No account found with this email address. Please sign up first."
+
+                                // Separate case for wrong password / invalid credential
+                                code == "ERROR_INVALID_CREDENTIAL" ||
+                                    code == "INVALID_CREDENTIAL" ||
+                                code == "ERROR_WRONG_PASSWORD" ||
+                                    code == "WRONG_PASSWORD" ||
+                                    "password is invalid" in msg ||
+                                "incorrect password" in msg ||
+                                "invalid credential" in msg ->
+                                    "Incorrect email or password. Please try again."
+
+                                // Email not verified
+                                code == "ERROR_UNVERIFIED_EMAIL" ->
+                                    "Please verify your email before signing in."
+
+                                // Account disabled
+                                code == "ERROR_USER_DISABLED" ->
+                                    "This account has been disabled. Contact support."
+
+                                // Too many attempts
+                                code == "ERROR_TOO_MANY_REQUESTS" ||
+                                    "too many" in msg ||
+                                    "blocked" in msg ->
+                                    "Too many failed attempts. Please try again later or reset your password."
+
+                                // Network
+                                code == "ERROR_NETWORK_REQUEST_FAILED" ||
+                                    "network" in msg ->
+                                    "Network error. Check your internet connection."
+
+                                // Malformed email
+                                code == "ERROR_INVALID_EMAIL" ||
+                                    "badly formatted" in msg ->
+                                    "Please enter a valid email address."
+
+                                else -> "Sign in failed. Please check your email and password."
                             }
                         }
                         else -> when {
@@ -544,7 +582,7 @@ class MainViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                // Guard 1: Block super_admin deletion
+                // Step 1: Block super_admin deletion
                 val profileDoc = firestore.collection("users")
                     .document(uid).get().await()
                 val role = profileDoc.getString("role") ?: "user"
@@ -553,7 +591,7 @@ class MainViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Guard 2: Re-authenticate with password
+                // Step 2: Re-authenticate
                 val email = user.email
                 if (email.isNullOrBlank()) {
                     onResult(false, "Cannot verify account email")
@@ -563,12 +601,14 @@ class MainViewModel @Inject constructor(
                     .getCredential(email, password)
                 user.reauthenticate(credential).await()
 
-                // Delete Auth account first
-                user.delete().await()
-
-                // Then delete Firestore document
+                // Step 3: Delete Firestore document FIRST (auth still valid)
+                // This triggers real-time listener -> User Management updates instantly
                 firestore.collection("users").document(uid).delete().await()
 
+                // Step 4: Delete Firebase Auth account
+                user.delete().await()
+
+                // Step 5: Clear local session
                 sessionManager.clearSession()
                 onResult(true, null)
 
