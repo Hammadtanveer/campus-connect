@@ -1,0 +1,264 @@
+package com.hammadtanveer.campusconnect.ui.events
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.hammadtanveer.campusconnect.data.models.EventCategory
+import com.hammadtanveer.campusconnect.data.models.OnlineEvent
+import com.hammadtanveer.campusconnect.data.models.Resource
+import com.hammadtanveer.campusconnect.data.models.UserProfile
+import com.hammadtanveer.campusconnect.data.models.UserActivity
+import com.hammadtanveer.campusconnect.data.models.ActivityType
+import com.hammadtanveer.campusconnect.data.repository.ActivityLogRepository
+import com.hammadtanveer.campusconnect.data.repository.EventsRepository
+import com.hammadtanveer.campusconnect.security.PermissionManager
+import com.hammadtanveer.campusconnect.session.SessionManager
+import com.hammadtanveer.campusconnect.util.formatTimestamp
+import com.google.firebase.Timestamp
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
+import java.util.Random
+import java.util.UUID
+import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import com.hammadtanveer.campusconnect.R
+import com.hammadtanveer.campusconnect.data.models.EventType
+
+@HiltViewModel
+class EventsViewModel @Inject constructor(
+    private val eventsRepo: EventsRepository,
+    private val sessionManager: SessionManager,
+    private val activityLogRepository: ActivityLogRepository
+) : ViewModel() {
+
+    companion object {
+        private const val EVENT_CREATION_TIMEOUT_MS = 30_000L
+    }
+
+    // Expose events as a Hot Flow (StateFlow)
+    val eventsState = eventsRepo.observeEvents()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = Resource.Loading
+        )
+
+    // Expose current user profile as direct Flow (no stateIn caching).
+    val currentUserProfileFlow: Flow<UserProfile?> = sessionManager.state.map { it.profile }
+
+    fun canCreateEvent(profile: UserProfile?): Boolean {
+        return PermissionManager.canCreateEvents(profile)
+    }
+
+    fun canEditEvent(@Suppress("UNUSED_PARAMETER") event: OnlineEvent, profile: UserProfile?): Boolean {
+        val p = profile ?: return false
+        val perms = PermissionManager.effectivePermissions(p)
+        return perms.contains("*:*:*") ||
+            perms.contains("meetings:manage")
+    }
+
+    fun canDeleteEvent(@Suppress("UNUSED_PARAMETER") event: OnlineEvent, profile: UserProfile?): Boolean {
+        val p = profile ?: return false
+        val perms = PermissionManager.effectivePermissions(p)
+        return perms.contains("*:*:*") ||
+            perms.contains("meetings:manage")
+    }
+
+    // Proxy the repository flow if raw flow is needed
+    fun loadEvents(): Flow<Resource<List<OnlineEvent>>> {
+        return eventsRepo.observeEvents()
+    }
+
+    fun createEvent(
+        title: String,
+        description: String,
+        dateTime: Timestamp,
+        durationMinutes: Long,
+        eventType: EventType,
+        venue: String,
+        maxParticipants: Int = 0,
+        meetLink: String = "",
+        profile: UserProfile?,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        val organizerId = profile?.id ?: return onResult(false, "Not authenticated")
+        if (!canCreateEvent(profile)) return onResult(false, "No permission to create event")
+        val organizerName = profile.displayName
+        val organizerRole = profile.role.ifBlank { "user" }
+
+        // Auto-generate meet link if not provided, ONLY for ONLINE events
+        val finalMeetLink = if (eventType == EventType.ONLINE && meetLink.isBlank()) {
+            "https://meet.google.com/${generatePseudoMeetLink()}"
+        } else if (eventType == EventType.OFFLINE) {
+            "" // No meet link for offline events
+        } else {
+            meetLink
+        }
+
+        // Default category to SOCIAL as it's no longer selectable
+        val defaultCategory = EventCategory.SOCIAL
+
+        eventsRepo.createEvent(
+            title = title,
+            description = description,
+            dateTime = dateTime,
+            durationMinutes = durationMinutes,
+            organizerId = organizerId,
+            organizerName = organizerName,
+            organizerRole = organizerRole,
+            category = defaultCategory,
+            eventType = eventType,
+            venue = venue,
+            maxParticipants = maxParticipants,
+            meetLink = finalMeetLink
+        ) { ok, err ->
+            onResult(ok, err)
+        }
+    }
+
+    fun updateEvent(
+        eventId: String,
+        title: String,
+        description: String,
+        durationMinutes: Long,
+        eventType: EventType,
+        venue: String,
+        maxParticipants: Int = 0,
+        meetLink: String = "",
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        eventsRepo.updateEvent(
+            eventId = eventId,
+            title = title,
+            description = description,
+            durationMinutes = durationMinutes,
+            eventType = eventType,
+            venue = venue,
+            maxParticipants = maxParticipants,
+            meetLink = meetLink,
+            onResult = onResult
+        )
+    }
+
+    suspend fun updateEventAwait(
+        eventId: String,
+        title: String,
+        description: String,
+        durationMinutes: Long,
+        eventType: EventType,
+        venue: String,
+        maxParticipants: Int = 0,
+        meetLink: String = ""
+    ) {
+        return withTimeout(EVENT_CREATION_TIMEOUT_MS) {
+            suspendCancellableCoroutine { cont ->
+                updateEvent(
+                    eventId = eventId,
+                    title = title,
+                    description = description,
+                    durationMinutes = durationMinutes,
+                    eventType = eventType,
+                    venue = venue,
+                    maxParticipants = maxParticipants,
+                    meetLink = meetLink
+                ) { ok, err ->
+                    if (!cont.isActive) return@updateEvent
+                    if (ok) {
+                        cont.resume(Unit)
+                    } else {
+                        cont.resumeWithException(IllegalStateException(err ?: "Failed to update event"))
+                    }
+                }
+            }
+        }
+    }
+
+    suspend fun createEventAwait(
+        title: String,
+        description: String,
+        dateTime: Timestamp,
+        durationMinutes: Long,
+        eventType: EventType,
+        venue: String,
+        maxParticipants: Int = 0,
+        meetLink: String = "",
+        profile: UserProfile?
+    ) {
+        return withTimeout(EVENT_CREATION_TIMEOUT_MS) {
+            suspendCancellableCoroutine { cont ->
+                createEvent(
+                    title = title,
+                    description = description,
+                    dateTime = dateTime,
+                    durationMinutes = durationMinutes,
+                    eventType = eventType,
+                    venue = venue,
+                    maxParticipants = maxParticipants,
+                    meetLink = meetLink,
+                    profile = profile
+                ) { ok, err ->
+                    if (!cont.isActive) return@createEvent
+                    if (ok) {
+                        cont.resume(Unit)
+                    } else {
+                        cont.resumeWithException(IllegalStateException(err ?: "Failed to create event"))
+                    }
+                }
+            }
+        }
+    }
+
+    fun registerForEvent(eventId: String, profile: UserProfile?, onResult: (Boolean, String?) -> Unit) {
+        val uid = profile?.id ?: return onResult(false, "Not authenticated")
+        eventsRepo.registerForEvent(userId = uid, eventId = eventId, onResult = { ok, err ->
+            if (ok) {
+                // If we have the event list loaded, try to find title
+                val eventList = (eventsState.value as? Resource.Success)?.data
+                val event = eventList?.find { it.id == eventId }
+
+                trackEventJoin(event?.title ?: "Event $eventId")
+            }
+            onResult(ok, err)
+        })
+    }
+
+    private fun trackEventJoin(eventName: String) {
+        val activity = UserActivity(
+            id = UUID.randomUUID().toString(),
+            type = ActivityType.EVENT_JOINED.name,
+            title = "Event Joined",
+            description = "You joined: $eventName",
+            timestamp = formatTimestamp(),
+            iconResId = R.drawable.baseline_event_24
+        )
+
+        @Suppress("UNUSED_VARIABLE")
+        val unusedActivity = activity
+
+    }
+
+    suspend fun getEvent(eventId: String): Resource<OnlineEvent> {
+        return eventsRepo.getEvent(eventId)
+    }
+
+    suspend fun getParticipantCount(eventId: String): Int {
+        return eventsRepo.getParticipantCount(eventId)
+    }
+
+    fun deleteEvent(eventId: String, onResult: (Boolean, String?) -> Unit) {
+        eventsRepo.deleteEvent(eventId) { ok, err ->
+            onResult(ok, err)
+        }
+    }
+
+    private fun generatePseudoMeetLink(): String {
+        val rand = Random()
+        fun seg(len: Int): String = (1..len).map { ('a' + rand.nextInt(26)) }.joinToString("")
+        return "${seg(3)}-${seg(4)}-${seg(3)}"
+    }
+}

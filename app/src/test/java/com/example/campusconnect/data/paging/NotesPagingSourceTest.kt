@@ -1,7 +1,7 @@
-package com.example.campusconnect.data.paging
+package com.hammadtanveer.campusconnect.data.paging
 
 import androidx.paging.PagingState
-import com.example.campusconnect.data.models.Note
+import com.hammadtanveer.campusconnect.data.models.Note
 import com.google.firebase.firestore.*
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*

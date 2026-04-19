@@ -1,4 +1,4 @@
-package com.example.campusconnect.crash
+package com.hammadtanveer.campusconnect.crash
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*

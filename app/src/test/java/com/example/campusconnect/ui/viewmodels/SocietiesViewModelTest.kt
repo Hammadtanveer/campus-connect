@@ -1,6 +1,6 @@
-package com.example.campusconnect.ui.viewmodels
+package com.hammadtanveer.campusconnect.ui.viewmodels
 
-import com.example.campusconnect.data.repository.ActivityLogRepository
+import com.hammadtanveer.campusconnect.data.repository.ActivityLogRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.Dispatchers

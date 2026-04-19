@@ -1,15 +1,15 @@
-package com.example.campusconnect.ui.viewmodels
+package com.hammadtanveer.campusconnect.ui.viewmodels
 
-import com.example.campusconnect.data.models.EventCategory
-import com.example.campusconnect.data.repository.ActivityLogRepository
-import com.example.campusconnect.data.repository.EventsRepository
-import com.example.campusconnect.ui.events.EventsViewModel
-import com.example.campusconnect.session.SessionManager
-import com.example.campusconnect.data.models.UserProfile
-import com.example.campusconnect.session.SessionState
+import com.hammadtanveer.campusconnect.data.models.EventCategory
+import com.hammadtanveer.campusconnect.data.repository.ActivityLogRepository
+import com.hammadtanveer.campusconnect.data.repository.EventsRepository
+import com.hammadtanveer.campusconnect.ui.events.EventsViewModel
+import com.hammadtanveer.campusconnect.session.SessionManager
+import com.hammadtanveer.campusconnect.data.models.UserProfile
+import com.hammadtanveer.campusconnect.session.SessionState
 import kotlinx.coroutines.flow.MutableStateFlow
-import com.example.campusconnect.data.models.OnlineEvent
-import com.example.campusconnect.data.models.Resource
+import com.hammadtanveer.campusconnect.data.models.OnlineEvent
+import com.hammadtanveer.campusconnect.data.models.Resource
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -135,7 +135,7 @@ class EventsViewModelTest {
             description = "Description",
             dateTime = Timestamp.now(),
             durationMinutes = 60,
-            eventType = com.example.campusconnect.data.models.EventType.ONLINE,
+            eventType = com.hammadtanveer.campusconnect.data.models.EventType.ONLINE,
             venue = "",
             profile = authenticatedProfile,
             onResult = { success, _ ->
@@ -170,7 +170,7 @@ class EventsViewModelTest {
             description = "Description",
             dateTime = Timestamp.now(),
             durationMinutes = 60,
-            eventType = com.example.campusconnect.data.models.EventType.ONLINE,
+            eventType = com.hammadtanveer.campusconnect.data.models.EventType.ONLINE,
             venue = "",
             profile = null,
             onResult = { success, error ->

@@ -1,8 +1,8 @@
-package com.example.campusconnect.profile
+package com.hammadtanveer.campusconnect.profile
 
 import com.cloudinary.android.MediaManager
-import com.example.campusconnect.data.repository.ActivityLogRepository
-import com.example.campusconnect.session.SessionManager
+import com.hammadtanveer.campusconnect.data.repository.ActivityLogRepository
+import com.hammadtanveer.campusconnect.session.SessionManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore

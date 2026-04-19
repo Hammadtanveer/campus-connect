@@ -1,0 +1,263 @@
+package com.hammadtanveer.campusconnect.profile
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
+import com.hammadtanveer.campusconnect.data.models.ActivityType
+import com.hammadtanveer.campusconnect.data.models.Resource
+import com.hammadtanveer.campusconnect.data.models.UserProfile
+import com.hammadtanveer.campusconnect.data.repository.ActivityLogRepository
+import com.hammadtanveer.campusconnect.session.SessionManager
+import com.hammadtanveer.campusconnect.session.SessionState
+import com.hammadtanveer.campusconnect.ui.state.UiState
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
+import java.io.File
+import javax.inject.Inject
+import com.hammadtanveer.campusconnect.util.Constants
+import com.hammadtanveer.campusconnect.util.UserProfileMapper
+
+/**
+ * Enhanced ProfileViewModel for comprehensive profile management.
+ *
+ * Handles:
+ * - Profile loading and updates
+ * - Mentor profile management
+ * - Avatar uploads (placeholder)
+ * - Profile state management
+ */
+@HiltViewModel
+class ProfileViewModel @Inject constructor(
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore,
+    private val sessionManager: SessionManager,
+    private val activityLog: ActivityLogRepository,
+    private val mediaManager: MediaManager
+) : ViewModel() {
+
+    val session: StateFlow<SessionState> = sessionManager.state
+
+    // Profile state
+    private val _profileState = MutableStateFlow<UiState<UserProfile>>(UiState.Loading)
+    val profileState: StateFlow<UiState<UserProfile>> = _profileState.asStateFlow()
+
+    // Mentors list
+    private val _mentorsState = MutableStateFlow<UiState<List<UserProfile>>>(UiState.Loading)
+    val mentorsState: StateFlow<UiState<List<UserProfile>>> = _mentorsState.asStateFlow()
+
+    // Edit mode
+    private val _isEditing = MutableStateFlow(false)
+    val isEditing: StateFlow<Boolean> = _isEditing.asStateFlow()
+
+    /**
+     * Update user profile
+     */
+    fun updateProfile(profile: UserProfile, onResult: (Boolean, String?) -> Unit) {
+        // Use update instead of set to avoid touching restricted fields if possible,
+        // or just ensure we are not triggering the restricted keys check if values haven't changed.
+        // However, to be safe and robust against rule restrictions on 'set' (which might be seen as touching all fields),
+        // we should use .update() with only the editable fields.
+
+        val updates = mapOf(
+            "displayName" to profile.displayName,
+            "course" to profile.course,
+            "branch" to profile.branch,
+            "year" to profile.year,
+            "bio" to profile.bio,
+            "profilePictureUrl" to profile.profilePictureUrl
+            // Add other user-editable fields here if any
+        )
+
+        firestore.collection("users").document(profile.id)
+            .update(updates)
+            .addOnSuccessListener {
+                // We need to update the local session with the full profile object
+                // Since we only updated specific fields in Firestore, we can assume the other fields in 'profile'
+                // (which came from the UI state) are correct or we should merge them.
+                // The 'profile' passed in is likely a copy of the current state with edits.
+                sessionManager.updateProfile(profile)
+                activityLog.logActivity(
+                    ActivityType.PROFILE_UPDATE,
+                    "Updated profile information"
+                )
+                _profileState.value = UiState.Success(profile)
+                onResult(true, null)
+            }
+            .addOnFailureListener { e ->
+                onResult(false, e.localizedMessage)
+            }
+    }
+
+    /**
+     * Update mentor-specific profile fields
+     */
+    fun updateMentorProfile(
+        bio: String,
+        expertise: List<String>,
+        status: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            onResult(false, "Not authenticated")
+            return
+        }
+
+        val updates = mapOf<String, Any>(
+            "isMentor" to true,
+            "mentorshipBio" to bio,
+            "expertise" to expertise,
+            "mentorshipStatus" to status
+        )
+
+        firestore.collection("users").document(userId)
+            .update(updates)
+            .addOnSuccessListener {
+                activityLog.logActivity(
+                    ActivityType.PROFILE_UPDATE,
+                    "Updated mentor profile"
+                )
+                refreshProfile(userId)
+                onResult(true, null)
+            }
+            .addOnFailureListener { e ->
+                onResult(false, e.message)
+            }
+    }
+
+    /**
+     * Load user profile
+     */
+    fun loadProfile(userId: String) {
+        viewModelScope.launch {
+            _profileState.value = UiState.Loading
+            firestore.collection("users").document(userId)
+                .get()
+                .addOnSuccessListener { snap ->
+                    val profile = UserProfileMapper.fromDocument(snap)
+                    if (profile != null) {
+                        _profileState.value = UiState.Success(
+                            if (profile.id.isBlank()) profile.copy(id = snap.id) else profile
+                        )
+                    } else {
+                        _profileState.value = UiState.Error("Profile not found")
+                    }
+                }
+                .addOnFailureListener { e ->
+                    _profileState.value = UiState.Error(e.message ?: "Failed to load profile")
+                }
+        }
+    }
+
+    /**
+     * Refresh current user's profile
+     */
+    fun refreshProfile(userId: String) {
+        firestore.collection("users").document(userId)
+            .get()
+            .addOnSuccessListener { snap ->
+                UserProfileMapper.fromDocument(snap)?.let { profile ->
+                    sessionManager.updateProfile(
+                        if (profile.id.isBlank()) profile.copy(id = snap.id) else profile
+                    )
+                    _profileState.value = UiState.Success(profile)
+                }
+            }
+    }
+
+    /**
+     * Load all mentors
+     */
+    fun loadMentors() {
+        viewModelScope.launch {
+            _mentorsState.value = UiState.Loading
+            loadMentorsFlow().collect { resource ->
+                _mentorsState.value = when (resource) {
+                    is Resource.Loading -> UiState.Loading
+                    is Resource.Success -> UiState.Success(resource.data)
+                    is Resource.Error -> UiState.Error(resource.message ?: "Failed to load mentors")
+                }
+            }
+        }
+    }
+
+    /**
+     * Toggle edit mode
+     */
+    fun setEditMode(editing: Boolean) {
+        _isEditing.value = editing
+    }
+
+    /**
+     * Upload avatar (placeholder for Phase 3)
+     */
+    fun uploadAvatar(
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        // Avatar upload is intentionally disabled until the next profile module phase.
+        onResult(false, "Avatar upload not yet implemented")
+    }
+
+    /**
+     * Upload profile image to Cloudinary
+     */
+    fun uploadProfileImage(file: File, onResult: (String?) -> Unit) {
+        mediaManager.upload(file.absolutePath)
+            .option("folder", "${Constants.CLOUDINARY_BASE_FOLDER}/profiles")
+            .option("resource_type", "image")
+            .callback(object : UploadCallback {
+                override fun onStart(requestId: String) {}
+                override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {}
+                override fun onSuccess(requestId: String, resultData: Map<*, *>) {
+                    val url = resultData["secure_url"] as? String
+                    onResult(url)
+                }
+                override fun onError(requestId: String, error: ErrorInfo) {
+                    onResult(null)
+                }
+                override fun onReschedule(requestId: String, error: ErrorInfo) {}
+            })
+            .dispatch()
+    }
+
+    // Private helper methods
+
+    private fun loadMentorsFlow(): Flow<Resource<List<UserProfile>>> = callbackFlow {
+        trySend(Resource.Loading)
+
+        val registration = firestore.collection("users")
+            .whereEqualTo("isMentor", true)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(Resource.Error(error.message))
+                    return@addSnapshotListener
+                }
+
+                snapshot?.let {
+                    val mentors = it.documents.mapNotNull { doc ->
+                        try {
+                            UserProfileMapper.fromDocument(doc)?.let { profile ->
+                                if (profile.id.isBlank()) profile.copy(id = doc.id) else profile
+                            }
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                    trySend(Resource.Success(mentors))
+                }
+            }
+
+        awaitClose { registration.remove() }
+    }
+}
+

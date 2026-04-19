@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">CampusConnect</string>
     <string name="profile_avatar">Profile avatar</string>
+    <string name="privacy_policy_url">https://campus-connect-6ef13.web.app/privacy.html</string>
+    <string name="terms_of_service_url">https://campus-connect-6ef13.web.app/terms.html</string>
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="terms_of_service">Terms of Service</string>
 </resources>

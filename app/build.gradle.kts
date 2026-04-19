@@ -9,13 +9,24 @@ plugins {
     id("kotlin-parcelize")
 }
 
+import java.util.Properties
+
+val localProps = Properties()
+val localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    localPropsFile.inputStream().use(localProps::load)
+}
+
 android {
-    namespace = "com.example.campusconnect"
+    namespace = "com.hammadtanveer.campusconnect"
     compileSdk = 35
 
     signingConfigs {
         create("release") {
-            // Keystore values will be added after keystore generation.
+            storeFile = file(localProps["KEYSTORE_PATH"] as String)
+            storePassword = localProps["KEYSTORE_PASSWORD"] as String
+            keyAlias = localProps["KEY_ALIAS"] as String
+            keyPassword = localProps["KEY_PASSWORD"] as String
         }
     }
 
@@ -28,6 +39,22 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "CLOUDINARY_CLOUD_NAME",
+            "\"${localProps["CLOUDINARY_CLOUD_NAME"] ?: ""}\""
+        )
+        buildConfigField(
+            "String",
+            "CLOUDINARY_API_KEY",
+            "\"${localProps["CLOUDINARY_API_KEY"] ?: ""}\""
+        )
+        buildConfigField(
+            "String",
+            "CLOUDINARY_API_SECRET",
+            "\"${localProps["CLOUDINARY_API_SECRET"] ?: ""}\""
+        )
 
         // Enable 16KB page size support for Android 15+
         ndk {
@@ -43,7 +70,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("release")
             buildConfigField("boolean", "FORCE_WELCOME", "false")
         }
         debug {

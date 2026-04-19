@@ -1,4 +1,4 @@
-package com.example.campusconnect.auth
+package com.hammadtanveer.campusconnect.auth
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import kotlinx.coroutines.test.runTest
 import com.google.firebase.firestore.FirebaseFirestore
-import com.example.campusconnect.session.SessionManager
+import com.hammadtanveer.campusconnect.session.SessionManager
 
 /**
  * Test double that conforms to FirebaseAuth API surface we need, without subclassing

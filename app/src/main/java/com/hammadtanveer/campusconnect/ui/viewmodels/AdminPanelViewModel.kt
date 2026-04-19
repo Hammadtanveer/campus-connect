@@ -1,0 +1,190 @@
+package com.hammadtanveer.campusconnect.ui.viewmodels
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import android.util.Log
+import com.hammadtanveer.campusconnect.data.models.Resource
+import com.hammadtanveer.campusconnect.data.models.UserProfile
+import com.hammadtanveer.campusconnect.data.repository.AdminUsersRepository
+import com.hammadtanveer.campusconnect.security.PermissionManager
+import com.hammadtanveer.campusconnect.session.SessionManager
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import javax.inject.Inject
+
+@HiltViewModel
+class AdminPanelViewModel @Inject constructor(
+    private val adminUsersRepository: AdminUsersRepository,
+    private val sessionManager: SessionManager
+) : ViewModel() {
+
+    data class AdminFeatureVisibility(
+        val analytics: Boolean,
+        val userManagement: Boolean,
+        val contentModeration: Boolean,
+        val sendNotification: Boolean,
+        val societyManagement: Boolean,
+        val activityLog: Boolean
+    )
+
+    private var usersObserverJob: Job? = null
+    private var selectedUserObserverJob: Job? = null
+
+    companion object {
+        val MANAGED_PERMISSION_KEYS = listOf(
+            "placements:manage",
+            "notes:manage",
+            "meetings:manage",
+            "seniors:manage",
+        ) + PermissionManager.managedSocietyPermissionKeys()
+    }
+
+    private val _currentUser = MutableStateFlow<UserProfile?>(null)
+    val currentUser: StateFlow<UserProfile?> = _currentUser.asStateFlow()
+
+    private val _usersState = MutableStateFlow<Resource<List<UserProfile>>>(Resource.Loading)
+    val usersState: StateFlow<Resource<List<UserProfile>>> = _usersState.asStateFlow()
+
+    private val _permissionUpdateStatus = MutableStateFlow<Resource<Unit>?>(null)
+    val permissionUpdateStatus: StateFlow<Resource<Unit>?> = _permissionUpdateStatus.asStateFlow()
+
+    private val _selectedUserState = MutableStateFlow<Resource<UserProfile>?>(null)
+    val selectedUserState: StateFlow<Resource<UserProfile>?> = _selectedUserState.asStateFlow()
+
+    private val _deleteUserStatus = MutableStateFlow<Resource<Unit>?>(null)
+    val deleteUserStatus: StateFlow<Resource<Unit>?> = _deleteUserStatus.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            sessionManager.state.map { it.profile }.collectLatest { user ->
+                _currentUser.value = user
+                if (PermissionManager.canManageUsers(user)) {
+                    observeAllUsers()
+                } else {
+                    _usersState.value = Resource.Success(emptyList())
+                }
+            }
+        }
+    }
+
+    private fun observeAllUsers() {
+        usersObserverJob?.cancel()
+        usersObserverJob = viewModelScope.launch {
+            adminUsersRepository.observeUsers().collectLatest { result ->
+                _usersState.value = result
+            }
+        }
+    }
+
+    fun canCurrentUserManageUsers(): Boolean = PermissionManager.canManageUsers(currentUser.value)
+
+    fun updatePermissionsForUser(userId: String, permissions: Map<String, Boolean>) {
+        val actor = currentUser.value
+        val actorId = actor?.id.orEmpty()
+
+        if (!canCurrentUserManageUsers()) {
+            _permissionUpdateStatus.value = Resource.Error("Only super admin can manage users")
+            return
+        }
+        if (actorId.isBlank()) {
+            _permissionUpdateStatus.value = Resource.Error("Not authenticated")
+            return
+        }
+
+        viewModelScope.launch {
+            _permissionUpdateStatus.value = Resource.Loading
+            Log.d("ADMIN_DEBUG", "UI permissions = ${actor?.permissions}")
+            _permissionUpdateStatus.value = adminUsersRepository.updateUserPermissions(
+                userId = userId,
+                permissions = permissions,
+                actorUserId = actorId
+            )
+            if (_permissionUpdateStatus.value is Resource.Success) {
+                Log.d("ADMIN_DEBUG", "Permissions updated")
+            }
+        }
+    }
+
+    fun resetPermissionUpdateStatus() {
+        _permissionUpdateStatus.value = null
+    }
+
+    fun hasPermission(permissionKey: String): Boolean {
+        val user = currentUser.value ?: return false
+        val normalized = PermissionManager.normalizePermission(permissionKey)
+        val perms = PermissionManager.effectivePermissions(user)
+        return perms.contains("*:*:*") || perms.contains(normalized)
+    }
+
+    fun getUserById(userId: String): UserProfile? {
+        val users = (usersState.value as? Resource.Success)?.data ?: return null
+        return users.firstOrNull { it.id == userId }
+    }
+
+    fun loadUserById(userId: String) {
+        if (!canCurrentUserManageUsers()) {
+            _selectedUserState.value = Resource.Error("Only super admin can manage users")
+            return
+        }
+
+        selectedUserObserverJob?.cancel()
+        selectedUserObserverJob = viewModelScope.launch {
+            adminUsersRepository.observeUserById(userId).collectLatest { result ->
+                _selectedUserState.value = result
+                val selected = (result as? Resource.Success)?.data
+                Log.d("ADMIN_DEBUG", "Selected user realtime permissions = ${selected?.permissions}")
+            }
+        }
+    }
+
+    fun stopObservingSelectedUser() {
+        selectedUserObserverJob?.cancel()
+        selectedUserObserverJob = null
+    }
+
+    fun deleteUser(userId: String) {
+        if (!canCurrentUserManageUsers()) {
+            _deleteUserStatus.value = Resource.Error("Only super admin can delete users")
+            return
+        }
+
+        viewModelScope.launch {
+            _deleteUserStatus.value = Resource.Loading
+            _deleteUserStatus.value = adminUsersRepository.deleteUser(userId)
+        }
+    }
+
+    fun resetDeleteUserStatus() {
+        _deleteUserStatus.value = null
+    }
+
+    fun getFeatureVisibility(user: UserProfile?): AdminFeatureVisibility {
+        val canModerateContent = PermissionManager.canModerateContent(user)
+        val canManageSociety = PermissionManager.canManageSociety(user)
+
+        return AdminFeatureVisibility(
+            analytics = PermissionManager.canViewAnalytics(user),
+            userManagement = PermissionManager.canManageUsers(user),
+            contentModeration = canModerateContent,
+            sendNotification = PermissionManager.canSendNotifications(user),
+            societyManagement = canManageSociety,
+            activityLog = PermissionManager.canViewActivityLog(user)
+        )
+    }
+
+    override fun onCleared() {
+        usersObserverJob?.cancel()
+        selectedUserObserverJob?.cancel()
+        super.onCleared()
+    }
+}
+
+
+
+

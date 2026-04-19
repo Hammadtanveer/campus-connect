@@ -1,6 +1,6 @@
-package com.example.campusconnect.session
+package com.hammadtanveer.campusconnect.session
 
-import com.example.campusconnect.data.models.UserProfile
+import com.hammadtanveer.campusconnect.data.models.UserProfile
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

@@ -5,7 +5,7 @@
     android:id="@+id/scrollRoot"
     android:fillViewport="true"
     android:background="@color/white"
-    tools:context="com.example.campusconnect.ui.SeniorProfileActivity">
+    tools:context="com.hammadtanveer.campusconnect.ui.SeniorProfileActivity">
 
     <LinearLayout
         android:layout_width="match_parent"

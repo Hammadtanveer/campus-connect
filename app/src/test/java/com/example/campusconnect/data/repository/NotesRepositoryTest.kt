@@ -1,10 +1,10 @@
-package com.example.campusconnect.data.repository
+package com.hammadtanveer.campusconnect.data.repository
 
 import com.cloudinary.android.MediaManager
-import com.example.campusconnect.data.local.NoteEntity
-import com.example.campusconnect.data.local.NotesDao
-import com.example.campusconnect.data.models.Note
-import com.example.campusconnect.data.models.Resource
+import com.hammadtanveer.campusconnect.data.local.NoteEntity
+import com.hammadtanveer.campusconnect.data.local.NotesDao
+import com.hammadtanveer.campusconnect.data.models.Note
+import com.hammadtanveer.campusconnect.data.models.Resource
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore

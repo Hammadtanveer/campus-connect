@@ -1,4 +1,4 @@
-package com.example.campusconnect.notes
+package com.hammadtanveer.campusconnect.notes
 
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals

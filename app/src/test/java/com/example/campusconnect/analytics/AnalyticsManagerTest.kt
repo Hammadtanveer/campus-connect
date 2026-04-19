@@ -1,4 +1,4 @@
-package com.example.campusconnect.analytics
+package com.hammadtanveer.campusconnect.analytics
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*

@@ -1,7 +1,7 @@
-package com.example.campusconnect.sync
+package com.hammadtanveer.campusconnect.sync
 
-import com.example.campusconnect.data.local.NoteEntity
-import com.example.campusconnect.data.models.Note
+import com.hammadtanveer.campusconnect.data.local.NoteEntity
+import com.hammadtanveer.campusconnect.data.models.Note
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*

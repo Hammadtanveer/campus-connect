@@ -32,12 +32,12 @@
 
 # ===== Data Models =====
 # Keep all data model classes
--keep class com.example.campusconnect.data.models.** { *; }
--keepnames class com.example.campusconnect.data.models.** { *; }
+-keep class com.hammadtanveer.campusconnect.data.models.** { *; }
+-keepnames class com.hammadtanveer.campusconnect.data.models.** { *; }
 
 # Keep Room entities
--keep class com.example.campusconnect.data.local.** { *; }
--keepnames class com.example.campusconnect.data.local.** { *; }
+-keep class com.hammadtanveer.campusconnect.data.local.** { *; }
+-keepnames class com.hammadtanveer.campusconnect.data.local.** { *; }
 
 # ===== Hilt/Dagger =====
 -keep class dagger.hilt.** { *; }
@@ -133,14 +133,14 @@
 
 # ===== App Specific =====
 # Keep ViewModels
--keep class com.example.campusconnect.ui.viewmodels.** { *; }
--keep class com.example.campusconnect.**ViewModel { *; }
+-keep class com.hammadtanveer.campusconnect.ui.viewmodels.** { *; }
+-keep class com.hammadtanveer.campusconnect.**ViewModel { *; }
 
 # Keep Repositories
--keep class com.example.campusconnect.data.repository.** { *; }
+-keep class com.hammadtanveer.campusconnect.data.repository.** { *; }
 
 # Keep sync workers
--keep class com.example.campusconnect.sync.** { *; }
+-keep class com.hammadtanveer.campusconnect.sync.** { *; }
 
 # Optimization settings
 -optimizationpasses 5
