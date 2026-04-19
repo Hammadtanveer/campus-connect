@@ -76,7 +76,10 @@ fun NotesScreen(
         }
 
         when (selectedTab) {
-            0 -> AllNotesTab(notesViewModel)
+            0 -> AllNotesTab(
+                viewModel = notesViewModel,
+                mainViewModel = mainViewModel
+            )
             1 -> if (canUploadNotes) {
                 MyNotesTab(notesViewModel)
             }
@@ -92,9 +95,15 @@ fun NotesScreen(
 }
 
 @Composable
-fun AllNotesTab(viewModel: NotesViewModel) {
+fun AllNotesTab(
+    viewModel: NotesViewModel,
+    mainViewModel: MainViewModel
+) {
     val state by viewModel.allNotesState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val profile by mainViewModel.sessionProfileFlow.collectAsStateWithLifecycle(null)
+    val isSuperAdmin = profile?.role == "super_admin"
+    val deleteInProgress by viewModel.deleteInProgress.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // Keep search behavior while removing subject/semester filter controls.
@@ -119,7 +128,10 @@ fun AllNotesTab(viewModel: NotesViewModel) {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(signedUrl))
                 context.startActivity(intent)
             },
-            onDelete = null
+            onDelete = if (isSuperAdmin) {
+                { note -> viewModel.deleteNote(note) }
+            } else null,
+            deleteInProgress = deleteInProgress
         )
     }
 }
