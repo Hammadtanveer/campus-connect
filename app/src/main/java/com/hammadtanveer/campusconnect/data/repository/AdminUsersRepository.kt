@@ -37,6 +37,7 @@ class AdminUsersRepository @Inject constructor(
                             null
                         }
                     }
+                    ?.distinctBy { it.email.lowercase().trim() }
                     ?.sortedBy { it.displayName.lowercase() }
                     ?: emptyList()
 

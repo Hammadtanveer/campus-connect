@@ -106,9 +106,10 @@ fun AdminUsersScreen(
 
                 is Resource.Success -> {
                     val filtered = state.data.filter { user ->
-                        query.isBlank() ||
-                            user.displayName.contains(query, ignoreCase = true) ||
-                            user.email.contains(query, ignoreCase = true)
+                        user.role != "super_admin" &&
+                            (query.isBlank() ||
+                                user.displayName.contains(query, ignoreCase = true) ||
+                                user.email.contains(query, ignoreCase = true))
                     }
 
                     if (filtered.isEmpty()) {
