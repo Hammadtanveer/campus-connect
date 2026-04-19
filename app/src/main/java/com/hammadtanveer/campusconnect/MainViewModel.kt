@@ -534,22 +534,48 @@ class MainViewModel @Inject constructor(
         // stopPendingRequestsListener() - Mentorship removed
     }
 
-    fun deleteAccount(onResult: (Boolean, String?) -> Unit) {
+    fun deleteAccount(password: String, onResult: (Boolean, String?) -> Unit) {
         val user = auth.currentUser
         if (user == null) {
             onResult(false, "No user logged in")
             return
         }
-
         val uid = user.uid
+
         viewModelScope.launch {
             try {
-                firestore.collection("users").document(uid).delete().await()
+                // Guard 1: Block super_admin deletion
+                val profileDoc = firestore.collection("users")
+                    .document(uid).get().await()
+                val role = profileDoc.getString("role") ?: "user"
+                if (role == "super_admin") {
+                    onResult(false, "Super Admin account cannot be deleted")
+                    return@launch
+                }
+
+                // Guard 2: Re-authenticate with password
+                val email = user.email
+                if (email.isNullOrBlank()) {
+                    onResult(false, "Cannot verify account email")
+                    return@launch
+                }
+                val credential = com.google.firebase.auth.EmailAuthProvider
+                    .getCredential(email, password)
+                user.reauthenticate(credential).await()
+
+                // Delete Auth account first
                 user.delete().await()
+
+                // Then delete Firestore document
+                firestore.collection("users").document(uid).delete().await()
+
                 sessionManager.clearSession()
                 onResult(true, null)
-            } catch (_: com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException) {
-                onResult(false, "Please sign out and sign in again before deleting your account")
+
+            } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
+                onResult(false, "Incorrect password. Please try again.")
+            } catch (e: com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException) {
+                onResult(false, "Session expired. Please sign out and sign in again.")
             } catch (e: Exception) {
                 onResult(false, e.localizedMessage ?: "Failed to delete account")
             }

@@ -341,7 +341,7 @@ fun NoteCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = onDownload) {
-                    Icon(Icons.Default.Share, contentDescription = "Download")
+                    Icon(Icons.Default.OpenInNew, contentDescription = "Open")
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Open")
                 }
@@ -794,3 +794,7 @@ fun EmptyState(message: String, modifier: Modifier = Modifier) {
         )
     }
 }
+
+private val Icons.Filled.OpenInNew: ImageVector
+    get() = Icons.Default.Info
+

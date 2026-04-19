@@ -25,18 +25,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,6 +55,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -75,6 +78,8 @@ fun AccountView(viewModel: MainViewModel) {
     var isUploading by remember { mutableStateOf(false) }
     val (isSaving, setIsSaving) = remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var deletePassword by remember { mutableStateOf("") }
+    var deletePasswordVisible by remember { mutableStateOf(false) }
     var deleteLoading by remember { mutableStateOf(false) }
     var deleteError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -132,234 +137,263 @@ fun AccountView(viewModel: MainViewModel) {
         )
     }
 
-    // Use LazyColumn instead of Column with verticalScroll to fix the layout issue
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Profile Header
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+            // Profile Header
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    Box(contentAlignment = Alignment.BottomEnd) {
-                        if (userProfile.profilePictureUrl.isNotEmpty()) {
-                            AsyncImage(
-                                model = userProfile.profilePictureUrl,
-                                contentDescription = "Profile picture",
-                                modifier = Modifier
-                                    .size(120.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Image(
-                                painter = painterResource(R.drawable.profile_placeholder),
-                                contentDescription = "Profile picture",
-                                modifier = Modifier
-                                    .size(120.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-
-                        if (isUploading) {
-                            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                        }
-
-                        Icon(
-                            painter = painterResource(R.drawable.outline_photo_camera_24),
-                            contentDescription = "Change photo",
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape)
-                                .padding(6.dp)
-                                .clickable { launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = userProfile.displayName.ifBlank { "Student Name" },
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Text(
-                        text = userProfile.email,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Show event count if available
-                    if (userProfile.eventCount > 0) {
-                        Text(
-                            text = "Events joined: ${userProfile.eventCount}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    if (userProfile.course.isNotBlank() || userProfile.branch.isNotBlank() || userProfile.year.isNotBlank()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            if (userProfile.course.isNotBlank()) {
-                                ProfileInfoItem("Course", userProfile.course)
-                            }
-                            if (userProfile.branch.isNotBlank()) {
-                                ProfileInfoItem("Branch", userProfile.branch)
-                            }
-                            if (userProfile.year.isNotBlank()) {
-                                ProfileInfoItem("Year", userProfile.year)
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    if (userProfile.bio.isNotBlank()) {
-                        Text(
-                            text = userProfile.bio,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
-                                    RoundedCornerShape(8.dp)
-                                )
-                                .padding(12.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Button(
-                        onClick = { setIsEditing(true) },
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            Icons.Filled.Edit,
-                            contentDescription = "Edit",
-                            modifier = Modifier.size(18.dp)
+                        Box(contentAlignment = Alignment.BottomEnd) {
+                            if (userProfile.profilePictureUrl.isNotEmpty()) {
+                                AsyncImage(
+                                    model = userProfile.profilePictureUrl,
+                                    contentDescription = "Profile picture",
+                                    modifier = Modifier
+                                        .size(120.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Image(
+                                    painter = painterResource(R.drawable.profile_placeholder),
+                                    contentDescription = "Profile picture",
+                                    modifier = Modifier
+                                        .size(120.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+
+                            if (isUploading) {
+                                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                            }
+
+                            Icon(
+                                painter = painterResource(R.drawable.outline_photo_camera_24),
+                                contentDescription = "Change photo",
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                    .padding(6.dp)
+                                    .clickable { launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = userProfile.displayName.ifBlank { "Student Name" },
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.size(8.dp))
-                        Text("Edit Profile")
+
+                        Text(
+                            text = userProfile.email,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Show event count if available
+                        if (userProfile.eventCount > 0) {
+                            Text(
+                                text = "Events joined: ${userProfile.eventCount}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        if (userProfile.course.isNotBlank() || userProfile.branch.isNotBlank() || userProfile.year.isNotBlank()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                if (userProfile.course.isNotBlank()) {
+                                    ProfileInfoItem("Course", userProfile.course)
+                                }
+                                if (userProfile.branch.isNotBlank()) {
+                                    ProfileInfoItem("Branch", userProfile.branch)
+                                }
+                                if (userProfile.year.isNotBlank()) {
+                                    ProfileInfoItem("Year", userProfile.year)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (userProfile.bio.isNotBlank()) {
+                            Text(
+                                text = userProfile.bio,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(12.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = { setIsEditing(true) },
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        ) {
+                            Icon(
+                                Icons.Filled.Edit,
+                                contentDescription = "Edit",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.size(8.dp))
+                            Text("Edit Profile")
+                        }
                     }
                 }
             }
-        }
 
-        // Activity Section
-        item {
-            Text(
-                text = "Recent Activity",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
-
-        if (userActivities.isEmpty()) {
+            // Activity Section
             item {
                 Text(
-                    text = "No activities yet",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp)
+                    text = "Recent Activity",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
-        } else {
-            items(userActivities) { activity ->
-                ActivityItem(activity = activity)
-            }
-        }
 
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Divider()
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Danger Zone",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.error
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = { showDeleteDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
-            ) {
-                Text("Delete My Account")
+            if (userActivities.isEmpty()) {
+                item {
+                    Text(
+                        text = "No activities yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            } else {
+                items(userActivities) { activity ->
+                    ActivityItem(activity = activity)
+                }
             }
 
-            deleteError?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
-    }
 
     if (showDeleteDialog) {
         AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
+            onDismissRequest = {
+                showDeleteDialog = false
+                deletePassword = ""
+                deleteError = null
+            },
             title = { Text("Delete Account?") },
             text = {
-                Text("This will permanently delete your account and all your data. This action cannot be undone.")
+                Column {
+                    Text(
+                        "This will permanently delete your account " +
+                            "and all your data. This action cannot be undone.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Enter your password to confirm:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = deletePassword,
+                        onValueChange = {
+                            deletePassword = it
+                            deleteError = null
+                        },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = if (deletePasswordVisible)
+                            VisualTransformation.None
+                        else
+                            PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = {
+                                deletePasswordVisible = !deletePasswordVisible
+                            }) {
+                                Icon(
+                                    imageVector = if (deletePasswordVisible)
+                                        Icons.Default.Info
+                                    else
+                                        Icons.Default.Close,
+                                    contentDescription = "Toggle password"
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !deleteLoading
+                    )
+                    deleteError?.let {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
+                        if (deletePassword.isBlank()) {
+                            deleteError = "Please enter your password"
+                            return@Button
+                        }
                         deleteLoading = true
                         deleteError = null
-                        viewModel.deleteAccount { ok, err ->
+                        viewModel.deleteAccount(deletePassword) { ok, err ->
                             deleteLoading = false
                             if (ok) {
                                 showDeleteDialog = false
+                                deletePassword = ""
                             } else {
                                 deleteError = err
-                                showDeleteDialog = false
                             }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error
                     ),
-                    enabled = !deleteLoading
+                    enabled = !deleteLoading && deletePassword.isNotBlank()
                 ) {
-                    Text(if (deleteLoading) "Deleting..." else "Yes, Delete")
+                    Text(if (deleteLoading) "Deleting..." else "Delete Account")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    deletePassword = ""
+                    deleteError = null
+                }) {
                     Text("Cancel")
                 }
             }
