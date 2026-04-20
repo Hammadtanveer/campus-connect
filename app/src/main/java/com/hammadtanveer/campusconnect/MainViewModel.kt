@@ -2,7 +2,6 @@ package com.hammadtanveer.campusconnect
 
 import androidx.lifecycle.AndroidViewModel
 import androidx.compose.runtime.mutableStateOf
-import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
@@ -141,9 +140,6 @@ class MainViewModel @Inject constructor(
             sessionManager.state.collect { state ->
                 DbgLog.d(SENIOR_TAG, "session update profilePresent=${state.profile != null}")
                 _userProfile.value = state.profile
-                val profile = state.profile
-                val perms = PermissionManager.effectivePermissions(profile).sorted()
-                Log.d("PERM_DEBUG", "MainViewModel session sync -> userId=${profile?.id ?: "null"}, role=${profile?.role ?: ""}, permissions=$perms")
             }
         }
 
@@ -168,7 +164,7 @@ class MainViewModel @Inject constructor(
 
     private fun handleAuthStateChanged(user: com.google.firebase.auth.FirebaseUser?) {
         val uid = user?.uid
-        DbgLog.d(SENIOR_TAG, "authState changed uid=${uid ?: "null"}")
+        DbgLog.d(SENIOR_TAG, "authState changed")
 
         if (uid == lastObservedUid) {
             DbgLog.d(SENIOR_TAG, "authState unchanged, skip re-init")
@@ -189,7 +185,7 @@ class MainViewModel @Inject constructor(
             return
         }
 
-        DbgLog.d(SENIOR_TAG, "auth user ready uid=${user.uid}, bootstrap profile + seniors")
+        DbgLog.d(SENIOR_TAG, "auth user ready; bootstrap profile + seniors")
         sessionManager.updateAuth(user.uid, user.email)
         observeUserProfile(user.uid)
         observeSeniors()
@@ -230,7 +226,7 @@ class MainViewModel @Inject constructor(
 
     private fun observeUserProfile(userId: String) {
         if (observedProfileUid == userId && userProfileListener != null) {
-            DbgLog.d(SENIOR_TAG, "observeUserProfile already active for userId=$userId")
+            DbgLog.d(SENIOR_TAG, "observeUserProfile already active")
             return
         }
 
@@ -238,7 +234,7 @@ class MainViewModel @Inject constructor(
         userProfileListener = null
         observedProfileUid = userId
 
-        DbgLog.d(SENIOR_TAG, "observeUserProfile start userId=$userId")
+        DbgLog.d(SENIOR_TAG, "observeUserProfile start")
         userProfileListener = firestore.collection("users").document(userId)
             .addSnapshotListener { doc, error ->
                 if (error != null) {
@@ -262,19 +258,12 @@ class MainViewModel @Inject constructor(
                     sessionManager.updateProfile(normalized)
                     PermissionManager.logProfileSnapshot(normalized, "MainViewModel.observeUserProfile")
 
-                    val role = normalized?.role.orEmpty()
-                    val perms = normalized?.let { PermissionManager.effectivePermissions(it).sorted() } ?: emptyList()
-                    Log.d("PERM_DEBUG", "REALTIME UPDATE -> role=$role, permissions=$perms")
-                    if (normalized != null && perms.isEmpty()) {
-                        Log.d("PERM_DEBUG", "userId=${normalized.id}, role=${normalized.role}, permissions missing or empty")
-                    }
-
                     loadUserActivities()
                     _currentScreen.value = Screen.DrawerScreen.Profile
                 } else {
                     val firebaseUser = auth.currentUser
                     if (firebaseUser != null) {
-                        DbgLog.d(SENIOR_TAG, "observeUserProfile fallback profile for uid=${firebaseUser.uid}")
+                        DbgLog.d(SENIOR_TAG, "observeUserProfile fallback profile")
                         val fallback = UserProfile(
                             id = firebaseUser.uid,
                             displayName = firebaseUser.displayName ?: "",
@@ -290,7 +279,7 @@ class MainViewModel @Inject constructor(
                         firestore.collection("users").document(firebaseUser.uid)
                             .set(fallback)
                             .addOnSuccessListener {
-                                DbgLog.d(SENIOR_TAG, "observeUserProfile fallback write success uid=${firebaseUser.uid}")
+                                DbgLog.d(SENIOR_TAG, "observeUserProfile fallback write success")
                             }
                             .addOnFailureListener { writeError ->
                                 DbgLog.e(SENIOR_TAG, "observeUserProfile fallback write failed", writeError)
@@ -322,7 +311,6 @@ class MainViewModel @Inject constructor(
                     }
 
                     val uid = auth.currentUser?.uid
-                    Log.i("MainViewModel", "signInWithEmailPassword: success, uid=$uid")
                     if (uid != null) {
                         // Immediately set a minimal local profile so UI considers user authenticated
                         val firebaseUser = auth.currentUser
@@ -411,15 +399,12 @@ class MainViewModel @Inject constructor(
     }
 
     fun sendPasswordResetEmail(email: String, onResult: (Boolean, String?) -> Unit) {
-        Log.d("PASSWORD_RESET", "Sending password reset email to: $email")
-
         auth.sendPasswordResetEmail(email)
             .addOnSuccessListener {
-                Log.d("PASSWORD_RESET", "Password reset email sent successfully")
                 onResult(true, null)
             }
             .addOnFailureListener { exception ->
-                Log.e("PASSWORD_RESET", "Failed to send password reset email", exception)
+                DbgLog.e(SENIOR_TAG, "Failed to send password reset email", exception)
                 val errorMessage = when (exception) {
                     is FirebaseAuthInvalidUserException ->
                         "No account found with this email address"
@@ -441,12 +426,9 @@ class MainViewModel @Inject constructor(
         bio: String = "",
         onResult: (Boolean, String?) -> Unit
     ) {
-        Log.i("MainViewModel", "registerWithEmailPassword: starting for $email")
-
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    Log.i("MainViewModel", "createUserWithEmailAndPassword succeeded")
                     val user = auth.currentUser
                     if (user == null) {
                         onResult(false, "Registration succeeded but no user instance found.")
@@ -465,10 +447,7 @@ class MainViewModel @Inject constructor(
                             user.sendEmailVerification()
                                 .addOnCompleteListener { verificationTask ->
                                     if (!verificationTask.isSuccessful) {
-                                        Log.w(
-                                            "MainViewModel",
-                                            "Failed to send verification email: ${verificationTask.exception?.localizedMessage}"
-                                        )
+                                        DbgLog.e(SENIOR_TAG, "Failed to send verification email", verificationTask.exception)
                                     }
 
                                     createUserProfile(
@@ -481,7 +460,6 @@ class MainViewModel @Inject constructor(
                                         bio = bio
                                     ) { ok, err ->
                                         if (ok) {
-                                            Log.i("MainViewModel", "createUserProfile succeeded for ${user.uid}")
                                             onResult(true, null)
                                         } else {
                                             onResult(false, err ?: "Failed to save user profile.")

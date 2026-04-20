@@ -139,5 +139,11 @@ service cloud.firestore {
       allow read: if hasPermission('admin:access');
       allow update, delete: if false;
     }
+    match /reports/{reportId} {
+      allow create: if isAuthenticated();
+      allow read: if hasPermission('admin:access');
+      allow update: if hasPermission('admin:access');
+      allow delete: if false;
+    }
   }
 }

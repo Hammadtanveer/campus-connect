@@ -1,6 +1,5 @@
 package com.hammadtanveer.campusconnect.util
 
-import android.util.Log
 import com.hammadtanveer.campusconnect.data.models.UserProfile
 import com.hammadtanveer.campusconnect.security.PermissionManager
 import com.google.firebase.Timestamp
@@ -16,7 +15,6 @@ object UserProfileMapper {
         val snapshotPermissions = (doc.get("permissions") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
         val merged = raw.toMutableMap()
         merged["permissions"] = snapshotPermissions
-        Log.d("FINAL_DB", "snapshot=${doc.data}")
         return fromMap(doc.id, merged)
     }
 
@@ -29,8 +27,6 @@ object UserProfileMapper {
             .filter { it.isNotBlank() }
             .distinct()
 
-        Log.d("FINAL_DB", "snapshot=$data")
-        Log.d("PERM_DEBUG_PM", "Firestore permissions(userId=$id)=$normalizedPermissions")
 
         fun string(key: String): String = data[key] as? String ?: ""
         fun stringOrNull(key: String): String? = data[key] as? String
