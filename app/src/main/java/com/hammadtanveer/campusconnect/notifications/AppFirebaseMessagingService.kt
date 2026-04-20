@@ -1,6 +1,6 @@
 package com.hammadtanveer.campusconnect.notifications
 
-import android.util.Log
+import com.hammadtanveer.campusconnect.util.AppLogger
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -13,17 +13,13 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
     override fun onCreate() {
         super.onCreate()
         AppNotificationChannels.createAll(this)
-        Log.d(TAG, "FCM service created and notification channels verified")
+        AppLogger.d(TAG, "FCM service created and notification channels verified")
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
         try {
-            Log.d("FCM_DEBUG", "Message received data=${remoteMessage.data}")
-            Log.d(
-                TAG,
-                "onMessageReceived from=${remoteMessage.from}, messageId=${remoteMessage.messageId}, hasNotification=${remoteMessage.notification != null}"
-            )
+            AppLogger.d(TAG, "FCM message received")
 
             val title = remoteMessage.data["title"] ?: remoteMessage.notification?.title
             val body = remoteMessage.data["body"] ?: remoteMessage.notification?.body
@@ -31,13 +27,10 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
             val targetId = remoteMessage.data["targetId"]
             val route = NotificationIntentRouter.resolveRoute(type)
 
-            Log.d(
-                TAG,
-                "Notification payload title=$title body=$body type=$type route=$route targetId=$targetId"
-            )
+            AppLogger.d(TAG, "Notification payload parsed")
 
             if (title.isNullOrBlank() && body.isNullOrBlank()) {
-                Log.d(TAG, "Received FCM without displayable payload")
+                AppLogger.d(TAG, "Received FCM without displayable payload")
                 return
             }
 
@@ -48,15 +41,15 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
                 type = type,
                 targetId = targetId
             )
-            Log.d(TAG, "Notification displayed successfully")
+            AppLogger.d(TAG, "Notification displayed successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed while handling FCM message", e)
+            AppLogger.e(TAG, "Failed while handling FCM message", e)
         }
     }
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d(TAG, "onNewToken token=$token")
+        AppLogger.d(TAG, "onNewToken received")
         NotificationSubscriptionManager.subscribeAllTopics()
     }
 }

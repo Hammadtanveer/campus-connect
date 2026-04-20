@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.hammadtanveer.campusconnect.util.AppLogger
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -131,8 +132,7 @@ fun EmailVerificationScreen(
 
                 val currentUser = FirebaseAuth.getInstance().currentUser
 
-                android.util.Log.d("EMAIL_VERIFY", "Checking verification status for: ${currentUser?.email}")
-                android.util.Log.d("EMAIL_VERIFY", "Current isEmailVerified (cached): ${currentUser?.isEmailVerified}")
+                AppLogger.d("EMAIL_VERIFY", "Checking verification status")
 
                 if (currentUser == null) {
                     checkingVerification = false
@@ -141,24 +141,24 @@ fun EmailVerificationScreen(
                 }
 
                 currentUser.reload().addOnCompleteListener { reloadTask ->
-                    android.util.Log.d("EMAIL_VERIFY", "Reload completed. Success: ${reloadTask.isSuccessful}")
+                    AppLogger.d("EMAIL_VERIFY", "Reload completed")
 
                     if (!reloadTask.isSuccessful) {
                         checkingVerification = false
                         resendMessage = "Network error. Please check connection and try again."
-                        android.util.Log.e("EMAIL_VERIFY", "Reload failed", reloadTask.exception)
+                        AppLogger.e("EMAIL_VERIFY", "Reload failed", reloadTask.exception)
                         return@addOnCompleteListener
                     }
 
                     val freshUser = FirebaseAuth.getInstance().currentUser
                     val isVerified = freshUser?.isEmailVerified == true
 
-                    android.util.Log.d("EMAIL_VERIFY", "Fresh isEmailVerified: $isVerified")
+                    AppLogger.d("EMAIL_VERIFY", "Verification state refreshed")
 
                     checkingVerification = false
 
                     if (isVerified) {
-                        android.util.Log.d("EMAIL_VERIFY", "Email verified! Scheduling onVerified()")
+                        AppLogger.d("EMAIL_VERIFY", "Email verified")
                         resendMessage = "Email verified! Signing you out to complete setup..."
                         scope.launch {
                             delay(1500)
@@ -166,7 +166,7 @@ fun EmailVerificationScreen(
                         }
                     } else {
                         resendMessage = "Email not verified yet. Please click the link in your email first, then try again."
-                        android.util.Log.w("EMAIL_VERIFY", "Still not verified after reload")
+                        AppLogger.w("EMAIL_VERIFY", "Email not verified yet")
                     }
                 }
             },
@@ -184,20 +184,19 @@ fun EmailVerificationScreen(
                 resendMessage = "Sending..."
 
                 val currentUser = FirebaseAuth.getInstance().currentUser
-                android.util.Log.d("EMAIL_VERIFY", "Attempting to send email to: ${currentUser?.email}")
-                android.util.Log.d("EMAIL_VERIFY", "User UID: ${currentUser?.uid}")
-                android.util.Log.d("EMAIL_VERIFY", "Is email verified: ${currentUser?.isEmailVerified}")
+                AppLogger.d("EMAIL_VERIFY", "Attempting to send verification email")
+                AppLogger.d("EMAIL_VERIFY", "Verification email flow started")
 
                 if (currentUser == null) {
                     resendMessage = "ERROR: No user logged in!"
-                    android.util.Log.e("EMAIL_VERIFY", "currentUser is null!")
+                    AppLogger.e("EMAIL_VERIFY", "currentUser is null")
                     resendEnabled = true
                     return@OutlinedButton
                 }
 
                 currentUser.sendEmailVerification()
                     .addOnSuccessListener {
-                        android.util.Log.d("EMAIL_VERIFY", "sendEmailVerification() SUCCESS")
+                        AppLogger.d("EMAIL_VERIFY", "sendEmailVerification success")
                         resendMessage = "Verification email sent! Check your inbox and spam folder."
                         scope.launch {
                             delay(60_000)
@@ -205,7 +204,7 @@ fun EmailVerificationScreen(
                         }
                     }
                     .addOnFailureListener { exception ->
-                        android.util.Log.e("EMAIL_VERIFY", "sendEmailVerification() FAILED", exception)
+                        AppLogger.e("EMAIL_VERIFY", "sendEmailVerification failed", exception)
                         resendMessage = "Failed: ${exception.localizedMessage}"
                         resendEnabled = true
                     }

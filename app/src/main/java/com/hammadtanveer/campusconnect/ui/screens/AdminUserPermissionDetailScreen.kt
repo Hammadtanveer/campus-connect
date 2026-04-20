@@ -1,6 +1,5 @@
 package com.hammadtanveer.campusconnect.ui.screens
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -44,6 +43,7 @@ import androidx.navigation.NavController
 import com.hammadtanveer.campusconnect.data.models.Resource
 import com.hammadtanveer.campusconnect.security.PermissionManager
 import com.hammadtanveer.campusconnect.ui.viewmodels.AdminPanelViewModel
+import com.hammadtanveer.campusconnect.util.AppLogger
 
 private val PermissionLabels = mapOf(
     "placements:manage" to "Manage Placements",
@@ -96,7 +96,7 @@ fun AdminUserPermissionDetailScreen(
         AdminPanelViewModel.MANAGED_PERMISSION_KEYS.forEach { key ->
             editablePermissions[key] = hasPermission(key)
         }
-        Log.d("ADMIN_FINAL", "permissions=${targetUser?.permissions}")
+        AppLogger.d("ADMIN_FINAL", "Permission toggles initialized")
     }
     var isSaving by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }

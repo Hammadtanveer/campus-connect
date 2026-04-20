@@ -2,12 +2,12 @@ package com.hammadtanveer.campusconnect.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.util.Log
 import com.hammadtanveer.campusconnect.data.models.Resource
 import com.hammadtanveer.campusconnect.data.models.UserProfile
 import com.hammadtanveer.campusconnect.data.repository.AdminUsersRepository
 import com.hammadtanveer.campusconnect.security.PermissionManager
 import com.hammadtanveer.campusconnect.session.SessionManager
+import com.hammadtanveer.campusconnect.util.AppLogger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -99,14 +99,14 @@ class AdminPanelViewModel @Inject constructor(
 
         viewModelScope.launch {
             _permissionUpdateStatus.value = Resource.Loading
-            Log.d("ADMIN_DEBUG", "UI permissions = ${actor?.permissions}")
+            AppLogger.d("ADMIN_DEBUG", "Updating user permissions")
             _permissionUpdateStatus.value = adminUsersRepository.updateUserPermissions(
                 userId = userId,
                 permissions = permissions,
                 actorUserId = actorId
             )
             if (_permissionUpdateStatus.value is Resource.Success) {
-                Log.d("ADMIN_DEBUG", "Permissions updated")
+                AppLogger.d("ADMIN_DEBUG", "Permissions updated")
             }
         }
     }
@@ -137,8 +137,7 @@ class AdminPanelViewModel @Inject constructor(
         selectedUserObserverJob = viewModelScope.launch {
             adminUsersRepository.observeUserById(userId).collectLatest { result ->
                 _selectedUserState.value = result
-                val selected = (result as? Resource.Success)?.data
-                Log.d("ADMIN_DEBUG", "Selected user realtime permissions = ${selected?.permissions}")
+                AppLogger.d("ADMIN_DEBUG", "Selected user snapshot updated")
             }
         }
     }

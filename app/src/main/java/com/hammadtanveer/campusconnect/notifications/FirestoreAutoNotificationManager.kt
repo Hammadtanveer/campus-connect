@@ -1,7 +1,7 @@
 package com.hammadtanveer.campusconnect.notifications
 
 import android.content.Context
-import android.util.Log
+import com.hammadtanveer.campusconnect.util.AppLogger
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
@@ -43,7 +43,7 @@ object FirestoreAutoNotificationManager {
 
     fun start(context: Context) {
         if (started) {
-            Log.d(TAG, "Already started")
+            AppLogger.d(TAG, "Already started")
             return
         }
         started = true
@@ -55,10 +55,10 @@ object FirestoreAutoNotificationManager {
         authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
             val currentUser = firebaseAuth.currentUser
             if (currentUser == null) {
-                Log.d(TAG, "Auth unavailable, stopping Firestore notification listeners")
+                AppLogger.d(TAG, "Auth unavailable, stopping listeners")
                 stopListeners()
             } else if (!listenersAttached) {
-                Log.d(TAG, "Auth ready (uid=${currentUser.uid}), attaching Firestore notification listeners")
+                AppLogger.d(TAG, "Auth ready, attaching listeners")
                 attachListeners(appContext, firestore)
             }
         }
@@ -67,7 +67,7 @@ object FirestoreAutoNotificationManager {
         if (auth.currentUser != null) {
             attachListeners(appContext, firestore)
         } else {
-            Log.d(TAG, "start deferred until authenticated user is available")
+            AppLogger.d(TAG, "Start deferred until authenticated user is available")
         }
     }
 
@@ -114,12 +114,12 @@ object FirestoreAutoNotificationManager {
         )
 
         sources.forEach { source ->
-            Log.d(TAG, "Starting listener for collection=${source.collection} type=${source.type}")
+            AppLogger.d(TAG, "Starting listener for ${source.collection}")
             registrations += firestore.collection(source.collection)
                 .addSnapshotListener { snapshot, error ->
                     try {
                         if (error != null) {
-                            Log.e(TAG, "Listener error for ${source.collection}", error)
+                            AppLogger.e(TAG, "Listener error for ${source.collection}", error)
                             return@addSnapshotListener
                         }
 
@@ -127,17 +127,14 @@ object FirestoreAutoNotificationManager {
 
                         handleSnapshot(appContext, source, snapshot.documents)
                     } catch (t: Throwable) {
-                        Log.e(TAG, "Listener crash prevented for ${source.collection}", t)
+                        AppLogger.e(TAG, "Listener crash prevented for ${source.collection}", t)
                     }
                 }
         }
 
         observeSocietyPosts(appContext, firestore)
 
-        Log.d(
-            "FirestoreAutoNotif",
-            "Started listeners for [events, meetings, announcements, placements, notes, societies]"
-        )
+        AppLogger.d("FirestoreAutoNotif", "Started listeners for events, meetings, announcements, placements, notes and societies")
     }
 
     private fun stopListeners() {
@@ -149,8 +146,8 @@ object FirestoreAutoNotificationManager {
     }
 
     private fun observeSocietyPosts(context: Context, firestore: FirebaseFirestore) {
-        Log.d("FirestoreAutoNotif", "Society listener block reached")
-        Log.d(TAG, "Listening to societies collection...")
+        AppLogger.d("FirestoreAutoNotif", "Society listener block reached")
+        AppLogger.d(TAG, "Listening to societies collection")
 
         // Seed listeners from the same society IDs shown in the app UI.
         knownSocieties.forEach { (id, name) ->
@@ -170,12 +167,12 @@ object FirestoreAutoNotificationManager {
                         listOf("name", "title", "societyName")
                     ) ?: societyNames[societyId] ?: societyId
 
-                    Log.d(TAG, "Society doc fields: ${societyDoc.data}")
+                    AppLogger.d(TAG, "Society document discovered")
                     ensureSocietyListeners(context, firestore, societyId, societyName)
                 }
             }
             .addOnFailureListener { error ->
-                Log.e(TAG, "SERVER get() failed for societies", error)
+                AppLogger.e(TAG, "SERVER get() failed for societies", error)
             }
     }
 
@@ -186,7 +183,7 @@ object FirestoreAutoNotificationManager {
         societyName: String
     ) {
         societyNames[societyId] = societyName
-        Log.d("FirestoreAutoNotif", "Society listener started for: $societyId")
+        AppLogger.d("FirestoreAutoNotif", "Society listener started")
 
         societySubcollections.forEach { subcollection ->
             val registrationKey = "$societyId:$subcollection"
@@ -200,7 +197,7 @@ object FirestoreAutoNotificationManager {
                 .addSnapshotListener postsListener@{ postsSnapshot, postsError ->
                     try {
                         if (postsError != null) {
-                            Log.e(
+                            AppLogger.e(
                                 TAG,
                                 "Listener error for society=$societyId subcollection=$subcollection",
                                 postsError
@@ -211,7 +208,7 @@ object FirestoreAutoNotificationManager {
                         val posts = postsSnapshot?.documents ?: return@postsListener
                         handleSocietyPostsSnapshot(context, societyId, subcollection, posts)
                     } catch (t: Throwable) {
-                        Log.e(
+                        AppLogger.e(
                             TAG,
                             "Listener crash prevented for society=$societyId subcollection=$subcollection",
                             t
@@ -241,7 +238,7 @@ object FirestoreAutoNotificationManager {
                 .putBoolean(initKey, true)
                 .putStringSet(idsKey, knownIds)
                 .apply()
-            Log.d(TAG, "Initialized ${source.collection} baseline size=${knownIds.size}")
+            AppLogger.d(TAG, "Initialized ${source.collection} baseline")
             return
         }
 
@@ -249,7 +246,7 @@ object FirestoreAutoNotificationManager {
 
         documents.forEach { document ->
             if (source.type == "placements") {
-                Log.d(TAG, "Jobs doc fields: ${document.data}")
+                AppLogger.d(TAG, "Placement document observed")
             }
 
             val docId = document.id
@@ -337,7 +334,7 @@ object FirestoreAutoNotificationManager {
                 .putBoolean(initKey, true)
                 .putStringSet(idsKey, knownIds)
                 .apply()
-            Log.d(TAG, "Initialized society posts baseline for $societyId size=${knownIds.size}")
+            AppLogger.d(TAG, "Initialized society posts baseline")
             return
         }
 
@@ -348,7 +345,7 @@ object FirestoreAutoNotificationManager {
             if (!knownIds.contains(postDoc.id)) {
                 knownIds.add(postDoc.id)
                 hasNewIds = true
-                Log.d("FirestoreAutoNotif", "New society post detected: ${postDoc.data}")
+                AppLogger.d("FirestoreAutoNotif", "New society post detected")
 
                 val postTitle = firstNonBlankField(
                     postDoc,

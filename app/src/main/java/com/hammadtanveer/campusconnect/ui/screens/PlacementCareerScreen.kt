@@ -26,6 +26,7 @@ import com.hammadtanveer.campusconnect.data.models.Resource
 import com.hammadtanveer.campusconnect.security.PermissionManager
 import com.hammadtanveer.campusconnect.ui.placement.PlacementViewModel
 import com.hammadtanveer.campusconnect.MainViewModel
+import com.hammadtanveer.campusconnect.util.AppLogger
 
 @Composable
 fun PlacementCareerScreen(
@@ -42,12 +43,7 @@ fun PlacementCareerScreen(
     val canDeleteJobs = canManageJobs
 
     LaunchedEffect(profile, canManageJobs) {
-        val perms = PermissionManager.effectivePermissions(profile).sorted()
-        android.util.Log.d(
-            "PERM_DEBUG",
-            "UI PlacementCareerScreen -> role=${profile?.role ?: ""}, perms=$perms, canManageJobs=$canManageJobs"
-        )
-        android.util.Log.d("PERM_DEBUG_UI", "profile perms=${profile?.permissions}")
+        AppLogger.d("PERM_DEBUG", "Placement permissions state refreshed (canManageJobs=$canManageJobs)")
     }
 
     var pendingDelete by remember { mutableStateOf<Placement?>(null) }

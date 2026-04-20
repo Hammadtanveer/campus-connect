@@ -6,8 +6,8 @@ const admin = require('firebase-admin');
 // Initialize the admin SDK
 admin.initializeApp();
 
-// Configuration: set ADMIN_CODE and DEFAULT_ADMIN_PERMISSIONS in functions config
-const DEFAULT_ADMIN_CODE = functions.config().campus?.admin_code || '';
+// Configuration: set campus.admin_code and default admin permissions in functions config
+const EXPECTED_ADMIN_ACCESS_CODE = functions.config().campus?.admin_code || '';
 const DEFAULT_ADMIN_PERMISSIONS = (functions.config().campus?.default_admin_permissions && functions.config().campus.default_admin_permissions.split(',')) || [
   'meetings:manage',
   'notes:manage',
@@ -37,10 +37,10 @@ exports.requestAdminAccess = functions.https.onCall(async (data, context) => {
   }
 
   // Validate admin code
-  if (!DEFAULT_ADMIN_CODE) {
+  if (!EXPECTED_ADMIN_ACCESS_CODE) {
     throw new functions.https.HttpsError('failed-precondition', 'Admin code is not configured on the server');
   }
-  if (adminCode !== DEFAULT_ADMIN_CODE) {
+  if (adminCode !== EXPECTED_ADMIN_ACCESS_CODE) {
     throw new functions.https.HttpsError('permission-denied', 'Invalid admin code');
   }
 
@@ -80,6 +80,59 @@ cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+/**
+ * Callable function: createCloudinaryUploadSignature
+ * Expects: { folder: string, publicId: string, resourceType?: string, uploadType?: string }
+ * Returns signed parameters required by Cloudinary upload API.
+ */
+exports.createCloudinaryUploadSignature = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const folder = data && data.folder ? String(data.folder).trim() : '';
+    const publicId = data && data.publicId ? String(data.publicId).trim() : '';
+    const resourceType = data && data.resourceType ? String(data.resourceType).trim() : 'auto';
+    const uploadType = data && data.uploadType ? String(data.uploadType).trim() : 'authenticated';
+
+    if (!folder || !publicId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing folder or publicId');
+    }
+
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+
+    if (!apiKey || !apiSecret || !cloudName) {
+        throw new functions.https.HttpsError('failed-precondition', 'Cloudinary credentials are not configured on server');
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signedParams = {
+        folder,
+        public_id: publicId,
+        resource_type: resourceType,
+        timestamp,
+        type: uploadType,
+        overwrite: false,
+    };
+
+    const signature = cloudinary.utils.api_sign_request(signedParams, apiSecret);
+
+    return {
+        cloudName,
+        apiKey,
+        timestamp,
+        signature,
+        folder,
+        publicId,
+        resourceType,
+        uploadType,
+        overwrite: false,
+        secure: true,
+    };
 });
 
 /**
@@ -369,5 +422,30 @@ exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
   } catch (error) {
     console.error('Failed to delete Firestore document for uid:', uid, error);
   }
+});
+
+exports.createCloudinaryUploadSignature = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    const folder = data?.folder ? String(data.folder).trim() : '';
+    const publicId = data?.publicId ? String(data.publicId).trim() : '';
+    const resourceType = data?.resourceType ? String(data.resourceType).trim() : 'auto';
+    const uploadType = data?.uploadType ? String(data.uploadType).trim() : 'authenticated';
+    if (!folder || !publicId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing folder or publicId');
+    }
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    if (!apiKey || !apiSecret || !cloudName) {
+        throw new functions.https.HttpsError('failed-precondition', 'Cloudinary credentials not configured');
+    }
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signedParams = { folder, public_id: publicId, resource_type: resourceType,
+        timestamp, type: uploadType, overwrite: false };
+    const signature = cloudinary.utils.api_sign_request(signedParams, apiSecret);
+    return { cloudName, apiKey, timestamp, signature, folder, publicId,
+        resourceType, uploadType, overwrite: false, secure: true };
 });
 

@@ -6,6 +6,7 @@ import com.cloudinary.android.callback.UploadCallback
 import com.hammadtanveer.campusconnect.data.Senior
 import com.hammadtanveer.campusconnect.data.models.Resource
 import com.hammadtanveer.campusconnect.security.PermissionManager
+import com.hammadtanveer.campusconnect.util.CloudinaryConfig
 import com.hammadtanveer.campusconnect.util.Constants
 import com.hammadtanveer.campusconnect.util.DbgLog
 import com.hammadtanveer.campusconnect.util.FirestoreErrorMapper
@@ -148,7 +149,23 @@ class SeniorsRepository @Inject constructor(
     }
 
     fun uploadSeniorImage(file: File, onResult: (String?) -> Unit) {
+        val fileSize = file.length()
+        if (fileSize > 20 * 1024 * 1024) {
+            // return error "File size exceeds 20MB limit"
+            onResult(null)
+            return
+        }
+
+        val extension = file.extension.lowercase()
+        val allowed = listOf("pdf", "jpg", "jpeg", "png")
+        if (extension !in allowed) {
+            // return error "Only PDF, JPG, PNG files allowed"
+            onResult(null)
+            return
+        }
+
         mediaManager.upload(file.absolutePath)
+            .unsigned(CloudinaryConfig.getUploadPreset())
             .option("folder", "${Constants.CLOUDINARY_BASE_FOLDER}/seniors")
             .option("resource_type", "image")
             .callback(object : UploadCallback {

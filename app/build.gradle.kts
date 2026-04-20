@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,8 +10,6 @@ plugins {
     id("com.google.firebase.crashlytics")
     id("kotlin-parcelize")
 }
-
-import java.util.Properties
 
 val localProps = Properties()
 val localPropsFile = rootProject.file("local.properties")
@@ -47,13 +47,8 @@ android {
         )
         buildConfigField(
             "String",
-            "CLOUDINARY_API_KEY",
-            "\"${localProps["CLOUDINARY_API_KEY"] ?: ""}\""
-        )
-        buildConfigField(
-            "String",
-            "CLOUDINARY_API_SECRET",
-            "\"${localProps["CLOUDINARY_API_SECRET"] ?: ""}\""
+            "CLOUDINARY_UPLOAD_PRESET",
+            "\"${localProps["CLOUDINARY_UPLOAD_PRESET"] ?: ""}\""
         )
 
         // Enable 16KB page size support for Android 15+

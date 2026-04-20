@@ -2,6 +2,7 @@ package com.hammadtanveer.campusconnect.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -36,7 +37,6 @@ import com.hammadtanveer.campusconnect.ui.viewmodels.NotesViewModel
 import com.hammadtanveer.campusconnect.ui.viewmodels.UploadNoteViewModel
 import com.hammadtanveer.campusconnect.util.Constants
 import com.hammadtanveer.campusconnect.util.FileUtils
-import com.hammadtanveer.campusconnect.util.CloudinaryConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,9 +124,12 @@ fun AllNotesTab(
             state = state,
             onDownload = { note ->
                 viewModel.recordDownload(note.id)
-                val signedUrl = CloudinaryConfig.getSignedPdfUrl(note.cloudinaryPublicId)
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(signedUrl))
-                context.startActivity(intent)
+                if (note.fileUrl.isBlank()) {
+                    Toast.makeText(context, "Unable to open note right now", Toast.LENGTH_SHORT).show()
+                } else {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(note.fileUrl))
+                    context.startActivity(intent)
+                }
             },
             onReport = { note, reason ->
                 val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
@@ -197,9 +200,12 @@ fun MyNotesTab(viewModel: NotesViewModel) {
         state = state,
         onDownload = { note ->
             viewModel.recordDownload(note.id)
-            val signedUrl = CloudinaryConfig.getSignedPdfUrl(note.cloudinaryPublicId)
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(signedUrl))
-            context.startActivity(intent)
+            if (note.fileUrl.isBlank()) {
+                Toast.makeText(context, "Unable to open note right now", Toast.LENGTH_SHORT).show()
+            } else {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(note.fileUrl))
+                context.startActivity(intent)
+            }
         },
         onReport = { note, reason ->
             val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()

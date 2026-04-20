@@ -20,6 +20,7 @@ import com.hammadtanveer.campusconnect.MainViewModel
 import com.hammadtanveer.campusconnect.data.models.UserProfile
 import com.hammadtanveer.campusconnect.security.PermissionManager
 import com.hammadtanveer.campusconnect.ui.viewmodels.AdminPanelViewModel
+import com.hammadtanveer.campusconnect.util.AppLogger
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,12 +36,7 @@ fun AdminPanelScreen(
     val featureVisibility = adminPanelViewModel.getFeatureVisibility(profile)
 
     LaunchedEffect(profile, isAdmin, isSuperAdmin, featureVisibility) {
-        val perms = PermissionManager.effectivePermissions(profile).sorted()
-        android.util.Log.d("ADMIN_DEBUG", "UI permissions = ${profile?.permissions}")
-        android.util.Log.d(
-            "PERM_DEBUG",
-            "UI AdminPanelScreen -> role=${profile?.role ?: ""}, perms=$perms, isAdmin=$isAdmin, isSuperAdmin=$isSuperAdmin, features=$featureVisibility"
-        )
+        AppLogger.d("PERM_DEBUG", "Admin panel state refreshed")
     }
 
     Scaffold(

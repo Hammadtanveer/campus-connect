@@ -4,6 +4,7 @@ import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
 import com.hammadtanveer.campusconnect.data.models.Resource
+import com.hammadtanveer.campusconnect.util.CloudinaryConfig
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import javax.inject.Inject
@@ -24,12 +25,25 @@ class CloudinaryEventImageUploader @Inject constructor(
     )
 
     suspend fun uploadPoster(file: File, societyId: String): Resource<UploadResult> =
-        suspendCancellableCoroutine { continuation ->
+        run {
+            val fileSize = file.length()
+            if (fileSize > 20 * 1024 * 1024) {
+                return Resource.Error("File size exceeds 20MB limit")
+            }
+
+            val extension = file.extension.lowercase()
+            val allowed = listOf("pdf", "jpg", "jpeg", "png")
+            if (extension !in allowed) {
+                return Resource.Error("Only PDF, JPG, PNG files allowed")
+            }
+
             val sanitizedName = file.nameWithoutExtension.replace(Regex("[^a-zA-Z0-9_]"), "_")
             val publicId = "${System.currentTimeMillis()}_$sanitizedName"
             val folder = "society_events/$societyId"
 
-            mediaManager.upload(file.absolutePath)
+            suspendCancellableCoroutine { continuation ->
+                mediaManager.upload(file.absolutePath)
+                .unsigned(CloudinaryConfig.getUploadPreset())
                 .option("folder", folder)
                 .option("resource_type", "image")
                 .option("public_id", publicId)
@@ -56,6 +70,7 @@ class CloudinaryEventImageUploader @Inject constructor(
                     }
                 })
                 .dispatch()
+            }
         }
 }
 

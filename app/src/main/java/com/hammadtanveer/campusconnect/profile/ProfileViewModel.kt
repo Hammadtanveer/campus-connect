@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
+import com.hammadtanveer.campusconnect.util.CloudinaryConfig
 import com.hammadtanveer.campusconnect.util.Constants
 import com.hammadtanveer.campusconnect.util.UserProfileMapper
 
@@ -212,7 +213,23 @@ class ProfileViewModel @Inject constructor(
      * Upload profile image to Cloudinary
      */
     fun uploadProfileImage(file: File, onResult: (String?) -> Unit) {
+        val fileSize = file.length()
+        if (fileSize > 20 * 1024 * 1024) {
+            // return error "File size exceeds 20MB limit"
+            onResult(null)
+            return
+        }
+
+        val extension = file.extension.lowercase()
+        val allowed = listOf("pdf", "jpg", "jpeg", "png")
+        if (extension !in allowed) {
+            // return error "Only PDF, JPG, PNG files allowed"
+            onResult(null)
+            return
+        }
+
         mediaManager.upload(file.absolutePath)
+            .unsigned(CloudinaryConfig.getUploadPreset())
             .option("folder", "${Constants.CLOUDINARY_BASE_FOLDER}/profiles")
             .option("resource_type", "image")
             .callback(object : UploadCallback {
