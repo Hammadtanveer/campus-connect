@@ -2,6 +2,7 @@ package com.hammadtanveer.campusconnect.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.firestore.FirebaseFirestore
 import com.hammadtanveer.campusconnect.data.models.Note
 import com.hammadtanveer.campusconnect.data.models.Resource
 import com.hammadtanveer.campusconnect.data.models.UserProfile
@@ -16,11 +17,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 @HiltViewModel
 class ContentModerationViewModel @Inject constructor(
-    private val notesRepository: NotesRepository,
+    private val repository: NotesRepository,
+    private val firestore: FirebaseFirestore,
     sessionManager: SessionManager
 ) : ViewModel() {
 
@@ -54,9 +57,21 @@ class ContentModerationViewModel @Inject constructor(
         }
 
         notesObserverJob = viewModelScope.launch {
-            notesRepository.observeNotesForModeration().collectLatest { result ->
+            repository.observeNotesForModeration().collectLatest { result ->
                 _notesState.value = result
             }
+        }
+    }
+
+    fun getFilteredNotes(status: String): List<com.hammadtanveer.campusconnect.data.models.Note> {
+        val allNotes = (_notesState.value as? Resource.Success)?.data ?: emptyList()
+        return when (status) {
+            "All" -> allNotes
+            "Pending" -> allNotes.filter { it.moderationStatus == "pending" }
+            "Reported" -> allNotes.filter { it.moderationStatus == "reported" }
+            "Approved" -> allNotes.filter { it.moderationStatus == "approved" }
+            "Rejected" -> allNotes.filter { it.moderationStatus == "rejected" }
+            else -> allNotes
         }
     }
 
@@ -65,7 +80,20 @@ class ContentModerationViewModel @Inject constructor(
     }
 
     fun rejectNote(noteId: String) {
-        updateModeration(noteId = noteId, status = "rejected")
+        viewModelScope.launch {
+            try {
+                val noteDoc = firestore.collection("notes")
+                    .document(noteId)
+                    .get()
+                    .await()
+                val cloudinaryPublicId = noteDoc.getString("cloudinaryPublicId")
+
+                updateModeration(noteId = noteId, status = "rejected")
+                repository.deleteNote(noteId, cloudinaryPublicId ?: "")
+            } catch (e: Exception) {
+                android.util.Log.e("MODERATION", "Failed to reject+delete note", e)
+            }
+        }
     }
 
     private fun updateModeration(noteId: String, status: String) {
@@ -86,7 +114,7 @@ class ContentModerationViewModel @Inject constructor(
         viewModelScope.launch {
             _updatingNoteIds.value = _updatingNoteIds.value + noteId
             _actionState.value = Resource.Loading
-            _actionState.value = notesRepository.updateModerationStatus(
+            _actionState.value = repository.updateModerationStatus(
                 noteId = noteId,
                 status = status,
                 reviewerId = reviewerId,

@@ -128,6 +128,20 @@ fun AllNotesTab(
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(signedUrl))
                 context.startActivity(intent)
             },
+            onReport = { note, reason ->
+                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val reportData = mapOf(
+                    "noteId" to note.id,
+                    "noteTitle" to note.title,
+                    "reason" to reason,
+                    "reportedAt" to com.google.firebase.Timestamp.now(),
+                    "status" to "pending",
+                    "moderationStatus" to "pending"
+                )
+                db.collection("notes").document(note.id)
+                    .update("moderationStatus", "reported")
+                db.collection("reports").add(reportData)
+            },
             onDelete = if (isSuperAdmin) {
                 { note -> viewModel.deleteNote(note) }
             } else null,
@@ -187,6 +201,20 @@ fun MyNotesTab(viewModel: NotesViewModel) {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(signedUrl))
             context.startActivity(intent)
         },
+        onReport = { note, reason ->
+            val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            val reportData = mapOf(
+                "noteId" to note.id,
+                "noteTitle" to note.title,
+                "reason" to reason,
+                "reportedAt" to com.google.firebase.Timestamp.now(),
+                "status" to "pending",
+                "moderationStatus" to "pending"
+            )
+            db.collection("notes").document(note.id)
+                .update("moderationStatus", "reported")
+            db.collection("reports").add(reportData)
+        },
         onDelete = { note ->
             viewModel.deleteNote(note)
         },
@@ -198,6 +226,7 @@ fun MyNotesTab(viewModel: NotesViewModel) {
 fun NotesListContent(
     state: com.hammadtanveer.campusconnect.ui.state.UiState<List<Note>>,
     onDownload: (Note) -> Unit,
+    onReport: ((Note, String) -> Unit)? = null,
     onDelete: ((Note) -> Unit)? = null,
     deleteInProgress: String? = null
 ) {
@@ -233,6 +262,7 @@ fun NotesListContent(
                                 onDownload = {
                                     onDownload(note)
                                 },
+                                onReport = onReport?.let { { reason -> onReport(note, reason) } },
                                 onDelete = onDelete?.let { { onDelete(note) } },
                                 isDeleting = deleteInProgress == note.id
                             )
@@ -249,9 +279,12 @@ fun NoteCard(
     note: Note,
     onDownload: () -> Unit,
     onDelete: (() -> Unit)? = null,
+    onReport: ((reason: String) -> Unit)? = null,
     isDeleting: Boolean = false
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var reportReason by remember { mutableStateOf("") }
 
     Card(
         modifier = Modifier
@@ -319,7 +352,7 @@ fun NoteCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "${note.downloads} downloads",
+                    text = "${note.downloads} views",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -344,6 +377,17 @@ fun NoteCard(
                     Icon(Icons.Default.OpenInNew, contentDescription = "Open")
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Open")
+                }
+
+                onReport?.let {
+                    IconButton(onClick = { showReportDialog = true }) {
+                        Icon(
+                            Icons.Filled.Flag,
+                            contentDescription = "Report",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
 
                 onDelete?.let {
@@ -385,6 +429,69 @@ fun NoteCard(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showReportDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showReportDialog = false
+                reportReason = ""
+            },
+            title = { Text("Report Note") },
+            text = {
+                Column {
+                    Text(
+                        "Why are you reporting this note?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    listOf(
+                        "Inappropriate content",
+                        "Copyright violation",
+                        "Wrong subject/semester",
+                        "Spam or fake content",
+                        "Other"
+                    ).forEach { reason ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { reportReason = reason }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = reportReason == reason,
+                                onClick = { reportReason = reason }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(reason, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (reportReason.isNotBlank()) {
+                            onReport?.invoke(reportReason)
+                            showReportDialog = false
+                            reportReason = ""
+                        }
+                    },
+                    enabled = reportReason.isNotBlank()
+                ) {
+                    Text("Submit Report")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showReportDialog = false
+                    reportReason = ""
+                }) {
                     Text("Cancel")
                 }
             }
@@ -797,4 +904,7 @@ fun EmptyState(message: String, modifier: Modifier = Modifier) {
 
 private val Icons.Filled.OpenInNew: ImageVector
     get() = Icons.Default.Info
+
+private val Icons.Filled.Flag: ImageVector
+    get() = Icons.Default.Warning
 

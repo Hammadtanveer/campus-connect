@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -20,6 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -44,13 +46,6 @@ import com.hammadtanveer.campusconnect.data.models.Note
 import com.hammadtanveer.campusconnect.data.models.Resource
 import com.hammadtanveer.campusconnect.ui.viewmodels.ContentModerationViewModel
 
-private enum class ModerationFilter(val label: String) {
-    ALL("All"),
-    PENDING("Pending"),
-    APPROVED("Approved"),
-    REJECTED("Rejected")
-}
-
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun AdminContentModerationScreen(
@@ -61,7 +56,8 @@ fun AdminContentModerationScreen(
     val actionState by viewModel.actionState.collectAsState()
     val updatingNoteIds by viewModel.updatingNoteIds.collectAsState()
     val context = LocalContext.current
-    var selectedFilter by remember { mutableStateOf(ModerationFilter.PENDING) }
+    val tabs = listOf("All", "Pending", "Reported", "Approved", "Rejected")
+    var selectedTab by remember { mutableStateOf(1) }
 
     LaunchedEffect(actionState) {
         when (val state = actionState) {
@@ -122,31 +118,24 @@ fun AdminContentModerationScreen(
                 }
             }
             is Resource.Success -> {
-                val filteredNotes = when (selectedFilter) {
-                    ModerationFilter.ALL -> state.data
-                    ModerationFilter.PENDING -> state.data.filter {
-                        it.moderationStatus.equals("pending", ignoreCase = true) || it.moderationStatus.isBlank()
-                    }
-                    ModerationFilter.APPROVED -> state.data.filter { it.moderationStatus.equals("approved", ignoreCase = true) }
-                    ModerationFilter.REJECTED -> state.data.filter { it.moderationStatus.equals("rejected", ignoreCase = true) }
-                }
+                val notes = viewModel.getFilteredNotes(tabs[selectedTab])
 
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
                 ) {
-                    TabRow(selectedTabIndex = selectedFilter.ordinal) {
-                        ModerationFilter.entries.forEach { filter ->
+                    TabRow(selectedTabIndex = selectedTab) {
+                        tabs.forEachIndexed { index, tab ->
                             Tab(
-                                selected = selectedFilter == filter,
-                                onClick = { selectedFilter = filter },
-                                text = { Text(filter.label) }
+                                selected = selectedTab == index,
+                                onClick = { selectedTab = index },
+                                text = { Text(tab) }
                             )
                         }
                     }
 
-                    if (filteredNotes.isEmpty()) {
+                    if (notes.isEmpty()) {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -154,7 +143,7 @@ fun AdminContentModerationScreen(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("No notes in ${selectedFilter.label.lowercase()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("No notes in ${tabs[selectedTab].lowercase()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     } else {
                         LazyColumn(
@@ -163,7 +152,7 @@ fun AdminContentModerationScreen(
                                 .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(filteredNotes, key = { it.id }) { note ->
+                            items(notes, key = { it.id }) { note ->
                                 ModerationNoteCard(
                                     note = note,
                                     isUpdating = updatingNoteIds.contains(note.id),
@@ -219,12 +208,44 @@ private fun ModerationNoteCard(
                 if (isUpdating) {
                     CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                 } else {
-                    OutlinedButton(onClick = onReject) { Text("Reject") }
-                    Button(
-                        onClick = onApprove,
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        Text("Approve")
+                    when (note.moderationStatus) {
+                        "pending", "reported" -> {
+                            OutlinedButton(onClick = onReject) { Text("Reject") }
+                            Button(
+                                onClick = onApprove,
+                                modifier = Modifier.padding(start = 8.dp)
+                            ) {
+                                Text("Approve")
+                            }
+                        }
+
+                        "approved" -> {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    "Approved",
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+
+                        "rejected" -> {
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    "Rejected",
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
                     }
                 }
             }
