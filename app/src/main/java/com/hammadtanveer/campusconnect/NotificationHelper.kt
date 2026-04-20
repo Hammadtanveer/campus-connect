@@ -59,18 +59,28 @@ object NotificationHelper {
             .setAutoCancel(true)
 
         with(NotificationManagerCompat.from(context)) {
-            notify(notifId, builder.build())
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU ||
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                notify(notifId, builder.build())
+            }
         }
     }
 
     private fun createMentorshipChannel(context: Context) {
-        val name = "Mentorship"
-        val descriptionText = "Notifications for mentorship requests and updates"
-        val importance = NotificationManager.IMPORTANCE_HIGH
-        val channel = NotificationChannel(MENTORSHIP_CHANNEL_ID, name, importance).apply {
-            description = descriptionText
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val name = "Mentorship"
+            val descriptionText = "Notifications for mentorship requests and updates"
+            val importance = NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel(MENTORSHIP_CHANNEL_ID, name, importance).apply {
+                description = descriptionText
+            }
+            val notificationManager: NotificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
         }
-        val notificationManager: NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
     }
 }
