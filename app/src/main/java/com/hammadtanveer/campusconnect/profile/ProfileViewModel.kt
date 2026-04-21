@@ -231,7 +231,7 @@ class ProfileViewModel @Inject constructor(
         mediaManager.upload(file.absolutePath)
             .unsigned(CloudinaryConfig.getUploadPreset())
             .option("folder", "${Constants.CLOUDINARY_BASE_FOLDER}/profiles")
-            .option("resource_type", "image")
+            .option("resource_type", "auto")
             .callback(object : UploadCallback {
                 override fun onStart(requestId: String) {}
                 override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {}

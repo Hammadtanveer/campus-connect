@@ -2,27 +2,35 @@ package com.hammadtanveer.campusconnect.util
 
 import android.content.Context
 import com.cloudinary.android.MediaManager
+import com.hammadtanveer.campusconnect.BuildConfig
 
 object CloudinaryConfig {
-    private val CLOUD_NAME get() = com.hammadtanveer.campusconnect.BuildConfig.CLOUDINARY_CLOUD_NAME
-    private val UPLOAD_PRESET get() = com.hammadtanveer.campusconnect.BuildConfig.CLOUDINARY_UPLOAD_PRESET
-    private var isInitialized = false
 
     fun initialize(context: Context) {
-        if (isInitialized) return
         try {
+            MediaManager.get()
+            return // Already initialized, skip
+        } catch (e: IllegalStateException) {
             val config = mapOf(
-                "cloud_name" to CLOUD_NAME,
+                "cloud_name" to BuildConfig.CLOUDINARY_CLOUD_NAME,
+                "api_key" to BuildConfig.CLOUDINARY_API_KEY,
+                "api_secret" to BuildConfig.CLOUDINARY_API_SECRET,
                 "secure" to true
             )
             MediaManager.init(context, config)
-            isInitialized = true
-        } catch (_: Exception) { }
+        }
     }
 
-    fun isConfigured(): Boolean = CLOUD_NAME.isNotBlank() && UPLOAD_PRESET.isNotBlank()
+    fun isConfigured(): Boolean {
+        return BuildConfig.CLOUDINARY_CLOUD_NAME.isNotBlank() &&
+                BuildConfig.CLOUDINARY_CLOUD_NAME != "null" &&
+                BuildConfig.CLOUDINARY_API_KEY.isNotBlank() &&
+                BuildConfig.CLOUDINARY_API_KEY != "null" &&
+                BuildConfig.CLOUDINARY_API_SECRET.isNotBlank() &&
+                BuildConfig.CLOUDINARY_API_SECRET != "null"
+    }
 
-    fun getUploadPreset(): String = UPLOAD_PRESET
+    fun getUploadPreset(): String = BuildConfig.CLOUDINARY_UPLOAD_PRESET
 
-    fun getCloudName(): String = CLOUD_NAME
+    fun getCloudName(): String = BuildConfig.CLOUDINARY_CLOUD_NAME
 }

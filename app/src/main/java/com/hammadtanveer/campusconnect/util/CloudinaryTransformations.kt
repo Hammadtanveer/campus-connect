@@ -5,8 +5,12 @@ package com.hammadtanveer.campusconnect.util
  */
 object CloudinaryTransformations {
 
-    // Note: Replace with your actual Cloudinary cloud name
-    private const val CLOUD_NAME = "your-cloud-name"
+    private val cloudName: String
+        get() = CloudinaryConfig.getCloudName()
+
+    private fun imageUploadBaseUrl(): String = "https://res.cloudinary.com/$cloudName/image/upload"
+
+    private fun rawUploadBaseUrl(): String = "https://res.cloudinary.com/$cloudName/raw/upload"
 
     /**
      * Get thumbnail URL with optimizations.
@@ -22,7 +26,7 @@ object CloudinaryTransformations {
         quality: String = "auto",
         format: String = "auto"
     ): String {
-        return "https://res.cloudinary.com/$CLOUD_NAME/image/upload/" +
+        return "${imageUploadBaseUrl()}/" +
                 "c_fill,w_$width,q_$quality,f_$format/$publicId"
     }
 
@@ -61,7 +65,7 @@ object CloudinaryTransformations {
         publicId: String,
         size: Int = 128
     ): String {
-        return "https://res.cloudinary.com/$CLOUD_NAME/image/upload/" +
+        return "${imageUploadBaseUrl()}/" +
                 "c_fill,g_face,w_$size,h_$size,r_max,q_auto,f_auto/$publicId"
     }
 
@@ -72,8 +76,26 @@ object CloudinaryTransformations {
         publicId: String,
         width: Int = 200
     ): String {
-        return "https://res.cloudinary.com/$CLOUD_NAME/image/upload/" +
+        return "${imageUploadBaseUrl()}/" +
                 "c_fit,w_$width,pg_1,q_auto,f_auto/$publicId.jpg"
+    }
+
+    /**
+     * Get direct raw file URL (for PDFs and other raw assets).
+     */
+    fun getRawFileUrl(publicId: String): String {
+        return "${rawUploadBaseUrl()}/$publicId"
+    }
+
+    /**
+     * Get optimized raw PDF URL with filename flag support.
+     */
+    fun getPdfFileUrl(publicId: String, fileName: String? = null): String {
+        val attachmentSegment = fileName
+            ?.takeIf { it.isNotBlank() }
+            ?.let { "fl_attachment:${it.replace(" ", "_")}/" }
+            .orEmpty()
+        return "${rawUploadBaseUrl()}/${attachmentSegment}$publicId"
     }
 
     /**
@@ -96,7 +118,7 @@ object CloudinaryTransformations {
         publicId: String,
         transformations: String
     ): String {
-        return "https://res.cloudinary.com/$CLOUD_NAME/image/upload/" +
+        return "${imageUploadBaseUrl()}/" +
                 "$transformations/$publicId"
     }
 

@@ -12,6 +12,7 @@ import com.hammadtanveer.campusconnect.data.local.EventsDao
 import com.hammadtanveer.campusconnect.data.local.NotesDao
 import com.hammadtanveer.campusconnect.data.repository.ActivityLogRepository
 import com.hammadtanveer.campusconnect.network.ConnectivityManager
+import com.hammadtanveer.campusconnect.util.CloudinaryConfig
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Module
@@ -51,7 +52,10 @@ object AppModule {
      */
     @Provides
     @Singleton
-    fun provideCloudinaryMediaManager(): MediaManager {
+    fun provideCloudinaryMediaManager(
+        @ApplicationContext context: Context
+    ): MediaManager {
+        CloudinaryConfig.initialize(context)
         return MediaManager.get()
     }
 

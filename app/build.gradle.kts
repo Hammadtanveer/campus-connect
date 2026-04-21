@@ -11,10 +11,10 @@ plugins {
     id("kotlin-parcelize")
 }
 
-val localProps = Properties()
-val localPropsFile = rootProject.file("local.properties")
-if (localPropsFile.exists()) {
-    localPropsFile.inputStream().use(localProps::load)
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
 }
 
 android {
@@ -23,10 +23,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(localProps["KEYSTORE_PATH"] as String)
-            storePassword = localProps["KEYSTORE_PASSWORD"] as String
-            keyAlias = localProps["KEY_ALIAS"] as String
-            keyPassword = localProps["KEY_PASSWORD"] as String
+            storeFile = file(localProperties["KEYSTORE_PATH"] as String)
+            storePassword = localProperties["KEYSTORE_PASSWORD"] as String
+            keyAlias = localProperties["KEY_ALIAS"] as String
+            keyPassword = localProperties["KEY_PASSWORD"] as String
         }
     }
 
@@ -40,16 +40,14 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField(
-            "String",
-            "CLOUDINARY_CLOUD_NAME",
-            "\"${localProps["CLOUDINARY_CLOUD_NAME"] ?: ""}\""
-        )
-        buildConfigField(
-            "String",
-            "CLOUDINARY_UPLOAD_PRESET",
-            "\"${localProps["CLOUDINARY_UPLOAD_PRESET"] ?: ""}\""
-        )
+        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", 
+            "\"${localProperties["CLOUDINARY_CLOUD_NAME"]}\"")
+        buildConfigField("String", "CLOUDINARY_API_KEY", 
+            "\"${localProperties["CLOUDINARY_API_KEY"]}\"")
+        buildConfigField("String", "CLOUDINARY_API_SECRET", 
+            "\"${localProperties["CLOUDINARY_API_SECRET"]}\"")
+        buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", 
+            "\"${localProperties["CLOUDINARY_UPLOAD_PRESET"]}\"")
 
         // Enable 16KB page size support for Android 15+
         ndk {

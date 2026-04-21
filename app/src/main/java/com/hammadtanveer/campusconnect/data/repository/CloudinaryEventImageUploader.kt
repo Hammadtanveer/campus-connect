@@ -37,8 +37,6 @@ class CloudinaryEventImageUploader @Inject constructor(
                 return Resource.Error("Only PDF, JPG, PNG files allowed")
             }
 
-            val sanitizedName = file.nameWithoutExtension.replace(Regex("[^a-zA-Z0-9_]"), "_")
-            val publicId = "${System.currentTimeMillis()}_$sanitizedName"
             val folder = "society_events/$societyId"
 
             suspendCancellableCoroutine { continuation ->
@@ -46,8 +44,6 @@ class CloudinaryEventImageUploader @Inject constructor(
                 .unsigned(CloudinaryConfig.getUploadPreset())
                 .option("folder", folder)
                 .option("resource_type", "image")
-                .option("public_id", publicId)
-                .option("overwrite", false)
                 .callback(object : UploadCallback {
                     override fun onStart(requestId: String) = Unit
                     override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) = Unit

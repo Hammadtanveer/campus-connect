@@ -3,6 +3,7 @@ package com.hammadtanveer.campusconnect.util
 import com.google.firebase.Timestamp
 
 object Constants {
+    const val BASE_URL = "https://api.campusconnect.com/v1/"
     // Default admin permissions granted on upgrade (mirrors server-side expectations)
     val DEFAULT_ADMIN_PERMISSIONS = listOf(
         "meetings:manage",

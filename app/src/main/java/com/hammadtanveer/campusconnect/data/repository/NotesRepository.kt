@@ -80,18 +80,22 @@ class NotesRepository @Inject constructor(
                 return Resource.Error("Only PDF, JPG, PNG files allowed")
             }
 
+            val resourceType = if (extension == "pdf") "raw" else "image"
+
             val fileType = FileUtils.getFileType(file.name)
-            val sanitizedFileName = file.nameWithoutExtension.replace(Regex("[^a-zA-Z0-9]"), "_")
-            val folder = "${Constants.CLOUDINARY_BASE_FOLDER}/${semester.replace(" ", "_")}/${subject.replace(" ", "_")}"
-            val publicId = "${System.currentTimeMillis()}_${sanitizedFileName}"
+            val sanitizedSubject = subject
+                .replace(" ", "_")
+                .replace("(", "")
+                .replace(")", "")
+                .replace("[", "")
+                .replace("]", "")
+
+            val folder = "${Constants.CLOUDINARY_BASE_FOLDER}/${semester.replace(" ", "_")}/$sanitizedSubject"
 
             val uploadOptions = mapOf(
                 "folder" to folder,
-                "resource_type" to "auto",
-                "allowed_formats" to "pdf,jpg,jpeg,png",
-                "public_id" to publicId,
-                "unique_filename" to false,
-                "overwrite" to false
+                "resource_type" to resourceType,
+                "allowed_formats" to "pdf,jpg,jpeg,png"
             )
 
             return suspendCoroutine { continuation ->
@@ -111,9 +115,9 @@ class NotesRepository @Inject constructor(
                     }
 
                     override fun onSuccess(requestId: String, resultData: Map<*, *>) {
-                        val publicId = resultData["public_id"] as? String ?: ""
+                        val uploadedPublicId = resultData["public_id"] as? String ?: ""
                         val secureUrl = resultData["secure_url"] as? String ?: ""
-
+                        
                         // Save metadata to Firestore
                         val noteMetadata = hashMapOf(
                             "title" to title,
@@ -124,7 +128,7 @@ class NotesRepository @Inject constructor(
                             "fileSize" to file.length(),
                             "fileType" to fileType,
                             "fileUrl" to secureUrl,
-                            "cloudinaryPublicId" to publicId,
+                            "cloudinaryPublicId" to uploadedPublicId,
                             "uploaderId" to userId,
                             "uploaderName" to userName,
                             "uploadedAt" to Timestamp.now(),
@@ -356,7 +360,8 @@ class NotesRepository @Inject constructor(
     suspend fun getNoteById(noteId: String): Resource<Note> {
         return try {
             val document = notesCollection.document(noteId).get().await()
-            val note = document.toObject(Note::class.java)?.copy(id = document.id)
+            val note = document.toObject(Note::class.java)
+                ?.copy(id = document.id)
 
             if (note != null) {
                 Resource.Success(note)
