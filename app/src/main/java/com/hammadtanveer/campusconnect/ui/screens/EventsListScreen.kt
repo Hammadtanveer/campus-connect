@@ -44,6 +44,15 @@ import com.hammadtanveer.campusconnect.ui.events.EventsViewModel
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import com.hammadtanveer.campusconnect.data.models.EventType
 
 @Composable
 fun EventsListScreen(
@@ -145,94 +154,197 @@ fun EventListItem(
     val context = LocalContext.current
     val now = System.currentTimeMillis()
     val start = event.dateTime?.toDate()?.time ?: 0L
-    val end = start + (event.durationMinutes * 60_000L)
+    val end = start + (event.duration * 60_000L)
     val isHappeningNow = event.meetLink.isNotBlank() && now in (start..end)
+    val isFull = event.maxParticipants > 0 && event.participantCount >= event.maxParticipants
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp)
+            .padding(vertical = 8.dp)
             .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = MaterialTheme.shapes.medium
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .padding(16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .fillMaxWidth()
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = event.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = event.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val categoryColor = when (event.eventType) {
+                            EventType.ONLINE -> MaterialTheme.colorScheme.tertiary
+                            EventType.OFFLINE -> MaterialTheme.colorScheme.secondary
+                        }
+                        Text(
+                            text = event.eventType.name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = categoryColor,
+                            modifier = Modifier
+                                .background(categoryColor.copy(alpha = 0.1f), CircleShape)
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                        if (isHappeningNow) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "LIVE",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f), CircleShape)
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Text(
-                        text = event.dateTime?.toDate()?.toString()?.take(16) ?: "Date TBA",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
+                        text = event.title,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "By ${event.organizerName}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            if (canEdit) {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit Event", tint = MaterialTheme.colorScheme.primary)
-                }
-            }
-            if (canDelete) {
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete Event", tint = MaterialTheme.colorScheme.error)
-                }
-            }
-
-            if (isHappeningNow) {
-                Button(
-                    onClick = {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, event.meetLink.toUri())
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                            // Handle error
+                if (canEdit || canDelete) {
+                    Row {
+                        if (canEdit) {
+                            IconButton(onClick = onEdit) {
+                                Icon(Icons.Filled.Edit, contentDescription = "Edit Event", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        if (canDelete) {
+                            IconButton(onClick = onDelete) {
+                                Icon(Icons.Filled.Delete, contentDescription = "Delete Event", tint = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
-                ) {
-                    Text("Join")
                 }
-            } else {
-                AssistChip(
-                    onClick = { onClick() },
-                    label = {
-                        Text(
-                            text = if (event.participantCount > 0) "${event.participantCount} Joined" else "View",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = event.description,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Event Details Grid-like layout
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                EventInfoItem(
+                    icon = Icons.Default.Schedule,
+                    text = event.dateTime?.toDate()?.toString()?.take(16) ?: "Date TBA",
+                    modifier = Modifier.weight(1f)
+                )
+                EventInfoItem(
+                    icon = Icons.Filled.Person,
+                    text = if (event.maxParticipants > 0) "${event.participantCount}/${event.maxParticipants}" else "${event.participantCount} Joined",
+                    modifier = Modifier.weight(1f)
                 )
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                EventInfoItem(
+                    icon = if (event.eventType == EventType.ONLINE) Icons.Filled.Videocam else Icons.Filled.LocationOn,
+                    text = if (event.eventType == EventType.ONLINE) "Online Meet" else event.venue.ifBlank { "Venue TBA" },
+                    modifier = Modifier.weight(1f)
+                )
+                EventInfoItem(
+                    icon = Icons.Default.Schedule,
+                    text = "${event.duration} mins",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "By ${event.organizerName}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                if (isHappeningNow) {
+                    Button(
+                        onClick = {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, event.meetLink.toUri())
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                // Handle error
+                            }
+                        },
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text("Join Now")
+                    }
+                } else if (isFull) {
+                    AssistChip(
+                        onClick = { },
+                        label = { Text("Full") },
+                        enabled = false
+                    )
+                } else {
+                    Button(
+                        onClick = onClick,
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text("View Details")
+                    }
+                }
+            }
         }
+    }
+}
+
+@Composable
+fun EventInfoItem(
+    icon: ImageVector,
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.padding(end = 4.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

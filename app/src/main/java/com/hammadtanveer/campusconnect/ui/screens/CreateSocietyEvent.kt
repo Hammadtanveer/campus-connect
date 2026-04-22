@@ -1,35 +1,19 @@
 package com.hammadtanveer.campusconnect.ui.screens
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -40,7 +24,10 @@ import coil.compose.AsyncImage
 import com.hammadtanveer.campusconnect.data.models.Resource
 import com.hammadtanveer.campusconnect.ui.viewmodels.EventViewModel
 import com.hammadtanveer.campusconnect.util.FileUtils
-import java.util.Calendar
+import com.hammadtanveer.campusconnect.ui.components.AppDatePickerDialog
+import com.hammadtanveer.campusconnect.ui.components.AppTimePickerDialog
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun CreateSocietyEventScreen(
@@ -64,6 +51,12 @@ fun CreateSocietyEventScreen(
     var posterUrl by remember { mutableStateOf("") }
     var posterPublicId by remember { mutableStateOf("") }
     var isPosterUploading by remember { mutableStateOf(false) }
+
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    val dateParser = remember { SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()) }
+    val timeParser = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
     val status = if (isEditMode) viewModel.updateEventStatus else viewModel.addEventStatus
 
@@ -117,27 +110,43 @@ fun CreateSocietyEventScreen(
         return
     }
 
-    val calendar = remember { Calendar.getInstance() }
-    val datePickerDialog = remember {
-        DatePickerDialog(
-            context,
-            { _, year, month, dayOfMonth ->
-                date = String.format("%02d-%02d-%04d", dayOfMonth, month + 1, year)
+    if (showDatePicker) {
+        val initialMillis = try {
+            dateParser.parse(date)?.time
+        } catch (_: Exception) {
+            null
+        } ?: System.currentTimeMillis()
+
+        AppDatePickerDialog(
+            onDismiss = { showDatePicker = false },
+            onDateSelected = { millis ->
+                val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+                cal.timeInMillis = millis
+                date = String.format("%02d-%02d-%04d", cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.YEAR))
+                showDatePicker = false
             },
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH),
-            calendar.get(Calendar.DAY_OF_MONTH)
+            initialDateMillis = initialMillis
         )
     }
-    val timePickerDialog = remember {
-        TimePickerDialog(
-            context,
-            { _, hourOfDay, minute ->
-                time = String.format("%02d:%02d", hourOfDay, minute)
+
+    if (showTimePicker) {
+        val initialTime = try {
+            val d = timeParser.parse(time)
+            val c = Calendar.getInstance()
+            if (d != null) c.time = d
+            c.get(Calendar.HOUR_OF_DAY) to c.get(Calendar.MINUTE)
+        } catch (_: Exception) {
+            12 to 0
+        }
+
+        AppTimePickerDialog(
+            onDismiss = { showTimePicker = false },
+            onTimeSelected = { hour, minute ->
+                time = String.format("%02d:%02d", hour, minute)
+                showTimePicker = false
             },
-            calendar.get(Calendar.HOUR_OF_DAY),
-            calendar.get(Calendar.MINUTE),
-            true
+            initialHour = initialTime.first,
+            initialMinute = initialTime.second
         )
     }
 
@@ -210,12 +219,22 @@ fun CreateSocietyEventScreen(
         PickerTextField(
             value = date,
             label = "Date of Event (dd-MM-yyyy)",
-            onClick = { datePickerDialog.show() }
+            onClick = { showDatePicker = true },
+            trailingIcon = {
+                IconButton(onClick = { showDatePicker = true }) {
+                    Icon(Icons.Default.DateRange, contentDescription = "Select Date")
+                }
+            }
         )
         PickerTextField(
             value = time,
             label = "Time of Event (HH:mm)",
-            onClick = { timePickerDialog.show() }
+            onClick = { showTimePicker = true },
+            trailingIcon = {
+                IconButton(onClick = { showTimePicker = true }) {
+                    Icon(Icons.Default.Schedule, contentDescription = "Select Time")
+                }
+            }
         )
         OutlinedTextField(value = venue, onValueChange = { venue = it }, label = { Text("Venue") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = coordinator, onValueChange = { coordinator = it }, label = { Text("Student Coordinator") }, modifier = Modifier.fillMaxWidth())
@@ -295,7 +314,8 @@ fun CreateSocietyEventScreen(
 private fun PickerTextField(
     value: String,
     label: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    trailingIcon: @Composable (() -> Unit)? = null
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
@@ -303,7 +323,8 @@ private fun PickerTextField(
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            trailingIcon = trailingIcon
         )
         Box(
             modifier = Modifier

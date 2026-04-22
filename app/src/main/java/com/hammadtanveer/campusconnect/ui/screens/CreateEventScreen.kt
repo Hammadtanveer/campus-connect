@@ -19,6 +19,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +51,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hammadtanveer.campusconnect.data.models.Resource
 import com.hammadtanveer.campusconnect.ui.events.EventsViewModel
+import com.hammadtanveer.campusconnect.ui.components.AppDatePickerDialog
+import com.hammadtanveer.campusconnect.ui.components.AppTimePickerDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +79,14 @@ fun CreateEventScreen(
     var isLoadingEvent by remember { mutableStateOf(isEditMode) }
     var hasEditPermission by remember { mutableStateOf(!isEditMode) }
 
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    val calendar = remember { Calendar.getInstance() }
+    var selectedDateTime by remember { mutableStateOf<Date>(Date()) }
+
+    val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
+    val timeFormatter = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
+
     LaunchedEffect(eventId) {
         if (!isEditMode || eventId == null) return@LaunchedEffect
         isLoadingEvent = true
@@ -70,11 +95,12 @@ fun CreateEventScreen(
                 val event = result.data
                 title = event.title
                 description = event.description
-                duration = event.durationMinutes.toString()
+                duration = event.duration.toString()
                 maxParticipants = event.maxParticipants.toString()
                 eventType = event.eventType
                 meetLink = event.meetLink
                 venue = event.venue
+                selectedDateTime = event.dateTime?.toDate() ?: Date()
                 hasEditPermission = viewModel.canEditEvent(event, profile)
                 if (!hasEditPermission) {
                     error = "You don't have permission to edit this event."
@@ -150,6 +176,75 @@ fun CreateEventScreen(
             modifier = Modifier.fillMaxWidth(),
             enabled = !isSubmitting
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Date Picker
+        OutlinedTextField(
+            value = dateFormatter.format(selectedDateTime),
+            onValueChange = {},
+            label = { Text("Event Date") },
+            modifier = Modifier.fillMaxWidth(),
+            readOnly = true,
+            trailingIcon = {
+                IconButton(onClick = { showDatePicker = true }) {
+                    Icon(Icons.Default.DateRange, contentDescription = "Select Date")
+                }
+            },
+            enabled = !isSubmitting
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Time Picker
+        OutlinedTextField(
+            value = timeFormatter.format(selectedDateTime),
+            onValueChange = {},
+            label = { Text("Event Time") },
+            modifier = Modifier.fillMaxWidth(),
+            readOnly = true,
+            trailingIcon = {
+                IconButton(onClick = { showTimePicker = true }) {
+                    Icon(Icons.Default.Schedule, contentDescription = "Select Time")
+                }
+            },
+            enabled = !isSubmitting
+        )
+
+        if (showDatePicker) {
+            AppDatePickerDialog(
+                onDismiss = { showDatePicker = false },
+                onDateSelected = { millis ->
+                    val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+                    cal.timeInMillis = millis
+                    val newCal = Calendar.getInstance()
+                    newCal.time = selectedDateTime
+                    newCal.set(Calendar.YEAR, cal.get(Calendar.YEAR))
+                    newCal.set(Calendar.MONTH, cal.get(Calendar.MONTH))
+                    newCal.set(Calendar.DAY_OF_MONTH, cal.get(Calendar.DAY_OF_MONTH))
+                    selectedDateTime = newCal.time
+                    showDatePicker = false
+                },
+                initialDateMillis = selectedDateTime.time
+            )
+        }
+
+        if (showTimePicker) {
+            AppTimePickerDialog(
+                onDismiss = { showTimePicker = false },
+                onTimeSelected = { hour, minute ->
+                    val cal = Calendar.getInstance()
+                    cal.time = selectedDateTime
+                    cal.set(Calendar.HOUR_OF_DAY, hour)
+                    cal.set(Calendar.MINUTE, minute)
+                    cal.set(Calendar.SECOND, 0)
+                    selectedDateTime = cal.time
+                    showTimePicker = false
+                },
+                initialHour = calendar.apply { time = selectedDateTime }.get(Calendar.HOUR_OF_DAY),
+                initialMinute = calendar.apply { time = selectedDateTime }.get(Calendar.MINUTE)
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -251,12 +346,15 @@ fun CreateEventScreen(
                                 return@launch
                             }
 
+                            val durInt = dur.toInt()
+                            val ts = Timestamp(selectedDateTime)
+
                             if (isEditMode) {
                                 viewModel.updateEventAwait(
                                     eventId = eventId ?: return@launch,
                                     title = title,
                                     description = description,
-                                    durationMinutes = dur,
+                                    duration = durInt,
                                     eventType = eventType,
                                     venue = venue,
                                     maxParticipants = maxP,
@@ -264,12 +362,11 @@ fun CreateEventScreen(
                                 )
                                 Toast.makeText(context, "Event updated successfully!", Toast.LENGTH_SHORT).show()
                             } else {
-                                val ts = Timestamp(Date())
                                 viewModel.createEventAwait(
                                     title = title,
                                     description = description,
                                     dateTime = ts,
-                                    durationMinutes = dur,
+                                    duration = durInt,
                                     eventType = eventType,
                                     venue = venue,
                                     maxParticipants = maxP,

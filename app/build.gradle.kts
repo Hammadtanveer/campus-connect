@@ -162,6 +162,7 @@ dependencies {
 
     // Material 2 (for BottomNavigation, etc.) and Material 3
     implementation("androidx.compose.material:material")
+    implementation("androidx.compose.material:material-icons-extended")
 
     // AndroidX + tests
     implementation(libs.androidx.core.ktx)

@@ -38,7 +38,7 @@ data class EventEntity(
     val organizerId: String,
     val organizerName: String,
     val startTime: Long,
-    val durationMinutes: Long,
+    val duration: Int,
     val maxParticipants: Int,
     val meetLink: String,
 

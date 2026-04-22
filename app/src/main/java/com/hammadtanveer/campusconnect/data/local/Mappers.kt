@@ -54,7 +54,7 @@ fun OnlineEvent.toEntity(): EventEntity {
         organizerId = organizerId,
         organizerName = organizerName,
         startTime = (dateTime?.seconds ?: 0) * 1000,
-        durationMinutes = durationMinutes,
+        duration = duration,
         maxParticipants = maxParticipants,
         meetLink = meetLink
     )
@@ -70,7 +70,7 @@ fun EventEntity.toEvent(): OnlineEvent {
         organizerId = organizerId,
         organizerName = organizerName,
         dateTime = Timestamp(startTime / 1000, 0),
-        durationMinutes = durationMinutes,
+        duration = duration,
         maxParticipants = maxParticipants,
         meetLink = meetLink
     )

@@ -2,8 +2,10 @@ package com.hammadtanveer.campusconnect.data.repository
 
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -41,6 +43,7 @@ class EventsRepository @Inject constructor(
         }
 
         val registration: ListenerRegistration = db.collection("events")
+            .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     trySend(Resource.Error(FirestoreErrorMapper.toUserMessage(error, auth.currentUser != null)))
@@ -67,7 +70,7 @@ class EventsRepository @Inject constructor(
         title: String,
         description: String,
         dateTime: Timestamp,
-        durationMinutes: Long,
+        duration: Int,
         organizerId: String,
         organizerName: String,
         organizerRole: String,
@@ -81,22 +84,23 @@ class EventsRepository @Inject constructor(
         // We generate a UUID here and use it both as the object id and the Firestore document id.
         // This keeps navigation by event.id consistent with Firestore lookups by document id.
         val id = java.util.UUID.randomUUID().toString()
-        val event = OnlineEvent(
-            id = id,
-            title = title,
-            description = description,
-            dateTime = dateTime,
-            durationMinutes = durationMinutes,
-            organizerId = organizerId,
-            meetLink = meetLink,
-            venue = venue,
-            category = category,
-            eventType = eventType,
-            maxParticipants = maxParticipants,
-            createdAt = Timestamp(Date()),
-            organizerName = organizerName,
-            createdBy = organizerId,
-            createdByRole = organizerRole
+        val event = mapOf(
+            "id" to id,
+            "title" to title,
+            "description" to description,
+            "dateTime" to dateTime,
+            "duration" to duration,
+            "organizerId" to organizerId,
+            "meetLink" to meetLink,
+            "venue" to venue,
+            "category" to category.name,
+            "eventType" to eventType.name,
+            "maxParticipants" to maxParticipants,
+            "createdAt" to FieldValue.serverTimestamp(),
+            "organizerName" to organizerName,
+            "createdBy" to organizerId,
+            "createdByRole" to organizerRole,
+            "participantCount" to 0
         )
 
         db.collection("events").document(id)
@@ -117,7 +121,7 @@ class EventsRepository @Inject constructor(
         eventId: String,
         title: String,
         description: String,
-        durationMinutes: Long,
+        duration: Int,
         eventType: EventType,
         venue: String,
         maxParticipants: Int,
@@ -127,7 +131,7 @@ class EventsRepository @Inject constructor(
         val updates = mapOf(
             "title" to title,
             "description" to description,
-            "durationMinutes" to durationMinutes,
+            "duration" to duration,
             "eventType" to eventType.name,
             "venue" to venue,
             "maxParticipants" to maxParticipants,

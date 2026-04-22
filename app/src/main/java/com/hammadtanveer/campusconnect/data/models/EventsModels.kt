@@ -1,6 +1,7 @@
 package com.hammadtanveer.campusconnect.data.models
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.ServerTimestamp
 
 enum class EventCategory {
     ACADEMIC, WORKSHOP, CULTURAL, SOCIAL
@@ -19,13 +20,14 @@ data class OnlineEvent(
     val title: String = "",
     val description: String = "",
     val dateTime: Timestamp? = null,
-    val durationMinutes: Long = 0,
+    val duration: Int = 60,
     val organizerId: String = "",
     val meetLink: String = "",
     val venue: String = "",
     val eventType: EventType = EventType.ONLINE,
     val category: EventCategory = EventCategory.SOCIAL,
     val maxParticipants: Int = 0,
+    @ServerTimestamp
     val createdAt: Timestamp? = null,
     val organizerName: String = "",
     val createdBy: String = "",

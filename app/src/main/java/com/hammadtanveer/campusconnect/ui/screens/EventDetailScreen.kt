@@ -1,42 +1,37 @@
 package com.hammadtanveer.campusconnect.ui.screens
 
 import android.content.Intent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import com.hammadtanveer.campusconnect.MainViewModel
-import com.hammadtanveer.campusconnect.data.models.OnlineEvent
-import com.hammadtanveer.campusconnect.util.NetworkUtils
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
+import android.widget.Toast
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import com.hammadtanveer.campusconnect.NotificationHelper
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.hammadtanveer.campusconnect.ui.events.EventsViewModel
-import com.hammadtanveer.campusconnect.data.models.Resource
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.navigation.NavController
+import com.hammadtanveer.campusconnect.MainViewModel
 import com.hammadtanveer.campusconnect.data.models.EventType
+import com.hammadtanveer.campusconnect.data.models.OnlineEvent
+import com.hammadtanveer.campusconnect.data.models.Resource
+import com.hammadtanveer.campusconnect.ui.events.EventsViewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventDetailScreen(
     eventId: String?,
@@ -45,10 +40,8 @@ fun EventDetailScreen(
     eventsViewModel: EventsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val profile by eventsViewModel.currentUserProfileFlow.collectAsStateWithLifecycle(null)
     val eventState = remember { mutableStateOf<OnlineEvent?>(null) }
     val loading = remember { mutableStateOf(true) }
-    val participantCount = remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(eventId) {
         if (eventId == null) return@LaunchedEffect
@@ -57,99 +50,185 @@ fun EventDetailScreen(
         val result = eventsViewModel.getEvent(eventId)
         if (result is Resource.Success) {
             eventState.value = result.data
-            // load participant count
-            val count = eventsViewModel.getParticipantCount(eventId)
-            participantCount.value = count
         }
         loading.value = false
     }
 
     val event = eventState.value
-    if (loading.value) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Event Details") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
         }
-        return
-    }
-    if (event == null) {
-        Text("Event not found", modifier = Modifier.padding(16.dp))
-        return
-    }
+    ) { padding ->
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)) {
+            if (loading.value) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            } else if (event == null) {
+                Text("Event not found", modifier = Modifier.align(Alignment.Center))
+            } else {
+                val dateFormatter = remember { SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()) }
+                val timeFormatter = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
 
-    Card(modifier = Modifier.padding(16.dp), elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = event.title, style = MaterialTheme.typography.headlineMedium)
-            Text(text = event.description, style = MaterialTheme.typography.bodyMedium)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp)
+                ) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .border(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            shape = RoundedCornerShape(50)
+                                        )
+                                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = if (event.eventType == EventType.ONLINE) Icons.Default.Videocam else Icons.Default.LocationOn,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            text = event.eventType.name,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = event.category.name,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-            if (event.eventType == EventType.OFFLINE && event.venue.isNotBlank()) {
-                Text(text = "Venue: ${event.venue}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(4.dp))
-            } else if (event.eventType == EventType.ONLINE) {
-                Text(text = "Online Event", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
-                Spacer(modifier = Modifier.height(4.dp))
-            }
+                            Text(
+                                text = event.title,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold
+                            )
 
-            // Action buttons: Register / Join / Schedule / Share / Save Offline
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                // Register or Join depending on time
-                Button(onClick = {
-                    val now = System.currentTimeMillis()
-                    val eventStart = event.dateTime?.toDate()?.time ?: 0L
-                    val eventEnd = eventStart + (event.durationMinutes * 60_000L)
-                    val validDuration = event.durationMinutes > 0
-                    val canJoin = validDuration && event.meetLink.isNotBlank() && now in (eventStart..eventEnd)
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                    if (canJoin) {
-                        // open meet link
-                        if (!NetworkUtils.isNetworkAvailable(context)) {
-                            return@Button
-                        }
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, event.meetLink.toUri())
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                            try {
-                                val browser = Intent(Intent.ACTION_VIEW, event.meetLink.toUri())
-                                browser.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                context.startActivity(browser)
-                            } catch (_: Exception) { }
-                        }
-                    } else {
-                        // register for event
-                        if (!NetworkUtils.isNetworkAvailable(context)) {
-                            return@Button
-                        }
-                        val effectiveEventId = event.id.ifBlank { eventId ?: "" }
+                            Text(
+                                text = "Created by ${event.organizerName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
 
-                        eventsViewModel.registerForEvent(effectiveEventId, profile) { ok, _ ->
-                            if (ok) {
-                                // schedule reminder 30 minutes before
-                                NotificationHelper.scheduleEventReminder(context, event)
-                                navController.popBackStack()
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+                            EventDetailRow(
+                                icon = Icons.Default.CalendarMonth,
+                                text = event.dateTime?.toDate()?.let { dateFormatter.format(it) } ?: "Date TBA"
+                            )
+                            EventDetailRow(
+                                icon = Icons.Default.Schedule,
+                                text = event.dateTime?.toDate()?.let { timeFormatter.format(it) } ?: "Time TBA"
+                            )
+                            EventDetailRow(
+                                icon = Icons.Default.Timer,
+                                text = "${event.duration} minutes"
+                            )
+
+                            if (event.eventType == EventType.OFFLINE) {
+                                EventDetailRow(
+                                    icon = Icons.Default.Place,
+                                    text = event.venue.ifBlank { "Venue TBA" }
+                                )
+                            } else {
+                                EventDetailRow(
+                                    icon = Icons.Default.Link,
+                                    text = event.meetLink.ifBlank { "Link TBA" }
+                                )
+                            }
+
+                            if (event.description.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "Description",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = event.description,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+
+                            if (event.eventType == EventType.ONLINE && event.meetLink.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Button(
+                                    onClick = {
+                                        try {
+                                            val intent = Intent(Intent.ACTION_VIEW, event.meetLink.toUri())
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Join Meeting")
+                                }
                             }
                         }
                     }
-                }) {
-                    val now = System.currentTimeMillis()
-                    val eventStart = event.dateTime?.toDate()?.time ?: 0L
-                    val eventEnd = eventStart + (event.durationMinutes * 60_000L)
-                    val validDuration = event.durationMinutes > 0
-                    Text(if (validDuration && now in (eventStart..eventEnd) && event.meetLink.isNotBlank()) "Join" else "Register")
-                }
-
-                // ...existing code...
-
-                Button(onClick = {
-                    // use existing addDownload API from MainViewModel
-                    mainViewModel.addDownload("Event: ${event.title}", "--")
-                }) {
-                    Text("Save Offline")
                 }
             }
         }
     }
 }
 
+@Composable
+fun EventDetailRow(icon: ImageVector, text: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
