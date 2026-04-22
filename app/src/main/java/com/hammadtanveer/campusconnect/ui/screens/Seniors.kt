@@ -21,11 +21,25 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.hammadtanveer.campusconnect.MainViewModel
-import com.hammadtanveer.campusconnect.data.Senior
+import com.hammadtanveer.campusconnect.data.models.SeniorProfile
 import com.hammadtanveer.campusconnect.data.models.Resource
 import com.hammadtanveer.campusconnect.security.canAddSenior
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.hammadtanveer.campusconnect.util.DbgLog
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import com.hammadtanveer.campusconnect.R
+import com.hammadtanveer.campusconnect.util.formatTimestamp
+import androidx.compose.ui.platform.LocalContext
+import coil.request.ImageRequest
 
 @Composable
 fun Seniors(viewModel: MainViewModel, navController: NavController) {
@@ -113,48 +127,113 @@ fun Seniors(viewModel: MainViewModel, navController: NavController) {
 }
 
 @Composable
-fun SeniorItem(senior: Senior, onClick: () -> Unit) {
-    Surface(
+fun SeniorItem(
+    senior: SeniorProfile,
+    onClick: () -> Unit
+) {
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surface
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
+            // Profile Image
+            Surface(
+                modifier = Modifier.size(64.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = senior.name,
-                    modifier = Modifier.padding(end = 12.dp),
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = senior.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                if (senior.profileImageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(senior.profileImageUrl)
+                            .crossfade(true)
+                            .memoryCachePolicy(CachePolicy.ENABLED)
+                            .diskCachePolicy(CachePolicy.ENABLED)
+                            .build(),
+                        contentDescription = "Profile Picture",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                        onError = { /* log error */ }
                     )
-                    Text(
-                        text = "${senior.branch} - ${senior.year}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(12.dp)
                     )
                 }
             }
+
+            Spacer(Modifier.width(12.dp))
+
+            // Details column
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = senior.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                // Branch + Batch
+                Text(
+                    text = if (senior.batch.isNotBlank()) "${senior.branch} • ${senior.batch}" else senior.branch,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Company placed (if available)
+                if (senior.companyPlaced.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Business,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = senior.companyPlaced,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                // Bio preview (if available)
+                if (senior.bio.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = senior.bio,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "Arrow Right",
+                Icons.Default.ChevronRight,
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

@@ -283,16 +283,8 @@ fun Navigation(navController: NavController, viewModel: MainViewModel, pd: Paddi
             } else {
                 SeniorAddScreen(
                     viewModel = viewModel,
+                    navController = navController,
                     onBackClick = { navController.popBackStack() },
-                    onAddClick = { newSenior ->
-                        viewModel.addSenior(newSenior) { success, error ->
-                            if (success) {
-                                navController.popBackStack()
-                            } else {
-                                Toast.makeText(context, "Failed to add senior: $error", Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    },
                     onOpenAdminPanel = { navController.navigate("admin/panel") }
                 )
             }

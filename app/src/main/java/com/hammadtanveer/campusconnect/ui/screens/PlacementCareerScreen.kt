@@ -27,6 +27,16 @@ import com.hammadtanveer.campusconnect.security.PermissionManager
 import com.hammadtanveer.campusconnect.ui.placement.PlacementViewModel
 import com.hammadtanveer.campusconnect.MainViewModel
 import com.hammadtanveer.campusconnect.util.AppLogger
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CurrencyRupee
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Work
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @Composable
 fun PlacementCareerScreen(
@@ -135,11 +145,15 @@ fun PlacementCareerScreen(
                         items(state.data, key = { it.id }) { placement ->
                             PlacementListItem(
                                 placement = placement,
+                                isAdmin = canManageJobs,
                                 onClick = { navController.navigate("placement/${placement.id}") },
-                                canEdit = canManageJobs,
-                                canDelete = canDeleteJobs,
                                 onEditClick = { navController.navigate("placement/edit/${placement.id}") },
-                                onDeleteClick = { pendingDelete = placement }
+                                onDeleteClick = { pendingDelete = placement },
+                                onApplyClick = {
+                                    val intent = Intent(Intent.ACTION_VIEW, 
+                                        Uri.parse(placement.applyLink))
+                                    context.startActivity(intent)
+                                }
                             )
                         }
                     }
@@ -151,95 +165,210 @@ fun PlacementCareerScreen(
 @Composable
 fun PlacementListItem(
     placement: Placement,
-    onClick: () -> Unit,
-    canEdit: Boolean,
-    canDelete: Boolean,
+    isAdmin: Boolean,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onApplyClick: () -> Unit,
+    onClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val normalizedSalary = placement.salary.trim().let { rawSalary ->
-        when {
-            rawSalary.isBlank() -> "Salary N/A"
-            rawSalary.contains("lpa", ignoreCase = true) -> rawSalary
-            else -> "$rawSalary LPA"
-        }
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-             Row(
+
+            // Top row: Badge + Admin icons
+            Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = placement.role.ifBlank { "Role TBA" },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = normalizedSalary,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                // PLACEMENT badge
+                Box(
+                    modifier = Modifier
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = RoundedCornerShape(50)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 3.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Work,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "PLACEMENT",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
-                Row {
-                    if (canEdit) {
+                if (isAdmin) {
+                    Row {
                         IconButton(onClick = onEditClick) {
                             Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Edit Job",
-                                tint = MaterialTheme.colorScheme.primary
+                                Icons.Default.Edit,
+                                contentDescription = "Edit",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
-                    }
-                    if (canDelete) {
                         IconButton(onClick = onDeleteClick) {
                             Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete Job",
-                                tint = MaterialTheme.colorScheme.error
+                                Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
                 }
             }
-             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = placement.companyName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(8.dp))
+
+            Spacer(Modifier.height(8.dp))
+
+            // Company name + Role
             Text(
-                text = placement.description, 
-                maxLines = 3, 
-                overflow = TextOverflow.Ellipsis, 
-                style = MaterialTheme.typography.bodySmall,
+                text = placement.companyName,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = placement.role,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-             Spacer(modifier = Modifier.height(12.dp))
-             Button(
-                 onClick = {
-                     if (placement.applyLink.isNotBlank()) {
-                         try {
-                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(placement.applyLink))
-                             context.startActivity(intent)
-                         } catch (e: Exception) {
-                             // Ignore
-                         }
-                     }
-                 },
-                 modifier = Modifier.align(Alignment.End),
-                 enabled = placement.applyLink.isNotBlank()
-             ) {
-                 Text("Apply Now")
-             }
+
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(12.dp))
+
+            // Salary row
+            if (placement.salary.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.CurrencyRupee,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "${placement.salary} LPA",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            // Location row
+            if (placement.location.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = placement.location,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            // Eligibility row
+            if (placement.eligibilityCriteria.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.School,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = placement.eligibilityCriteria,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Deadline row
+            if (placement.deadline != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    val formatted = SimpleDateFormat(
+                        "EEE, dd MMM yyyy", Locale.getDefault()
+                    ).format(placement.deadline)
+                    Text(
+                        text = "Deadline: $formatted",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Apply Now button
+            if (placement.applyLink.isNotBlank()) {
+                Button(
+                    onClick = onApplyClick,
+                    modifier = Modifier.align(Alignment.End),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.OpenInNew,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Apply Now")
+                }
+            }
         }
     }
 }

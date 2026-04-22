@@ -35,7 +35,7 @@ import com.hammadtanveer.campusconnect.data.repository.ActivityLogRepository
 import com.hammadtanveer.campusconnect.data.repository.AdminActivityLogRepository
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.functions.ktx.functions
-import com.hammadtanveer.campusconnect.data.Senior
+import com.hammadtanveer.campusconnect.data.models.SeniorProfile
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -113,8 +113,8 @@ class MainViewModel @Inject constructor(
     val myNotes: List<Note> get() = _myNotes.value
 
     // Seniors
-    private val _seniorsList = MutableStateFlow<List<Senior>>(emptyList())
-    val seniorsList: StateFlow<List<Senior>> = _seniorsList.asStateFlow()
+    private val _seniorsList = MutableStateFlow<List<SeniorProfile>>(emptyList())
+    val seniorsList: StateFlow<List<SeniorProfile>> = _seniorsList.asStateFlow()
     private var seniorsObserverJob: Job? = null
     private var userProfileListener: ListenerRegistration? = null
     private var observedProfileUid: String? = null
@@ -785,7 +785,7 @@ class MainViewModel @Inject constructor(
 
     // Seniors management methods
     @Suppress("unused")
-    fun addSenior(senior: Senior, onResult: (Boolean, String?) -> Unit) {
+    fun addSenior(senior: SeniorProfile, onResult: (Boolean, String?) -> Unit) {
         val profile = _userProfile.value
         if (profile == null) {
             onResult(false, "Not authenticated")
@@ -809,7 +809,7 @@ class MainViewModel @Inject constructor(
     }
 
     @Suppress("unused")
-    fun updateSenior(senior: Senior, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
+    fun updateSenior(senior: SeniorProfile, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         seniorsRepo.updateSenior(senior) { success, error ->
             onResult(success, error)
         }
@@ -820,7 +820,7 @@ class MainViewModel @Inject constructor(
     }
 
     @Suppress("unused")
-    fun getSenior(id: String): Senior? {
+    fun getSenior(id: String): SeniorProfile? {
         return _seniorsList.value.find { it.id == id }
     }
 

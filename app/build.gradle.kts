@@ -20,6 +20,7 @@ if (localPropertiesFile.exists()) {
 android {
     namespace = "com.hammadtanveer.campusconnect"
     compileSdk = 35
+    ndkVersion = "27.0.12077973"
 
     signingConfigs {
         create("release") {
@@ -51,7 +52,7 @@ android {
 
         // Enable 16KB page size support for Android 15+
         ndk {
-            abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
+            abiFilters += listOf("arm64-v8a", "x86_64")
         }
     }
 
@@ -158,7 +159,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
 
     // Coil for image loading in Compose
-    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("io.coil-kt:coil-compose:2.6.0")
 
     // Material 2 (for BottomNavigation, etc.) and Material 3
     implementation("androidx.compose.material:material")

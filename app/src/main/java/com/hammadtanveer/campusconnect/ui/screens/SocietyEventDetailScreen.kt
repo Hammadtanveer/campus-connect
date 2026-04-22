@@ -179,8 +179,24 @@ fun SocietyEventDetailScreen(
                                 )
                             }
 
-                            if (event.posterUrl.isNotBlank()) {
+                            if (event.description.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "Description",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = event.description,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+
+                            if (event.posterUrl.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(24.dp))
                                 AsyncImage(
                                     model = event.posterUrl,
                                     contentDescription = "Event Poster",

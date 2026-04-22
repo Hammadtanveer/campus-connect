@@ -21,7 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.hammadtanveer.campusconnect.MainViewModel
-import com.hammadtanveer.campusconnect.data.Senior
+import com.hammadtanveer.campusconnect.data.models.SeniorProfile
 import com.hammadtanveer.campusconnect.ui.components.AppOverflowMenu
 import com.hammadtanveer.campusconnect.util.FileUtils
 
@@ -29,18 +29,20 @@ import com.hammadtanveer.campusconnect.util.FileUtils
 @Composable
 fun SeniorEditScreen(
     viewModel: MainViewModel,
-    senior: Senior,
+    senior: SeniorProfile,
     onBackClick: () -> Unit,
-    onSaveClick: (Senior) -> Unit,
+    onSaveClick: (SeniorProfile) -> Unit,
     onOpenAdminPanel: () -> Unit
 ) {
     var name by remember { mutableStateOf(senior.name) }
     var branch by remember { mutableStateOf(senior.branch) }
-    var year by remember { mutableStateOf(senior.year) }
+    var batch by remember { mutableStateOf(senior.batch) }
     var mobile by remember { mutableStateOf(senior.mobileNumber) }
+    var email by remember { mutableStateOf(senior.email) }
+    var companyPlaced by remember { mutableStateOf(senior.companyPlaced) }
     var bio by remember { mutableStateOf(senior.bio) }
     var linkedin by remember { mutableStateOf(senior.linkedinUrl) }
-    var photoUrl by remember { mutableStateOf(senior.photoUrl) }
+    var photoUrl by remember { mutableStateOf("") }
     var isUploading by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -107,6 +109,13 @@ fun SeniorEditScreen(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
+                    } else if (senior.profileImageUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = senior.profileImageUrl,
+                            contentDescription = "Senior Photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     } else {
                         Icon(
                             imageVector = Icons.Default.Person,
@@ -134,23 +143,74 @@ fun SeniorEditScreen(
                 }
             }
 
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = branch, onValueChange = { branch = it }, label = { Text("Branch") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = year, onValueChange = { year = it }, label = { Text("Year") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = mobile, onValueChange = { mobile = it }, label = { Text("Mobile Number") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = linkedin, onValueChange = { linkedin = it }, label = { Text("LinkedIn URL") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = bio, onValueChange = { bio = it }, label = { Text("Bio") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+            OutlinedTextField(
+                value = name,
+                onValueChange = { if (it.all { c -> c.isLetter() || c.isWhitespace() }) name = it },
+                label = { Text("Name") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Text)
+            )
+            OutlinedTextField(
+                value = branch,
+                onValueChange = { branch = it },
+                label = { Text("Branch") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = batch,
+                onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 4) batch = it },
+                label = { Text("Batch") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+            )
+            OutlinedTextField(
+                value = mobile,
+                onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 10) mobile = it },
+                label = { Text("Mobile Number") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone)
+            )
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email Address") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Email)
+            )
+            OutlinedTextField(
+                value = companyPlaced,
+                onValueChange = { companyPlaced = it },
+                label = { Text("Company Placed") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = linkedin,
+                onValueChange = { linkedin = it },
+                label = { Text("LinkedIn URL") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri)
+            )
+            OutlinedTextField(
+                value = bio,
+                onValueChange = { bio = it },
+                label = { Text("Bio") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Text)
+            )
 
             Button(
                 onClick = {
                     val updatedSenior = senior.copy(
                         name = name,
                         branch = branch,
-                        year = year,
+                        batch = batch,
                         mobileNumber = mobile,
+                        email = email,
+                        companyPlaced = companyPlaced,
                         bio = bio,
                         linkedinUrl = linkedin,
-                        photoUrl = photoUrl // Use updated URL
+                        profileImageUrl = if (photoUrl.isNotEmpty()) photoUrl else senior.profileImageUrl
                     )
                     onSaveClick(updatedSenior)
                 },

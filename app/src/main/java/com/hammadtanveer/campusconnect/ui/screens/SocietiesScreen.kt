@@ -2,15 +2,21 @@ package com.hammadtanveer.campusconnect.ui.screens
 
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -18,13 +24,18 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,8 +47,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -191,19 +205,20 @@ fun SocietyEventsScreen(
                         Text("No events posted for $societyName yet.")
                     }
                 } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(
-                            items = resource.data,
-                            key = { it.id },
-                            contentType = { "society_event_card" }
-                        ) { event ->
-                            SocietyEventCard(
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(resource.data) { event ->
+                            SocietyEventItem(
                                 event = event,
-                                canEdit = canEdit,
-                                canDelete = canDelete,
-                                onOpen = { navController.navigate("societyEvent/$societyId/${event.id}") },
-                                onEdit = { navController.navigate("societyEvent/edit/$societyId/${event.id}") },
-                                onDelete = { viewModel.deleteEvent(societyId, event.id, currentProfile) }
+                                onEditClick = if (canEdit) {
+                                    { navController.navigate("societyEvent/edit/$societyId/${event.id}") }
+                                } else null,
+                                onDeleteClick = if (canDelete) {
+                                    { viewModel.deleteEvent(societyId, event.id, currentProfile) }
+                                } else null,
+                                onCardClick = { navController.navigate("societyEvent/$societyId/${event.id}") }
                             )
                         }
                     }
@@ -214,57 +229,170 @@ fun SocietyEventsScreen(
 }
 
 @Composable
-private fun SocietyEventCard(
+fun SocietyEventItem(
     event: SocietyEvent,
-    canEdit: Boolean,
-    canDelete: Boolean,
-    onOpen: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onEditClick: (() -> Unit)? = null,
+    onDeleteClick: (() -> Unit)? = null,
+    onCardClick: () -> Unit = {}
 ) {
-    Card(
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onOpen() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { onCardClick() },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            if (event.posterUrl.isNotBlank()) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+
+            // Poster Image (if posterUrl exists)
+            if (!event.posterUrl.isNullOrEmpty()) {
                 AsyncImage(
                     model = event.posterUrl,
                     contentDescription = "Event Poster",
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 )
             }
 
-            Text(
-                text = event.name,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 10.dp)
-            )
-            Text("Date: ${event.date}")
-            Text("Time: ${event.time}")
-            Text("Venue: ${event.venue}")
-            Text("Student Coordinator: ${event.coordinator}", maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("Faculty Convener: ${event.convener}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(modifier = Modifier.padding(16.dp)) {
 
-            if (canEdit || canDelete) {
+                // Top row: Badge + Edit/Delete icons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (canEdit) {
-                        IconButton(onClick = onEdit) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit")
+                    // SOCIETY EVENT badge
+                    Box(
+                        modifier = Modifier
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = RoundedCornerShape(50)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "SOCIETY EVENT",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    // Edit + Delete icons (show only if callbacks provided)
+                    if (onEditClick != null && onDeleteClick != null) {
+                        Row {
+                            IconButton(onClick = onEditClick) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Edit",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            IconButton(onClick = onDeleteClick) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
-                    if (canDelete) {
-                        IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-                        }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // Title
+                Text(
+                    text = event.name,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(12.dp))
+
+                // Date row
+                if (event.date.isNotBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.CalendarMonth,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = event.date,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                // Venue row
+                if (event.venue.isNotBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = event.venue,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                // Description (if not empty)
+                if (event.description.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = event.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // View Details button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = onCardClick,
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    ) {
+                        Text("View Details")
                     }
                 }
             }

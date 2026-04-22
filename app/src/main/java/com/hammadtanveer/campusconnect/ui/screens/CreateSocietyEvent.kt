@@ -42,6 +42,7 @@ fun CreateSocietyEventScreen(
     val isEditMode = !eventId.isNullOrBlank()
 
     var name by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     var date by remember { mutableStateOf("") }
     var time by remember { mutableStateOf("") }
     var venue by remember { mutableStateOf("") }
@@ -72,6 +73,7 @@ fun CreateSocietyEventScreen(
         val selected = viewModel.selectedEvent
         if (isEditMode && selected != null && selected.id == eventId) {
             name = selected.name
+            description = selected.description
             date = selected.date
             time = selected.time
             venue = selected.venue
@@ -216,6 +218,13 @@ fun CreateSocietyEventScreen(
         }
 
         OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Event Name") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = description,
+            onValueChange = { description = it },
+            label = { Text("Description") },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 3
+        )
         PickerTextField(
             value = date,
             label = "Date of Event (dd-MM-yyyy)",
@@ -246,7 +255,7 @@ fun CreateSocietyEventScreen(
         Button(
             onClick = {
                 if (
-                    name.isBlank() || date.isBlank() || time.isBlank() || venue.isBlank() ||
+                    name.isBlank() || description.isBlank() || date.isBlank() || time.isBlank() || venue.isBlank() ||
                     coordinator.isBlank() || convener.isBlank() || register.isBlank() || posterUrl.isBlank()
                 ) {
                     Toast.makeText(context, "Please fill all fields and upload poster", Toast.LENGTH_SHORT).show()
@@ -267,6 +276,7 @@ fun CreateSocietyEventScreen(
                             societyId = societyId,
                             societyName = effectiveSocietyName,
                             name = name,
+                            description = description,
                             date = date,
                             time = time,
                             venue = venue,
@@ -282,6 +292,7 @@ fun CreateSocietyEventScreen(
                         societyId = societyId,
                         societyName = effectiveSocietyName,
                         name = name,
+                        description = description,
                         date = date,
                         time = time,
                         venue = venue,

@@ -7,6 +7,8 @@ data class SocietyEvent(
     val societyId: String = "",
     val societyName: String = "",
     val name: String = "",
+    val title: String = "",
+    val description: String = "",
     val date: String = "",
     val time: String = "",
     val venue: String = "",

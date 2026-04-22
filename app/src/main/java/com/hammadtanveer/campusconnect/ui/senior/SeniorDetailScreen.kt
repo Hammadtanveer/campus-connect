@@ -23,13 +23,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hammadtanveer.campusconnect.MainViewModel
-import com.hammadtanveer.campusconnect.data.Senior
+import com.hammadtanveer.campusconnect.data.models.SeniorProfile
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.request.CachePolicy
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import com.hammadtanveer.campusconnect.ui.components.AppOverflowMenu
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeniorDetailScreen(
-    senior: Senior,
+    senior: SeniorProfile,
     viewModel: MainViewModel,
     canManageSenior: Boolean,
     onBackClick: () -> Unit,
@@ -139,7 +146,37 @@ fun SeniorDetailScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .align(Alignment.CenterHorizontally),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (senior.profileImageUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(senior.profileImageUrl)
+                                    .crossfade(true)
+                                    .memoryCachePolicy(CachePolicy.ENABLED)
+                                    .diskCachePolicy(CachePolicy.ENABLED)
+                                    .build(),
+                                contentDescription = senior.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(56.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
                         text = senior.name,
@@ -150,18 +187,34 @@ fun SeniorDetailScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Batch of ${senior.year}",
+                        text = if (senior.batch.isNotBlank()) "Batch of ${senior.batch}" else senior.branch,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-                    SeniorDetailRow(
-                        icon = Icons.Default.Business,
-                        text = "Branch: ${senior.branch}"
-                    )
-                    
+                    if (senior.batch.isNotBlank()) {
+                        SeniorDetailRow(
+                            icon = Icons.Default.Business,
+                            text = "Branch: ${senior.branch}"
+                        )
+                    }
+
+                    if (senior.companyPlaced.isNotBlank()) {
+                        SeniorDetailRow(
+                            icon = Icons.Default.Work,
+                            text = "Placed at: ${senior.companyPlaced}"
+                        )
+                    }
+
+                    if (senior.email.isNotBlank()) {
+                        SeniorDetailRow(
+                            icon = Icons.Default.Email,
+                            text = senior.email
+                        )
+                    }
+
                     if (senior.mobileNumber.isNotBlank()) {
                         SeniorDetailRow(
                             icon = Icons.Default.Phone,
@@ -200,25 +253,43 @@ fun SeniorDetailScreen(
                             }
                         }
 
-                        Button(
+                        if (senior.email.isNotBlank()) {
+                            Button(
+                                onClick = {
+                                    try {
+                                        val mailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                            data = Uri.parse("mailto:${senior.email}")
+                                        }
+                                        context.startActivity(mailIntent)
+                                    } catch (e: Exception) {
+                                        // Ignore
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Email")
+                            }
+                        }
+                    }
+
+                    if (senior.mobileNumber.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
                             onClick = {
                                 try {
-                                    val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                        data = Uri.parse("mailto:")
-                                        // We don't have senior's email in the Senior data class, 
-                                        // but the prompt suggests a message button via email.
-                                        // If email is missing, we might use mobile number if available for WhatsApp/SMS.
-                                    }
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${senior.mobileNumber}"))
                                     context.startActivity(intent)
                                 } catch (e: Exception) {
                                     // Ignore
                                 }
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Message")
+                            Text("Call Senior")
                         }
                     }
                 }

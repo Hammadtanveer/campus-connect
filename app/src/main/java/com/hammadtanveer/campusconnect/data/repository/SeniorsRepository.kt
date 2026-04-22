@@ -3,7 +3,7 @@ package com.hammadtanveer.campusconnect.data.repository
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
-import com.hammadtanveer.campusconnect.data.Senior
+import com.hammadtanveer.campusconnect.data.models.SeniorProfile
 import com.hammadtanveer.campusconnect.data.models.Resource
 import com.hammadtanveer.campusconnect.security.PermissionManager
 import com.hammadtanveer.campusconnect.util.CloudinaryConfig
@@ -25,7 +25,7 @@ class SeniorsRepository @Inject constructor(
     private val mediaManager: MediaManager,
     private val auth: FirebaseAuth
 ) {
-    fun observeSeniors(): Flow<Resource<List<Senior>>> = callbackFlow {
+    fun observeSeniors(): Flow<Resource<List<SeniorProfile>>> = callbackFlow {
         DbgLog.d("Repo", "observeSeniors start")
         trySend(Resource.Loading)
 
@@ -35,7 +35,7 @@ class SeniorsRepository @Inject constructor(
             return@callbackFlow
         }
 
-        var lastEmitted: List<Senior>? = null
+        var lastEmitted: List<SeniorProfile>? = null
 
         val seniorsCollection = db.collection("seniors")
 
@@ -59,7 +59,7 @@ class SeniorsRepository @Inject constructor(
 
                 val seniors = snapshot.documents.mapNotNull { doc ->
                     try {
-                        val mapped = doc.toObject(Senior::class.java)
+                        val mapped = doc.toObject(SeniorProfile::class.java)
                         if (mapped == null) {
                             null
                         } else {
@@ -82,7 +82,7 @@ class SeniorsRepository @Inject constructor(
         }
     }
 
-    fun addSenior(senior: Senior, onResult: (Boolean, String?) -> Unit) {
+    fun addSenior(senior: SeniorProfile, onResult: (Boolean, String?) -> Unit) {
         DbgLog.d("Repo", "addSenior start incomingId=${senior.id}")
         val uid = auth.currentUser?.uid
         if (uid.isNullOrBlank()) {
@@ -130,7 +130,7 @@ class SeniorsRepository @Inject constructor(
             }
     }
 
-    fun updateSenior(senior: Senior, onResult: (Boolean, String?) -> Unit) {
+    fun updateSenior(senior: SeniorProfile, onResult: (Boolean, String?) -> Unit) {
         DbgLog.d("Repo", "updateSenior start id=${senior.id}")
         if (senior.id.isBlank()) {
             onResult(false, "Invalid Senior ID")
