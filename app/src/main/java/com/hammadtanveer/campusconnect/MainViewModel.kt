@@ -153,7 +153,7 @@ class MainViewModel @Inject constructor(
 
         // Safety net: avoid indefinite splash if an async callback stalls.
         viewModelScope.launch {
-            delay(6000)
+            delay(800)
             if (_initializing.value) {
                 DbgLog.e(SENIOR_TAG, "initialization watchdog tripped; forcing initializing=false")
                 _initializing.value = false

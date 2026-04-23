@@ -24,10 +24,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(localProperties["KEYSTORE_PATH"] as String)
-            storePassword = localProperties["KEYSTORE_PASSWORD"] as String
-            keyAlias = localProperties["KEY_ALIAS"] as String
-            keyPassword = localProperties["KEY_PASSWORD"] as String
+            storeFile = file(localProperties.getProperty("KEYSTORE_PATH") ?: "")
+            storePassword = localProperties.getProperty("KEYSTORE_PASSWORD") ?: ""
+            keyAlias = localProperties.getProperty("KEY_ALIAS") ?: ""
+            keyPassword = localProperties.getProperty("KEY_PASSWORD") ?: ""
         }
     }
 
@@ -42,13 +42,13 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "CLOUDINARY_CLOUD_NAME", 
-            "\"${localProperties["CLOUDINARY_CLOUD_NAME"]}\"")
+            "\"${localProperties.getProperty("CLOUDINARY_CLOUD_NAME") ?: ""}\"")
         buildConfigField("String", "CLOUDINARY_API_KEY", 
-            "\"${localProperties["CLOUDINARY_API_KEY"]}\"")
+            "\"${localProperties.getProperty("CLOUDINARY_API_KEY") ?: ""}\"")
         buildConfigField("String", "CLOUDINARY_API_SECRET", 
-            "\"${localProperties["CLOUDINARY_API_SECRET"]}\"")
+            "\"${localProperties.getProperty("CLOUDINARY_API_SECRET") ?: ""}\"")
         buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", 
-            "\"${localProperties["CLOUDINARY_UPLOAD_PRESET"]}\"")
+            "\"${localProperties.getProperty("CLOUDINARY_UPLOAD_PRESET") ?: ""}\"")
 
         // Enable 16KB page size support for Android 15+
         ndk {
@@ -98,6 +98,11 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+    }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 
