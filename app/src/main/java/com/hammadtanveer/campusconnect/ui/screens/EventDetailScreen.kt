@@ -64,7 +64,9 @@ fun EventDetailScreen(
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                windowInsets = TopAppBarDefaults.windowInsets
+                    .only(WindowInsetsSides.Horizontal)
             )
         }
     ) { padding ->
@@ -83,7 +85,8 @@ fun EventDetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 0.dp)
                 ) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),

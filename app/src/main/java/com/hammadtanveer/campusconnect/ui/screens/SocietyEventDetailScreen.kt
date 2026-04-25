@@ -82,7 +82,9 @@ fun SocietyEventDetailScreen(
                             Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                         }
                     }
-                }
+                },
+                windowInsets = TopAppBarDefaults.windowInsets
+                    .only(WindowInsetsSides.Horizontal)
             )
         }
     ) { padding ->
@@ -94,7 +96,8 @@ fun SocietyEventDetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 0.dp)
                 ) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),

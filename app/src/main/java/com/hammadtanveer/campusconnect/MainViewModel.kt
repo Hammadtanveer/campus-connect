@@ -797,13 +797,6 @@ class MainViewModel @Inject constructor(
         }
 
         seniorsRepo.addSenior(senior) { success, error ->
-            if (success) {
-                // Optimistic local update so UI reflects a newly added senior instantly.
-                val current = _seniorsList.value
-                if (current.none { it.id == senior.id }) {
-                    _seniorsList.value = current + senior
-                }
-            }
             onResult(success, error)
         }
     }
