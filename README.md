@@ -82,6 +82,10 @@ CampusConnect is an Android application designed to improve day-to-day campus li
 - MVVM architecture
 - Hilt dependency injection
 - Coroutines + StateFlow
+- Room (local persistence groundwork)
+- Paging 3 (large lists)
+- WorkManager (background sync)
+- Coil (image loading)
 
 ### Firebase services
 - Firebase Authentication
@@ -90,10 +94,12 @@ CampusConnect is an Android application designed to improve day-to-day campus li
 - Firebase Cloud Messaging (FCM)
 - Firebase Analytics
 - Firebase Crashlytics
+- Firebase Cloud Functions
 
 ### Media and backend tooling
-- Cloudinary (PDF/image asset workflows)
-- Node.js scripts and Firebase Cloud Functions (`cloud-functions/`)
+- Cloudinary (signed uploads + private PDF URLs)
+- Node.js (Cloud Functions + admin scripts)
+- Firebase Hosting (static `public/`)
 
 ---
 
@@ -169,6 +175,7 @@ Deep link route consumed by MainActivity/Main navigation
 - Android SDK configured locally
 - Firebase project access
 - A connected Android device or emulator
+- Node.js 18+ (Cloud Functions + scripts)
 
 ### Clone project
 
@@ -185,6 +192,7 @@ cd campus-connect
    - Firestore
    - Storage
    - Cloud Messaging
+   - Functions
    - Analytics/Crashlytics (optional but recommended)
 
 ### `google-services.json` setup
@@ -195,10 +203,43 @@ cd campus-connect
 app/google-services.json
 ```
 
-### Cloudinary setup
-1. Create a Cloudinary account and product environment.
-2. Configure cloud credentials according to your chosen secure strategy.
-3. Validate upload/download behavior for notes and profile/event media.
+### Local configuration (`local.properties`)
+Add the following keys (used by `app/build.gradle.kts`):
+
+```text
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+CLOUDINARY_UPLOAD_PRESET=your_upload_preset
+KEYSTORE_PATH=path\to\keystore.jks
+KEYSTORE_PASSWORD=your_keystore_password
+KEY_ALIAS=your_key_alias
+KEY_PASSWORD=your_key_password
+```
+
+### Cloud Functions configuration
+Set the admin access code and default permissions in Firebase Functions config:
+
+```bash
+firebase functions:config:set campus.admin_code="YOUR_ADMIN_CODE"
+firebase functions:config:set campus.default_admin_permissions="meetings:manage,notes:manage,placements:manage,society:*:manage"
+```
+
+Cloudinary credentials for functions are read from environment variables during deploy/runtime:
+
+```text
+CLOUDINARY_CLOUD_NAME
+CLOUDINARY_API_KEY
+CLOUDINARY_API_SECRET
+```
+
+### Cloud Functions setup (optional but recommended)
+
+```bash
+cd cloud-functions
+npm install
+firebase deploy --only functions
+```
 
 ### Build & run
 
@@ -225,7 +266,16 @@ Windows PowerShell:
 
 ### Topics
 - App-wide topic subscription is supported (for example `all_students`)
-- Additional topic subscriptions can be managed through notification subscription utilities
+- Module topics used by Cloud Functions: `events`, `placements`, `society_updates`, `notes`
+
+### Firestore-driven triggers
+- `notes/{noteId}` -> topic `all_students`
+- `events/{eventId}` -> topic `events`
+- `meetings/{meetingId}` -> topic `events`
+- `announcements/{announcementId}` -> topic `events`
+- `placements/{placementId}` -> topic `placements`
+- `societies/{societyId}/events/{eventId}` -> topic `society_updates`
+- `notification_queue/{queueId}` -> validated topic send
 
 ### Deep linking flow
 - Incoming notification payload is parsed
@@ -247,19 +297,42 @@ Windows PowerShell:
 - Permissions are enforced by profile role/claims and repository checks
 - High-impact actions (for example management/moderation) are restricted to privileged roles
 
-### How to set super admin
-- Use backend/admin scripts in `scripts/` and `cloud-functions/` to bootstrap elevated access
-- Typical flow:
-  1. Initialize admin environment
-  2. Create or identify target user
-  3. Assign elevated claims/roles
-  4. Re-authenticate or refresh token in app
+### Bootstrap options
+- Cloud Function (one-time): `bootstrapSuperAdmin` in `cloud-functions/bootstrap-super-admin.js`
+- Manual script (one-time): `scripts/create-super-admin.js`
+- Assisted PowerShell flow: `scripts/setup-admin.ps1`
+
+### Admin helper scripts
+- `scripts/listUsers.js`: list Firebase Auth users/UIDs
+- `scripts/setCustomClaims.js`: update Firestore permissions by UID
 
 > Review and run the provided scripts carefully in a secure environment before production use.
 
 ---
 
-## 9) Contributing 🤝
+## 9) Cloud Functions & Scripts 🧩
+
+### Cloud Functions (`cloud-functions/`)
+- `requestAdminAccess`: validates admin code and applies default permissions
+- `createCloudinaryUploadSignature`: signed upload params
+- `generateSignedPdfUrl`: temporary private PDF URL
+- Notification triggers for notes, events, meetings, announcements, placements, society events
+- `processNotificationQueue`: validates and dispatches queued notifications
+- `sendTopicNotification`: super-admin topic send
+- `onUserDeleted`: cleanup Firestore `users/{uid}`
+
+### Local fallback sender
+If Cloud Functions deployment is blocked, use the fallback script:
+
+```powershell
+Set-Location "D:\AndroidStudioProjects\campus-connect\cloud-functions"
+$env:GOOGLE_APPLICATION_CREDENTIALS="D:\path\to\service-account.json"
+npm run send:topic:fallback -- --topic all_students --title "New Notes Uploaded" --body "CN Unit 3" --type notes
+```
+
+---
+
+## 10) Contributing 🤝
 
 Contributions are welcome.
 
@@ -279,17 +352,17 @@ Recommended local checks:
 
 ---
 
-## 10) License 📄
+## 11) License 📄
 
 This project is licensed under the terms in `LICENSE`.
 
 ---
 
-## 11) Contact 📬
+## 12) Contact 📬
 
 - Open an issue in this repository for bug reports and feature requests.
 - For maintainership/contact details, add project owner email or profile link here.
 
 ---
 
-If you find this project useful, consider starring ⭐ the repository.
+If you find this project useful, consider starring ⭐ the repository
